@@ -4,7 +4,7 @@ import { Section } from '../components/PageState.tsx'
 export default function OrgHomePage() {
   return (
     <Section title="오늘 열린 투표">
-      <p className="rounded-xl bg-stone-50 px-4 py-8 text-center text-sm text-stone-500">오늘 열린 투표가 없어요.</p>
+      <p className="rounded-xl bg-bg-subtle px-4 py-8 text-center text-sm text-text-tertiary">오늘 열린 투표가 없어요.</p>
     </Section>
   )
 }

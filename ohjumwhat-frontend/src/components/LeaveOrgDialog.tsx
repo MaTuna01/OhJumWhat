@@ -38,7 +38,7 @@ export default function LeaveOrgDialog({ org, onClose, onLeft }: Props) {
     >
       {isLastMember ? (
         <p>
-          마지막 멤버라서 탈퇴하면 <strong className="text-red-600">조직과 투표 기록이 모두 삭제</strong>돼요.
+          마지막 멤버라서 탈퇴하면 <strong className="text-text-danger">조직과 투표 기록이 모두 삭제</strong>돼요.
         </p>
       ) : (
         <p>진행 중인 투표에서 내 선택이 사라져요. 다시 참여하려면 초대 링크가 필요해요.</p>

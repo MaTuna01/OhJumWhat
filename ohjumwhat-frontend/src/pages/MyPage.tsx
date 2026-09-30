@@ -27,7 +27,7 @@ export default function MyPage() {
           <Avatar name={me.name} imageUrl={me.profileImageUrl} />
           <div className="min-w-0">
             <p className="truncate font-medium">{me.name}</p>
-            <p className="truncate text-sm text-stone-500">{me.email}</p>
+            <p className="truncate text-sm text-text-tertiary">{me.email}</p>
           </div>
         </div>
       </Section>
@@ -43,30 +43,30 @@ export default function MyPage() {
         {orgs.isPending ? (
           <PageLoader />
         ) : orgs.isError ? (
-          <p className="text-sm text-red-600">{orgs.error.message}</p>
+          <p className="text-sm text-text-danger">{orgs.error.message}</p>
         ) : orgs.data.length === 0 ? (
-          <p className="rounded-xl bg-stone-50 px-4 py-8 text-center text-sm text-stone-500">
+          <p className="rounded-xl bg-bg-subtle px-4 py-8 text-center text-sm text-text-tertiary">
             아직 속한 조직이 없어요.
             <br />
             조직을 만들거나 초대 링크로 참여하세요.
           </p>
         ) : (
-          <ul className="divide-y divide-stone-100">
+          <ul className="divide-y divide-border-default">
             {orgs.data.map((org) => (
               <li key={org.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{org.name}</p>
-                  <p className="mt-0.5 flex items-center gap-2 text-sm text-stone-500">
+                  <p className="mt-0.5 flex items-center gap-2 text-sm text-text-tertiary">
                     멤버 {org.memberCount}명
                     {org.hasOpenPollToday && (
-                      <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">투표 진행 중</span>
+                      <span className="rounded-full bg-bg-brand-muted px-2 py-0.5 text-xs font-medium text-text-brand-strong">투표 진행 중</span>
                     )}
                   </p>
                 </div>
                 <Link to={`/orgs/${org.id}`} className={buttonClass('secondary', 'py-1.5')}>
                   들어가기
                 </Link>
-                <Button variant="ghost" onClick={() => setLeaving(org)} className="py-1.5 text-stone-500">
+                <Button variant="ghost" onClick={() => setLeaving(org)} className="py-1.5 text-text-tertiary">
                   탈퇴
                 </Button>
               </li>

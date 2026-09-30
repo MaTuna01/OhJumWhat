@@ -37,8 +37,8 @@ export default function OrgLayout() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">{org.data.name}</h1>
-        <p className="mt-1 text-sm text-stone-500">멤버 {org.data.memberCount}명</p>
-        <nav className="mt-4 flex gap-1 border-b border-stone-200" aria-label="조직 메뉴">
+        <p className="mt-1 text-sm text-text-tertiary">멤버 {org.data.memberCount}명</p>
+        <nav className="mt-4 flex gap-1 border-b border-border-default" aria-label="조직 메뉴">
           {tabs.map((tab) => (
             <NavLink
               key={tab.label}
@@ -46,7 +46,7 @@ export default function OrgLayout() {
               end={tab.end}
               className={({ isActive }) =>
                 `-mb-px border-b-2 px-3 py-2 text-sm font-medium ${
-                  isActive ? 'border-orange-500 text-orange-600' : 'border-transparent text-stone-500 hover:text-stone-800'
+                  isActive ? 'border-border-brand text-text-brand' : 'border-transparent text-text-tertiary hover:text-text-primary'
                 }`
               }
             >

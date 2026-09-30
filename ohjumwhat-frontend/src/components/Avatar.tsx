@@ -17,7 +17,7 @@ export default function Avatar({ name, imageUrl, size = 'md' }: Props) {
   return (
     <span
       aria-hidden
-      className={`${sizes[size]} inline-flex shrink-0 items-center justify-center rounded-full bg-orange-100 font-semibold text-orange-700`}
+      className={`${sizes[size]} inline-flex shrink-0 items-center justify-center rounded-full bg-bg-brand-muted font-bold text-text-brand-strong`}
     >
       {name.slice(0, 1)}
     </span>

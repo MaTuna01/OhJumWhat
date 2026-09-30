@@ -1,7 +1,55 @@
 @import 'tailwindcss';
 
+/*
+ * 디자인 토큰 — Figma 「OhJumWhat」 파일의 디자인 시스템과 1:1로 맞춘다.
+ * https://www.figma.com/design/w0OIV1khSVnxlf5KfRo6aP/OhJumWhat
+ *
+ * Figma 변수 color/bg/canvas → CSS 변수 --color-bg-canvas → 클래스 bg-bg-canvas
+ * 원색(Primitives)은 Tailwind 기본 팔레트(stone·orange·red·amber·green)를 그대로 쓰고,
+ * 화면·컴포넌트에서는 아래 의미 기반 토큰만 쓴다. 토큰을 바꿀 때는 Figma 변수도 함께 바꾼다.
+ */
+@theme {
+  --font-sans: 'Noto Sans KR', system-ui, -apple-system, 'Apple SD Gothic Neo', sans-serif;
+
+  /* 배경 */
+  --color-bg-canvas: var(--color-stone-50);
+  --color-bg-surface: var(--color-white);
+  --color-bg-muted: var(--color-stone-100);
+  --color-bg-subtle: var(--color-stone-50);
+  --color-bg-brand: var(--color-orange-500);
+  --color-bg-brand-hover: var(--color-orange-600);
+  --color-bg-brand-soft: var(--color-orange-50);
+  --color-bg-brand-muted: var(--color-orange-100);
+  --color-bg-inverse: var(--color-stone-900);
+  --color-bg-danger: var(--color-red-600);
+  --color-bg-danger-soft: var(--color-red-50);
+  --color-bg-warning-soft: var(--color-amber-100);
+  --color-bg-success-soft: var(--color-green-100);
+  --color-bg-scrim: rgb(28 25 23 / 0.4);
+
+  /* 텍스트 */
+  --color-text-primary: var(--color-stone-900);
+  --color-text-secondary: var(--color-stone-600);
+  --color-text-tertiary: var(--color-stone-500);
+  --color-text-placeholder: var(--color-stone-400);
+  --color-text-on-brand: var(--color-white);
+  --color-text-brand: var(--color-orange-600);
+  --color-text-brand-strong: var(--color-orange-700);
+  --color-text-danger: var(--color-red-600);
+  --color-text-warning: var(--color-amber-700);
+  --color-text-success: var(--color-green-700);
+
+  /* 테두리·아이콘 */
+  --color-border-default: var(--color-stone-200);
+  --color-border-strong: var(--color-stone-300);
+  --color-border-brand: var(--color-orange-500);
+  --color-border-brand-soft: var(--color-orange-200);
+  --color-icon-muted: var(--color-stone-400);
+  --color-icon-brand: var(--color-orange-500);
+}
+
 @layer base {
   body {
-    @apply bg-stone-50 text-stone-900 antialiased;
+    @apply bg-bg-canvas font-sans text-text-primary antialiased;
   }
 }

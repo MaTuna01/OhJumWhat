@@ -22,8 +22,8 @@ function CreateOrgForm({ onClose }: { onClose: () => void }) {
   if (created) {
     return (
       <div>
-        <p className="text-sm text-stone-600">
-          <strong className="text-stone-900">{created.name}</strong>을(를) 만들었어요. 초대 링크를 메신저로 공유해 멤버를 모으세요.
+        <p className="text-sm text-text-secondary">
+          <strong className="text-text-primary">{created.name}</strong>을(를) 만들었어요. 초대 링크를 메신저로 공유해 멤버를 모으세요.
         </p>
         <div className="mt-4">
           <InviteLinkField token={created.inviteToken} />
@@ -57,7 +57,7 @@ function CreateOrgForm({ onClose }: { onClose: () => void }) {
         className={`${inputClass} mt-1.5`}
       />
       {create.error && (
-        <p role="alert" className="mt-2 text-sm text-red-600">
+        <p role="alert" className="mt-2 text-sm text-text-danger">
           {create.error.message}
         </p>
       )}
