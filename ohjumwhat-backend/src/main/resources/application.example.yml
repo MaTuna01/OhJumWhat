@@ -34,8 +34,10 @@ server:
   forward-headers-strategy: framework
   servlet:
     session:
+      # 세션은 DB(spring_session)에 저장한다. 브라우저를 닫아도 30일간 로그인이 유지된다.
       timeout: 30d
       cookie:
+        max-age: 30d
         same-site: lax
         http-only: true
 
