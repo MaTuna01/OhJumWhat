@@ -1,0 +1,15 @@
+.git
+.github
+.claude
+docs
+deploy
+**/node_modules
+**/dist
+**/build
+**/.gradle
+.env
+.env.*
+**/application.yml
+!ohjumwhat-backend/src/test/resources/application.yml
+client_secret_*.json
+*.pem
