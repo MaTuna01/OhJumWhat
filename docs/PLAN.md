@@ -17,8 +17,8 @@
 | 2 | 인증 (구글 로그인·세션·CSRF) | 완료 | [#1](https://github.com/MaTuna01/OhJumWhat/pull/1) |
 | 3 | 조직 (생성·초대·탈퇴·설정·마이페이지) | 완료 | [#2](https://github.com/MaTuna01/OhJumWhat/pull/2) |
 | - | 디자인 시스템·와이어프레임 (Figma) + 코드 토큰 적용 | 완료 | `feature/design-system` |
-| 4 | 투표 핵심 (메뉴·참여·현황·결과) | 다음 작업 | |
-| 5 | 정기 투표 | 예정 | |
+| 4 | 투표 핵심 (메뉴·참여·현황·결과) | 완료 | `feature/poll` |
+| 5 | 정기 투표 | 다음 작업 | |
 | 6 | 배포·CI/CD | 예정 | |
 | 7 | 마무리·QA | 예정 | |
 
@@ -89,9 +89,9 @@ ohjumwhat/
 | 나 | `GET /api/me` (프로필 + lastVisitedOrgId), `GET /api/me/orgs` (이름·멤버 수·오늘 진행 중인 투표 여부) | 완료 |
 | 조직 | `POST /api/orgs`, `GET /api/orgs/{id}` (last_visited_at 갱신), `PATCH /api/orgs/{id}`, `GET /api/orgs/{id}/members`, `DELETE /api/orgs/{id}/membership` | 완료 |
 | 초대 | `GET /api/invites/{token}`, `POST /api/invites/{token}/join` | 완료 |
-| 투표 | `GET /api/orgs/{id}/polls/today`, `POST /api/orgs/{id}/polls` (title, closesAt), `GET /api/orgs/{id}/polls/{pollId}` (상세 집계) | 4단계 |
-| 메뉴 | `POST /api/polls/{pollId}/options`, `DELETE /api/polls/{pollId}/options/{optionId}`, `GET /api/orgs/{id}/menu-names?q=` (자동완성) | 4단계 |
-| 참여 | `PUT /api/polls/{pollId}/vote` `{optionId: number \| null}` (null이면 "오늘은 패스") | 4단계 |
+| 투표 | `GET /api/orgs/{id}/polls/today`, `POST /api/orgs/{id}/polls` (title, closesAt "HH:mm"), `GET /api/orgs/{id}/polls/{pollId}` (상세 집계) | 완료 |
+| 메뉴 | `POST /api/polls/{pollId}/options`, `DELETE /api/polls/{pollId}/options/{optionId}`, `GET /api/orgs/{id}/menu-names?q=` (자동완성) | 완료 |
+| 참여 | `PUT /api/polls/{pollId}/vote` `{optionId: number \| null}` (null이면 "오늘은 패스") | 완료 |
 | 정기 | `GET/POST /api/orgs/{id}/schedules`, `PUT/DELETE /api/orgs/{id}/schedules/{sid}` | 5단계 |
 
 **핵심 규칙**

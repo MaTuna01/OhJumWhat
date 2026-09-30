@@ -46,7 +46,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 
 ## 아키텍처
 
-현재 3단계(골격·스키마, 구글 로그인·세션, 조직 생성·초대·탈퇴·설정·마이페이지)까지 구현되어 있다. 아래 내용 중 정기 투표 스케줄러와 Docker 배포는 아직 구현 전이며, 구현할 때 이 설계를 따른다.
+현재 4단계(골격·스키마, 구글 로그인·세션, 조직, 투표·메뉴·참여·결과)까지 구현되어 있다. 아래 내용 중 정기 투표 스케줄러와 Docker 배포는 아직 구현 전이며, 구현할 때 이 설계를 따른다.
 
 **동일 출처 구조.** 운영에서는 React 빌드 결과를 Spring Boot jar의 static 리소스로 넣어 이미지 하나로 배포한다(Caddy가 앞단). 개발에서는 Vite가 백엔드 경로를 프록시하는데, `changeOrigin: false`로 Host 헤더를 유지하고 백엔드는 `server.forward-headers-strategy: framework`로 설정한다. 그래서 CORS 설정이 없고, 인증은 JWT 없이 **세션 쿠키**로 한다. 프론트의 `/login`은 SPA 화면이고, Spring의 기본 로그인 페이지는 쓰지 않는다. 운영에서 파일이 없는 화면 경로는 `common/SpaWebConfig`가 `index.html`로 돌려준다.
 
@@ -64,10 +64,16 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 사용자에게 보여줄 오류는 `ApiException`(`notFound`/`badRequest`/`forbidden`/`conflict`)으로 던진다. `GlobalExceptionHandler`가 이를 `{"message": "..."}`로 응답하고, 요청 값 검증 실패(`@Valid`)도 같은 형식으로 준다. 프론트 `api()`는 이 `message`를 `ApiError.message`로 꺼낸다.
 - 조직 하위 API는 먼저 `MembershipService.requireMember(orgId, userId)`를 호출한다. 멤버가 아니면 조직이 있는지도 알리지 않도록 404로 응답한다.
 - 조회용 DTO가 필요하면 JPQL `select new ...Record(...)`로 바로 만든다(예: `MembershipRepository.findMembers`).
+- 투표 관련 쓰기 API(메뉴 추가·삭제, 참여·패스)는 모두 최신 `PollDetailResponse`를 돌려준다. 프론트는 이 응답을 바로 쿼리 캐시에 넣는다.
+- 투표 접근은 `PollService.getForMember`로 확인한다. 투표가 없거나 멤버가 아니면 404로 응답한다.
+- 진행 중인 투표에서만 쓰기가 되고, 이 확인은 `PollService.requireOpen`이 한다. 마감되면 409다.
+- 참여는 `VoteRepository.upsert`(native `ON CONFLICT`)로 한 사람 한 행을 유지한다.
+- 동시 요청이 DB 제약에 걸리면 `DataIntegrityViolationException`이 발생하고, 409로 응답한다.
 
 **백엔드 테스트**
 - 통합 테스트는 `IntegrationTest`를 상속한다. 컨텍스트와 컨테이너를 공유하고, 테스트가 끝날 때마다 모든 테이블을 TRUNCATE한다.
 - 로그인 상태는 `TestAuth.loginAs(user)`로 만든다.
+- 시간에 따라 달라지는 동작은 `clock.set(2026, 9, 30, 11, 0)`(한국 시간)으로 시계를 고정해 테스트한다. 대상은 마감, 오늘, 정기 투표 등이다. `TestClock`은 `@Primary Clock`이고, 테스트가 끝나면 실제 시각으로 돌아간다.
 - CSRF가 필요한 요청에는 `TestAuth.xsrf()`를 쓴다. Spring Security의 `csrf()` 헬퍼는 공유 CsrfFilter의 저장소를 세션 방식으로 바꿔 버려서, 이후 테스트에서 쿠키 발급이 깨진다. 그래서 쓰지 않는다.
 
 **스키마는 Flyway가 소유한다.** `db/migration/V*.sql`이 원본이고 JPA는 `ddl-auto: validate`로 검증만 한다. 스키마를 바꿀 때는 기존 마이그레이션을 고치지 말고 새 `V{n}__*.sql`을 추가한 뒤 엔티티를 맞춘다. 컨텍스트 로드 테스트(`OhjumwhatApplicationTests`)가 불일치를 잡아낸다.
@@ -86,6 +92,11 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 조직에는 관리자가 없고 모든 멤버의 권한이 같다. 마지막 멤버가 탈퇴하면 조직을 삭제하고, 하위 데이터는 DB `ON DELETE CASCADE`로 함께 지운다. 정기 규칙을 삭제하면 `polls.schedule_id`만 NULL이 된다.
 - 멤버가 탈퇴하면 그 조직의 **진행 중인** 투표에서 그 사람의 votes만 지운다. 마감된 투표 기록은 남긴다.
 - 메뉴 자동완성은 별도 테이블 없이 같은 조직 과거 투표의 `menu_options.name`을 중복 없이 조회해서 만든다.
+
+**투표 화면.**
+- 투표 상세(`PollDetailPage`)는 진행 중일 때 3초마다 폴링하고, 마감 응답을 받으면 결과 모드로 바뀌며 폴링을 멈춘다.
+- 참여·패스는 `lib/pollDetail.ts`의 `applyVote`로 먼저 화면에 반영(낙관적 업데이트)하고, 실패하면 되돌린다. 이 함수는 서버 `PollService.detail`과 같은 규칙으로 다시 계산하므로, 규칙을 바꿀 때는 둘을 함께 고친다.
+- 시간 표시는 `lib/time.ts`(한국 시간 기준)를 쓴다.
 
 **프론트엔드.** 라우트는 `src/router.tsx` 한 곳에 모여 있다(기획서의 화면 7개 + `/` 진입 분기). `/login`을 뺀 모든 화면은 `RequireAuth`(내 정보 조회가 401이면 경로를 기억하고 로그인 화면으로 보냄) 아래에 있다. API 호출은 `lib/api.ts`의 `api()`로만 하고, 서버 상태 훅과 query key는 `src/queries/`에 둔다. `/orgs/:orgId` 아래 화면은 `OrgLayout`이 조직 조회(방문 기록 갱신), 404 처리, 탭을 맡고, 하위 화면은 `useOrganization(orgId)` 캐시를 그대로 쓴다. 버튼·입력창 스타일은 `lib/ui.ts`(`buttonClass`, `inputClass`)에 있고, 모달은 네이티브 `<dialog>` 기반 `Modal`/`ConfirmDialog`를 쓴다. 다른 쿼리나 뮤테이션이 401을 받으면 `main.tsx`의 캐시 핸들러가 내 정보를 다시 불러오고, 그 결과로 로그인 화면으로 이동한다. 서버 상태는 TanStack Query로 관리한다. 투표 상세 화면은 WebSocket을 쓰지 않고 진행 중일 때 몇 초 간격으로 폴링한다(10~20명 규모). 스타일은 Tailwind v4(`@import 'tailwindcss'`, `@tailwindcss/vite` 플러그인)다.
 
@@ -114,7 +125,8 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - Avatar → `components/Avatar.tsx`
   - Logo → `components/Logo.tsx`(`Logo`, `LogoMark`)
   - TopBar → `components/AppLayout.tsx`
-  - Badge, OptionCard는 4단계에서 만든다.
+  - Badge → `components/Badge.tsx`
+  - OptionCard → `components/OptionCard.tsx`(투표 상세의 메뉴 카드, 결과 모드 포함)
 
 ## 코드 스타일
 

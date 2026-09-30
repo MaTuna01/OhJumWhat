@@ -30,6 +30,9 @@ export type Invite = {
   alreadyMember: boolean
 }
 
+// 조직 정보는 자주 바뀌지 않으므로 화면 전환·포커스마다 다시 불러오지 않게 한다.
+const ORG_STALE_TIME = 30_000
+
 export const orgKeys = {
   mine: ['orgs', 'mine'] as const,
   detail: (orgId: number) => ['orgs', orgId] as const,
@@ -41,6 +44,7 @@ export function useMyOrganizations() {
   return useQuery({
     queryKey: orgKeys.mine,
     queryFn: () => api<MyOrganization[]>('/api/me/orgs'),
+    staleTime: ORG_STALE_TIME,
   })
 }
 
@@ -55,6 +59,7 @@ export function useOrganization(orgId: number) {
       return org
     },
     enabled: Number.isInteger(orgId),
+    staleTime: ORG_STALE_TIME,
   })
 }
 
@@ -62,6 +67,7 @@ export function useMembers(orgId: number) {
   return useQuery({
     queryKey: orgKeys.members(orgId),
     queryFn: () => api<Member[]>(`/api/orgs/${orgId}/members`),
+    staleTime: ORG_STALE_TIME,
   })
 }
 

@@ -17,6 +17,11 @@ public class MembershipService {
 		this.membershipRepository = membershipRepository;
 	}
 
+	@Transactional(readOnly = true)
+	public boolean isMember(Long organizationId, Long userId) {
+		return membershipRepository.existsByOrganizationIdAndUserId(organizationId, userId);
+	}
+
 	/** 멤버가 아니면 조직의 존재 여부도 알리지 않도록 404로 응답한다. */
 	@Transactional(readOnly = true)
 	public void requireMember(Long organizationId, Long userId) {
