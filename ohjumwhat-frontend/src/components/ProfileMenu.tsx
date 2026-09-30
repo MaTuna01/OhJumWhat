@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { Link } from 'react-router'
+import { useDismiss } from '../hooks/useDismiss.ts'
 import { useLogout, useMe } from '../queries/me.ts'
 import Avatar from './Avatar.tsx'
 
@@ -8,22 +9,8 @@ export default function ProfileMenu() {
   const logout = useLogout()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const close = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false)
-    }
-    const closeOnEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('mousedown', close)
-    document.addEventListener('keydown', closeOnEscape)
-    return () => {
-      document.removeEventListener('mousedown', close)
-      document.removeEventListener('keydown', closeOnEscape)
-    }
-  }, [open])
+  const close = useCallback(() => setOpen(false), [])
+  useDismiss(ref, open, close)
 
   if (!me) return null
 
@@ -45,7 +32,7 @@ export default function ProfileMenu() {
             <p className="truncate text-sm font-semibold">{me.name}</p>
             <p className="truncate text-xs text-stone-500">{me.email}</p>
           </div>
-          <Link role="menuitem" to="/me" onClick={() => setOpen(false)} className="block px-4 py-2.5 text-sm hover:bg-stone-50">
+          <Link role="menuitem" to="/me" onClick={close} className="block px-4 py-2.5 text-sm hover:bg-stone-50">
             마이페이지
           </Link>
           <button
