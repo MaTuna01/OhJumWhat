@@ -20,7 +20,7 @@
 | 4 | 투표 핵심 (메뉴·참여·현황·결과) | 완료 | [#5](https://github.com/MaTuna01/OhJumWhat/pull/5) |
 | 5 | 정기 투표 | 완료 | [#6](https://github.com/MaTuna01/OhJumWhat/pull/6) |
 | 6 | 배포·CI/CD | 완료 — https://www.ohjumwhat.cloud 운영 중 | [#7](https://github.com/MaTuna01/OhJumWhat/pull/7), 릴리스 [#8](https://github.com/MaTuna01/OhJumWhat/pull/8) |
-| 7 | 마무리·QA | 다음 작업 | |
+| 7 | 마무리·QA | 진행 중 — 404·오류 화면, 링크 미리보기, 탭 제목, CSP 등 | `feature/polish` |
 
 ## 계획을 세운 뒤 정한 것
 - 메뉴를 추가해도 추가한 사람이 **자동으로 참여하지 않는다**. 추가와 참여는 따로 한다.

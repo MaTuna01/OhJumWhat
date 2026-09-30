@@ -1,11 +1,13 @@
 import { Navigate, useSearchParams } from 'react-router'
 import { LogoMark } from '../components/Logo.tsx'
+import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { useMe } from '../queries/me.ts'
 
 export default function LoginPage() {
   const me = useMe()
   const [searchParams] = useSearchParams()
   const failed = searchParams.has('error')
+  useDocumentTitle('로그인')
 
   if (me.isSuccess) {
     return <Navigate to="/" replace />

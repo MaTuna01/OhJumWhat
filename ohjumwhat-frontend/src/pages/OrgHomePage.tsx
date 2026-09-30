@@ -4,11 +4,13 @@ import Badge from '../components/Badge.tsx'
 import Button from '../components/Button.tsx'
 import CreatePollModal from '../components/CreatePollModal.tsx'
 import { PageLoader } from '../components/PageState.tsx'
+import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { useNow } from '../hooks/useNow.ts'
 import { useOrgId } from '../hooks/useOrgId.ts'
 import { daysLabel } from '../lib/daysOfWeek.ts'
 import { formatClock, formatRemaining, formatTimeRange } from '../lib/time.ts'
 import { type PollSummary, useTodayPolls } from '../queries/polls.ts'
+import { useOrganization } from '../queries/orgs.ts'
 import { useSchedules } from '../queries/schedules.ts'
 
 /** Figma 04 조직 홈: 오늘 열린 투표 카드와 투표 만들기 */
@@ -16,6 +18,8 @@ export default function OrgHomePage() {
   const orgId = useOrgId()
   const polls = useTodayPolls(orgId)
   const [creating, setCreating] = useState(false)
+  const { data: org } = useOrganization(orgId)
+  useDocumentTitle(org?.name)
 
   return (
     <div className="space-y-4">
