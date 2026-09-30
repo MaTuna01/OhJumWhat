@@ -1,5 +1,7 @@
 package com.ohjumwhat.user;
 
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -7,6 +9,7 @@ import org.springframework.util.StringUtils;
 import com.ohjumwhat.organization.Membership;
 import com.ohjumwhat.organization.MembershipRepository;
 
+@Slf4j
 @Service
 public class UserService {
 
@@ -29,7 +32,11 @@ public class UserService {
 				user.updateProfile(email, displayName, profileImageUrl);
 				return user;
 			})
-			.orElseGet(() -> userRepository.save(new User(googleSub, email, displayName, profileImageUrl)));
+			.orElseGet(() -> {
+				User created = userRepository.save(new User(googleSub, email, displayName, profileImageUrl));
+				log.info("신규 사용자 가입: userId={}", created.getId());
+				return created;
+			});
 	}
 
 	@Transactional(readOnly = true)

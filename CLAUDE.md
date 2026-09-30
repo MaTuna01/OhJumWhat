@@ -13,7 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - main에 바로 푸시하지 않고 dev브랜치를 개발 브랜치로 활용하고 기능 개발은 dev브랜치에서 개발할 기능 이름으로 분기하여 개발하며 기능 개발 이 완료되면 dev 브랜치로 PR/merge를 통해 모은다
   - main 승격은 사용자 판단하에 진행한다.
   - 기능 브랜치 이름은 `feature/<기능명>`으로 짓는다(예: `feature/auth`, `feature/organization`). `dev`의 최신 상태에서 분기하고, 완료되면 `gh pr create --base dev`로 PR을 연다.
-  - 특히 백엔드의 경우 디버깅 및 개발 편의성을 위해 lombock의 slf4j를 활용해 로깅한다.
+  - 기능 PR을 `dev`에 머지하는 것은 Claude가 직접 해도 된다. 단, 백엔드·프론트 테스트와 빌드를 통과하고 동작 확인을 마친 뒤, PR 체크리스트를 채우고 머지한다(merge commit, `gh pr merge --merge`). `dev` → `main`은 사용자가 결정한다.
 
 ## 명령어
 
@@ -84,5 +84,6 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 
 ## 코드 스타일
 
-- Java: 탭 들여쓰기(Spring Initializr 스타일), Lombok 없음, 주석은 한국어.
+- Java: 탭 들여쓰기(Spring Initializr 스타일), 주석은 한국어.
+- 백엔드는 디버깅과 개발 편의를 위해 Lombok의 `@Slf4j`로 로깅한다. 로그에는 이메일 같은 개인정보 대신 ID를 남긴다.
 - TypeScript: 2칸 들여쓰기, 세미콜론 없음, 작은따옴표, 로컬 import에 `.tsx`/`.ts` 확장자를 붙인다(`allowImportingTsExtensions`).
