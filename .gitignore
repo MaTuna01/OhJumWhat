@@ -28,3 +28,6 @@ ohjumwhat-backend/src/main/resources/static/
 # Logs
 *.log
 npm-debug.log*
+
+# OAuth
+client_secret_958708692880-idu6mabo2khvqs8eoeobi7ks7hps8grh.apps.googleusercontent.com.json
