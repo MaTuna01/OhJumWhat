@@ -5,6 +5,7 @@ import Button from '../components/Button.tsx'
 import CreateOrgModal from '../components/CreateOrgModal.tsx'
 import LeaveOrgDialog from '../components/LeaveOrgDialog.tsx'
 import { PageLoader, Section } from '../components/PageState.tsx'
+import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { buttonClass } from '../lib/ui.ts'
 import { useLogout, useMe } from '../queries/me.ts'
 import { type MyOrganization, useMyOrganizations } from '../queries/orgs.ts'
@@ -15,6 +16,7 @@ export default function MyPage() {
   const logout = useLogout()
   const [creating, setCreating] = useState(false)
   const [leaving, setLeaving] = useState<MyOrganization | null>(null)
+  useDocumentTitle('마이페이지')
 
   if (!me) return null
 

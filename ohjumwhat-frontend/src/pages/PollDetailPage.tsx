@@ -4,6 +4,7 @@ import MenuInput from '../components/MenuInput.tsx'
 import OptionCard from '../components/OptionCard.tsx'
 import { PageLoader, PageMessage } from '../components/PageState.tsx'
 import PersonChip from '../components/PersonChip.tsx'
+import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { useNow } from '../hooks/useNow.ts'
 import { useOrgId } from '../hooks/useOrgId.ts'
 import { ApiError } from '../lib/api.ts'
@@ -20,6 +21,7 @@ export default function PollDetailPage() {
   const pollId = Number(useParams().pollId)
   const poll = usePollDetail(orgId, pollId)
   const { data: org } = useOrganization(orgId)
+  useDocumentTitle(poll.data?.title, org?.name)
 
   if (!Number.isInteger(pollId) || (poll.error instanceof ApiError && poll.error.status === 404)) {
     return (
