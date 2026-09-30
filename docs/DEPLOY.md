@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 서버 공인 IP | `1.201.114.178` |
-| 도메인 | `www.ohjumwaht.site` (루트 `ohjumwaht.site`는 www로 리디렉션) |
+| 도메인 | `www.ohjumwhat.cloud` (루트 `ohjumwhat.cloud`는 www로 리디렉션) |
 | 이미지 | `ghcr.io/matuna01/ohjumwhat:latest` (커밋별 태그 `:<sha>`도 함께 올라간다) |
 | 서버 배포 폴더 | `~/ohjumwhat` (`docker-compose.yml`, `Caddyfile`, `backup.sh`는 배포 때마다 덮어쓰고, `.env`는 서버에만 둔다) |
 
@@ -32,13 +32,22 @@
 
 도메인을 새로 등록했다면 `.site` 최상위 도메인에 반영될 때까지 시간이 걸릴 수 있다. 확인 방법:
 ```bash
-dig +short A www.ohjumwaht.site
+dig +short A www.ohjumwhat.cloud
 ```
 `1.201.114.178`이 나오면 된다. Caddy는 이 상태여야 인증서를 발급받는다.
 
 ### 2. 서버 방화벽
 
-가비아 콘솔의 방화벽(보안 그룹)에서 **22, 80, 443(TCP)**, 그리고 443(UDP, HTTP/3)을 연다. 서버 안의 ufw는 아래 3단계에서 설정한다.
+가비아 콘솔의 방화벽(보안 그룹)에서 아래 포트를 모든 IP(0.0.0.0/0)에 연다. 서버 안의 ufw는 아래 3단계에서 설정한다.
+
+| 포트 | 용도 |
+|---|---|
+| 22/TCP | SSH. GitHub Actions 배포도 SSH로 들어온다. 러너 IP가 매번 바뀌므로 특정 IP로 제한하지 않고, 대신 키 로그인만 허용한다. |
+| 80/TCP (HTTP) | **꼭 열어야 한다.** Let's Encrypt 인증서 발급·갱신(HTTP-01 인증)에 쓰이고, http:// 로 들어온 요청을 https로 리디렉션한다. 실제 서비스는 HTTPS로만 한다. |
+| 443/TCP (HTTPS) | 서비스 |
+| 443/UDP | HTTP/3(선택). 막아도 HTTP/2로 동작한다. |
+
+DB(5432)와 앱(8080)은 컨테이너 안에서만 쓰므로 열지 않는다.
 
 ### 3. 서버 초기 설정 (SSH로 접속해서 한 번 실행)
 
@@ -79,8 +88,8 @@ DB_USERNAME=ohjumwhat
 DB_PASSWORD=<openssl rand -hex 24 로 만든 값>
 GOOGLE_CLIENT_ID=<구글 OAuth 클라이언트 ID>
 GOOGLE_CLIENT_SECRET=<구글 OAuth 클라이언트 시크릿>
-APP_DOMAIN=www.ohjumwaht.site
-APP_APEX_DOMAIN=ohjumwaht.site
+APP_DOMAIN=www.ohjumwhat.cloud
+APP_APEX_DOMAIN=ohjumwhat.cloud
 APP_IMAGE=ghcr.io/matuna01/ohjumwhat:latest
 ```
 
@@ -106,8 +115,8 @@ gh secret set DEPLOY_SSH_KEY -R MaTuna01/OhJumWhat < ohjumwhat.pem
 
 ### 5. Google Cloud Console (API 및 서비스 → 사용자 인증 정보 → 오점왓 웹 클라이언트)
 
-- 승인된 자바스크립트 원본: `https://www.ohjumwaht.site`
-- 승인된 리디렉션 URI: `https://www.ohjumwaht.site/login/oauth2/code/google`
+- 승인된 자바스크립트 원본: `https://www.ohjumwhat.cloud`
+- 승인된 리디렉션 URI: `https://www.ohjumwhat.cloud/login/oauth2/code/google`
 - **OAuth 동의 화면의 게시 상태를 "프로덕션"으로 바꾼다.** "테스트" 상태에서는 등록한 테스트 사용자만 로그인할 수 있다. openid·profile·email 범위만 쓰므로 구글 검수는 필요 없다.
 
 ### 6. 첫 배포
@@ -118,8 +127,8 @@ gh pr create -R MaTuna01/OhJumWhat --base main --head dev --title "릴리스"
 ```
 확인 방법:
 ```bash
-curl -I https://www.ohjumwaht.site               # 200, HTTP/2
-curl -I http://ohjumwaht.site                    # https://www.ohjumwaht.site 로 리디렉션
+curl -I https://www.ohjumwhat.cloud               # 200, HTTP/2
+curl -I http://ohjumwhat.cloud                    # https://www.ohjumwhat.cloud 로 리디렉션
 ```
 
 ## 운영

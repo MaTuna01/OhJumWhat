@@ -6,7 +6,7 @@
 	reverse_proxy app:8080
 }
 
-# 루트 도메인(예: ohjumwaht.site)으로 들어오면 www로 보낸다.
+# 루트 도메인(예: ohjumwhat.cloud)으로 들어오면 www로 보낸다.
 {$APP_APEX_DOMAIN} {
 	redir https://{$APP_DOMAIN}{uri} permanent
 }
