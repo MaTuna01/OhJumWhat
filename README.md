@@ -36,3 +36,7 @@ cd ohjumwhat-frontend && npm install && npm run dev         # 프론트 :5173 (A
 cd ohjumwhat-backend && ./gradlew test    # Docker 필요 (Testcontainers)
 cd ohjumwhat-frontend && npm test
 ```
+
+## 배포
+
+`main`에 push하면 GitHub Actions가 테스트 → Docker 이미지(GHCR) → 가비아 서버 배포를 자동으로 한다. 서버 초기 설정, Secrets, 운영·롤백·백업 방법은 [docs/DEPLOY.md](docs/DEPLOY.md)를 본다.

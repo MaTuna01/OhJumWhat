@@ -1,0 +1,12 @@
+# HTTPS 인증서는 Caddy가 Let's Encrypt로 자동 발급·갱신한다(도메인 A 레코드가 이 서버를 가리켜야 한다).
+# X-Forwarded-Proto/Host를 넘기므로 Spring(forward-headers-strategy: framework)이 https 리디렉션 URI를 만든다.
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:8080
+}
+
+# 루트 도메인(예: ohjumwaht.site)으로 들어오면 www로 보낸다.
+{$APP_APEX_DOMAIN} {
+	redir https://{$APP_DOMAIN}{uri} permanent
+}
