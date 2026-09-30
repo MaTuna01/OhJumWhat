@@ -1,4 +1,7 @@
 import { createBrowserRouter } from 'react-router'
+import AppLayout from './components/AppLayout.tsx'
+import OrgLayout from './components/OrgLayout.tsx'
+import RequireAuth from './components/RequireAuth.tsx'
 import InvitePage from './pages/InvitePage.tsx'
 import LoginPage from './pages/LoginPage.tsx'
 import MyPage from './pages/MyPage.tsx'
@@ -9,12 +12,29 @@ import RootRedirect from './pages/RootRedirect.tsx'
 import SchedulesPage from './pages/SchedulesPage.tsx'
 
 export const router = createBrowserRouter([
-  { path: '/', element: <RootRedirect /> },
   { path: '/login', element: <LoginPage /> },
-  { path: '/invite/:token', element: <InvitePage /> },
-  { path: '/me', element: <MyPage /> },
-  { path: '/orgs/:orgId', element: <OrgHomePage /> },
-  { path: '/orgs/:orgId/polls/:pollId', element: <PollDetailPage /> },
-  { path: '/orgs/:orgId/schedules', element: <SchedulesPage /> },
-  { path: '/orgs/:orgId/settings', element: <OrgSettingsPage /> },
+  {
+    element: <RequireAuth />,
+    children: [
+      { path: '/', element: <RootRedirect /> },
+      {
+        element: <AppLayout />,
+        children: [
+          { path: '/invite/:token', element: <InvitePage /> },
+          { path: '/me', element: <MyPage /> },
+          {
+            // 조직 화면 공통: 조직 조회(방문 기록)·404 처리·탭
+            path: '/orgs/:orgId',
+            element: <OrgLayout />,
+            children: [
+              { index: true, element: <OrgHomePage /> },
+              { path: 'polls/:pollId', element: <PollDetailPage /> },
+              { path: 'schedules', element: <SchedulesPage /> },
+              { path: 'settings', element: <OrgSettingsPage /> },
+            ],
+          },
+        ],
+      },
+    ],
+  },
 ])

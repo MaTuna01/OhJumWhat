@@ -1,0 +1,52 @@
+# 운영 서버(가비아)에서 실행한다: Caddy(HTTPS) → 앱 → PostgreSQL
+# 같은 폴더의 .env(서버에만 있음)에서 DB 비밀번호, 구글 OAuth 키, 도메인, 이미지 이름을 읽는다.
+services:
+  app:
+    image: ${APP_IMAGE}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      TZ: Asia/Seoul
+    volumes:
+      # PostgreSQL 18 이미지는 /var/lib/postgresql 아래에 버전별 폴더를 만든다.
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  caddy:
+    image: caddy:2.11-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      APP_APEX_DOMAIN: ${APP_APEX_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - app
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:

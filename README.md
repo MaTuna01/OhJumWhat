@@ -6,6 +6,8 @@
 - `ohjumwhat-frontend/` React · TypeScript · Vite · React Router · TanStack Query · Tailwind CSS
 - DB: PostgreSQL 18
 
+구현 계획과 진행 현황은 [docs/PLAN.md](docs/PLAN.md)를 본다.
+
 ## 로컬 개발
 
 ### 1. 설정 파일 준비 (둘 다 git에 올리지 않는다)
@@ -15,7 +17,7 @@ cp .env.example .env
 cp ohjumwhat-backend/src/main/resources/application.example.yml ohjumwhat-backend/src/main/resources/application.yml
 ```
 
-`.env`에 DB 비밀번호와 구글 OAuth 클라이언트 값을 채운다.
+`.env`에 DB 비밀번호와 구글 OAuth 클라이언트 값을 채운다. 실제 값은 Notion 「개발 필요 파일」 페이지에 있다.
 구글 OAuth 클라이언트의 승인된 리디렉션 URI에는 `http://localhost:5173/login/oauth2/code/google`을 등록한다.
 
 ### 2. 실행
@@ -34,3 +36,7 @@ cd ohjumwhat-frontend && npm install && npm run dev         # 프론트 :5173 (A
 cd ohjumwhat-backend && ./gradlew test    # Docker 필요 (Testcontainers)
 cd ohjumwhat-frontend && npm test
 ```
+
+## 배포
+
+`main`에 push하면 GitHub Actions가 테스트 → Docker 이미지(GHCR) → 가비아 서버 배포를 자동으로 한다. 서버 초기 설정, Secrets, 운영·롤백·백업 방법은 [docs/DEPLOY.md](docs/DEPLOY.md)를 본다.
