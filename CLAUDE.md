@@ -12,6 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 원격 저장소: https://github.com/MaTuna01/OhJumWhat (`main`). 커밋 메시지는 한국어로 쓴다.
   - main에 바로 푸시하지 않고 dev브랜치를 개발 브랜치로 활용하고 기능 개발은 dev브랜치에서 개발할 기능 이름으로 분기하여 개발하며 기능 개발 이 완료되면 dev 브랜치로 PR/merge를 통해 모은다
   - main 승격은 사용자 판단하에 진행한다.
+  - 기능 브랜치 이름은 `feature/<기능명>`으로 짓는다(예: `feature/auth`, `feature/organization`). `dev`의 최신 상태에서 분기하고, 완료되면 `gh pr create --base dev`로 PR을 연다.
   - 특히 백엔드의 경우 디버깅 및 개발 편의성을 위해 lombock의 slf4j를 활용해 로깅한다.
 
 ## 명령어
