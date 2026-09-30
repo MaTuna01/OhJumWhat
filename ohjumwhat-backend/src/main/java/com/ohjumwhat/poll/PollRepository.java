@@ -10,6 +10,8 @@ import org.springframework.data.jpa.repository.Query;
 
 public interface PollRepository extends JpaRepository<Poll, Long> {
 
+	boolean existsByScheduleIdAndPollDate(Long scheduleId, LocalDate pollDate);
+
 	/** 조직 홈의 "오늘 열린 투표" (poll_date = 오늘, 한국 날짜) */
 	List<Poll> findByOrganizationIdAndPollDateOrderByOpensAtAscIdAsc(Long organizationId, LocalDate pollDate);
 

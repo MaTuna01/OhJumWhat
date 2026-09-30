@@ -46,7 +46,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 
 ## 아키텍처
 
-현재 4단계(골격·스키마, 구글 로그인·세션, 조직, 투표·메뉴·참여·결과)까지 구현되어 있다. 아래 내용 중 정기 투표 스케줄러와 Docker 배포는 아직 구현 전이며, 구현할 때 이 설계를 따른다.
+현재 5단계(골격·스키마, 구글 로그인·세션, 조직, 투표·메뉴·참여·결과, 정기 투표)까지 구현되어 있다. 아래 내용 중 Docker 배포는 아직 구현 전이며, 구현할 때 이 설계를 따른다.
 
 **동일 출처 구조.** 운영에서는 React 빌드 결과를 Spring Boot jar의 static 리소스로 넣어 이미지 하나로 배포한다(Caddy가 앞단). 개발에서는 Vite가 백엔드 경로를 프록시하는데, `changeOrigin: false`로 Host 헤더를 유지하고 백엔드는 `server.forward-headers-strategy: framework`로 설정한다. 그래서 CORS 설정이 없고, 인증은 JWT 없이 **세션 쿠키**로 한다. 프론트의 `/login`은 SPA 화면이고, Spring의 기본 로그인 페이지는 쓰지 않는다. 운영에서 파일이 없는 화면 경로는 `common/SpaWebConfig`가 `index.html`로 돌려준다.
 
@@ -81,10 +81,18 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 **엔티티는 연관관계 매핑 없이 FK를 `Long` ID 필드로 들고 있다**(`organizationId`, `pollId` 등). 조회는 JPQL/쿼리로 조합하고, `open-in-view: false`이므로 지연 로딩에 기대지 않는다. Java 패키지는 도메인별이다(`user`, `organization`, `poll`, `schedule`, `menu`, `vote`, `common`).
 
 **시간은 전부 KST 기준 `Clock` 빈으로 계산한다**(`common/TimeConfig`, `TimeConfig.KST`). "오늘"(`poll_date`), 마감 판정, 정기 투표 시각이 모두 여기에 해당한다. 서비스 코드에서 `LocalDate.now()`나 `Instant.now()`를 직접 부르지 않고 `Clock`을 주입받는다(테스트에서 고정 Clock으로 바꾸기 위함). DB 타임스탬프는 `timestamptz`와 `Instant`로 다룬다.
+  - `poll_date`(DATE)와 `open_time`/`close_time`(TIME)은 한국 기준 값을 변환 없이 그대로 저장한다.
+  - **`hibernate.jdbc.time_zone`을 설정하지 않는다.** 설정하면 `LocalTime`·`LocalDate`가 JVM 시간대(KST)에서 변환되어 저장된다. 예를 들어 08:00이 23:00으로, 날짜가 하루 전으로 바뀐다.
+  - `common/TimeStorageTest`가 DB에 저장된 원본 값을 확인해 이 실수를 막는다.
 
 **도메인 규칙 중 코드만 봐서는 알기 어려운 것**
 - 마감은 별도 배치 없이 판정한다. 요청 시점이 `closes_at` 이후면 마감이다(`Poll.isClosed`).
-- 정기 투표는 1분 주기 `@Scheduled`가 만든다. `polls(schedule_id, poll_date)` UNIQUE 제약이 중복 생성을 막는다. 제약 위반은 무시하는 것이 의도된 동작이다(서버 재시작 후 누락분도 같은 방식으로 채운다).
+- 정기 투표는 매분 0초(KST)에 `PollScheduler`가 `ScheduledPollOpener.openDuePolls()`를 호출해서 연다.
+  - 조건: 오늘 요일이 규칙에 포함되고, 오픈 ≤ 지금 < 마감이고, (규칙, 오늘) 투표가 아직 없을 때
+  - 투표의 `opens_at`은 규칙의 오픈 시각이고, 제목은 규칙 이름이다.
+  - `polls(schedule_id, poll_date)` UNIQUE 제약이 중복을 막고, 제약 위반은 무시하는 것이 의도된 동작이다. 서버가 오픈 시각에 꺼져 있었어도 마감 전에 켜지면 그날 투표가 열린다.
+  - 규칙을 수정하면 앞으로 열릴 투표부터 적용된다. 규칙을 삭제해도 열린 투표는 남는다.
+  - 테스트에서는 `ohjumwhat.scheduler.enabled=false`로 백그라운드 실행을 끄고, `ScheduledPollOpener`를 고정된 `TestClock`으로 직접 호출한다.
 - `poll_schedules.days_of_week`는 요일 비트마스크다(월=1 … 일=64, 평일=31). 변환은 `PollSchedule.bitOf`/`runsOn`으로 한다.
 - `votes`는 (poll, user)당 한 행이다. 메뉴를 바꾸면 `option_id`만 갱신한다. `option_id`가 NULL이면 "오늘은 패스"다.
 - `votes.option_id` FK는 의도적으로 `NO ACTION`이다(RESTRICT 아님). 투표를 CASCADE로 삭제할 때 검사가 문장 끝으로 미뤄지게 하기 위해서다. 참여자가 있는 메뉴를 삭제하지 못하게 막는 검사는 서비스에서 먼저 한다.
@@ -96,7 +104,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 **투표 화면.**
 - 투표 상세(`PollDetailPage`)는 진행 중일 때 3초마다 폴링하고, 마감 응답을 받으면 결과 모드로 바뀌며 폴링을 멈춘다.
 - 참여·패스는 `lib/pollDetail.ts`의 `applyVote`로 먼저 화면에 반영(낙관적 업데이트)하고, 실패하면 되돌린다. 이 함수는 서버 `PollService.detail`과 같은 규칙으로 다시 계산하므로, 규칙을 바꿀 때는 둘을 함께 고친다.
-- 시간 표시는 `lib/time.ts`(한국 시간 기준)를 쓴다.
+- 시간 표시는 `lib/time.ts`(한국 시간 기준)를 쓴다. 요일 비트마스크(월=1 … 일=64, 평일=31)는 `lib/daysOfWeek.ts`로 변환한다.
 
 **프론트엔드.** 라우트는 `src/router.tsx` 한 곳에 모여 있다(기획서의 화면 7개 + `/` 진입 분기). `/login`을 뺀 모든 화면은 `RequireAuth`(내 정보 조회가 401이면 경로를 기억하고 로그인 화면으로 보냄) 아래에 있다. API 호출은 `lib/api.ts`의 `api()`로만 하고, 서버 상태 훅과 query key는 `src/queries/`에 둔다. `/orgs/:orgId` 아래 화면은 `OrgLayout`이 조직 조회(방문 기록 갱신), 404 처리, 탭을 맡고, 하위 화면은 `useOrganization(orgId)` 캐시를 그대로 쓴다. 버튼·입력창 스타일은 `lib/ui.ts`(`buttonClass`, `inputClass`)에 있고, 모달은 네이티브 `<dialog>` 기반 `Modal`/`ConfirmDialog`를 쓴다. 다른 쿼리나 뮤테이션이 401을 받으면 `main.tsx`의 캐시 핸들러가 내 정보를 다시 불러오고, 그 결과로 로그인 화면으로 이동한다. 서버 상태는 TanStack Query로 관리한다. 투표 상세 화면은 WebSocket을 쓰지 않고 진행 중일 때 몇 초 간격으로 폴링한다(10~20명 규모). 스타일은 Tailwind v4(`@import 'tailwindcss'`, `@tailwindcss/vite` 플러그인)다.
 

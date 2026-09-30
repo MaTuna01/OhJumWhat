@@ -6,8 +6,10 @@ import CreatePollModal from '../components/CreatePollModal.tsx'
 import { PageLoader } from '../components/PageState.tsx'
 import { useNow } from '../hooks/useNow.ts'
 import { useOrgId } from '../hooks/useOrgId.ts'
-import { formatClock, formatRemaining } from '../lib/time.ts'
+import { daysLabel } from '../lib/daysOfWeek.ts'
+import { formatClock, formatRemaining, formatTimeRange } from '../lib/time.ts'
 import { type PollSummary, useTodayPolls } from '../queries/polls.ts'
+import { useSchedules } from '../queries/schedules.ts'
 
 /** Figma 04 조직 홈: 오늘 열린 투표 카드와 투표 만들기 */
 export default function OrgHomePage() {
@@ -40,7 +42,26 @@ export default function OrgHomePage() {
           ))}
         </ul>
       )}
+      <ScheduleHint orgId={orgId} />
       <CreatePollModal orgId={orgId} open={creating} onClose={() => setCreating(false)} />
+    </div>
+  )
+}
+
+/** Figma 04 하단: 정기 투표 요약과 관리 링크 */
+function ScheduleHint({ orgId }: { orgId: number }) {
+  const { data: schedules } = useSchedules(orgId)
+  if (!schedules) return null
+  const summary =
+    schedules.length === 0
+      ? '정기 투표를 만들면 매일 정해진 시간에 투표가 자동으로 열려요.'
+      : `정기 투표 · ${schedules.map((s) => `${s.name} ${daysLabel(s.daysOfWeek)} ${formatTimeRange(s.openTime, s.closeTime)}`).join(', ')}`
+  return (
+    <div className="flex items-center gap-2 rounded-xl bg-bg-muted px-3.5 py-3">
+      <p className="flex-1 text-xs text-text-secondary">{summary}</p>
+      <Link to={`/orgs/${orgId}/schedules`} className="shrink-0 text-xs font-medium text-text-brand hover:underline">
+        {schedules.length === 0 ? '설정하기 ›' : '관리 ›'}
+      </Link>
     </div>
   )
 }
