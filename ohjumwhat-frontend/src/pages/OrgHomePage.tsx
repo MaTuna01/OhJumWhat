@@ -1,3 +1,10 @@
+import { Section } from '../components/PageState.tsx'
+
+// 오늘 열린 투표 카드와 투표 만들기는 4단계에서 추가한다.
 export default function OrgHomePage() {
-  return <main className="mx-auto max-w-2xl p-4">조직 홈</main>
+  return (
+    <Section title="오늘 열린 투표">
+      <p className="rounded-xl bg-stone-50 px-4 py-8 text-center text-sm text-stone-500">오늘 열린 투표가 없어요.</p>
+    </Section>
+  )
 }
