@@ -26,7 +26,7 @@ public abstract class IntegrationTest {
 	@AfterEach
 	void cleanDatabase() {
 		jdbcTemplate.execute("""
-				TRUNCATE users, organizations, memberships, poll_schedules, polls, menu_options, votes
+				TRUNCATE users, organizations, memberships, poll_schedules, polls, menu_options, votes, spring_session
 				RESTART IDENTITY CASCADE""");
 	}
 }

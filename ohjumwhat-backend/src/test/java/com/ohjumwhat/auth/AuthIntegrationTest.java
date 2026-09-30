@@ -64,6 +64,11 @@ class AuthIntegrationTest extends IntegrationTest {
 	}
 
 	@Test
+	void 로그인하지_않은_요청은_세션을_만들지_않는다() throws Exception {
+		mockMvc.perform(get("/api/me")).andExpect(cookie().doesNotExist("SESSION"));
+	}
+
+	@Test
 	void 응답에_CSRF_토큰_쿠키를_내려준다() throws Exception {
 		mockMvc.perform(get("/api/me")).andExpect(cookie().exists("XSRF-TOKEN"));
 	}

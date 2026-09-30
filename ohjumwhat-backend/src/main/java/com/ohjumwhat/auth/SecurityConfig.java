@@ -8,6 +8,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
+import org.springframework.security.web.savedrequest.NullRequestCache;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 
 @Configuration
@@ -20,6 +21,8 @@ public class SecurityConfig {
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers("/api/**").authenticated()
 				.anyRequest().permitAll())
+			// 로그인 후에는 항상 /로 보내므로 요청을 세션에 저장하지 않는다. (익명 요청마다 세션이 생기는 것도 막는다)
+			.requestCache(cache -> cache.requestCache(new NullRequestCache()))
 			.exceptionHandling(ex -> ex.defaultAuthenticationEntryPointFor(
 				new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
 				PathPatternRequestMatcher.withDefaults().matcher("/api/**")))
