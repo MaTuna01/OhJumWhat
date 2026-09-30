@@ -1,0 +1,69 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## 프로젝트
+
+**오점왓(ohjumwhat)**은 조직 안에서 점심·저녁 메뉴를 투표로 정하는 웹 서비스다. 결과는 "1등 메뉴"가 아니라 **메뉴별 참여자 명단(팀)**이다.
+
+- 기획서(요구사항·화면 7개·ERD·삭제 규칙의 원본): Notion 「점심메뉴 선정」 https://app.notion.com/p/3eb11d838f8d802e81dbfcd702c34692
+  기획서에는 서비스명이 가칭 "밥팟"으로 적혀 있지만, 정식 이름은 **오점왓**이다. 코드·설정·화면에서는 오점왓/ohjumwhat을 쓴다.
+- 진행 단계는 같은 페이지의 Tasks DB에 7단계로 등록되어 있다. 단계를 마치면 해당 작업의 상태를 갱신한다.
+- 원격 저장소: https://github.com/MaTuna01/OhJumWhat (`main`). 커밋 메시지는 한국어로 쓴다.
+
+## 명령어
+
+```bash
+# 로컬 DB (루트 .env 값 사용)
+docker compose -f docker-compose.dev.yml up -d
+
+# 백엔드 (ohjumwhat-backend/) — 테스트는 Testcontainers라 Docker가 켜져 있어야 한다
+./gradlew bootRun
+./gradlew test
+./gradlew test --tests 'com.ohjumwhat.SomeTest'            # 클래스 하나
+./gradlew test --tests 'com.ohjumwhat.SomeTest.methodName' # 메서드 하나
+
+# 프론트엔드 (ohjumwhat-frontend/)
+npm run dev          # :5173, /api·/oauth2·/login/oauth2·/logout은 :8080으로 프록시
+npm run build        # tsc -b && vite build
+npm run lint         # oxlint
+npm test             # vitest run
+npx vitest run src/lib/foo.test.ts -t '케이스 이름'
+```
+
+## 설정과 비밀값
+
+- `.env`(루트)와 `ohjumwhat-backend/src/main/resources/application.yml`은 **gitignore 대상**이다. 커밋하는 것은 템플릿인 `.env.example`과 `application.example.yml`뿐이다. 설정 키를 추가하거나 바꾸면 **템플릿도 함께 고친다**.
+- `application.yml`에는 `${DB_PASSWORD}` 같은 플레이스홀더만 둔다. `spring.config.import: optional:file:../.env[.properties]`로 로컬 `bootRun`이 루트 `.env`를 읽는다. 운영(Docker)에서는 compose의 `env_file`로 주입한다.
+- `ohjumwhat-backend/src/test/resources/application.yml`은 커밋된 테스트 전용 설정이다. 클래스패스에서 main의 `application.yml`보다 먼저 잡혀 이를 가린다. DB 연결은 `TestcontainersConfiguration`의 `@ServiceConnection`(postgres:18-alpine)으로 받는다.
+- 구글 OAuth 로컬 리디렉션 URI는 `http://localhost:5173/login/oauth2/code/google`이다(Vite 프록시 경유).
+
+## 아키텍처
+
+현재 1단계(골격·스키마·엔티티·라우트 뼈대)까지 구현되어 있다. 아래 내용 중 인증, 정기 투표 스케줄러, Docker 배포는 아직 구현 전이며, 구현할 때 이 설계를 따른다.
+
+**동일 출처 구조.** 운영에서는 React 빌드 결과를 Spring Boot jar의 static 리소스로 넣어 이미지 하나로 배포한다(Caddy가 앞단). 개발에서는 Vite가 백엔드 경로를 프록시하는데, `changeOrigin: false`로 Host 헤더를 유지하고 백엔드는 `server.forward-headers-strategy: framework`로 설정한다. 그래서 CORS 설정이 없고, 인증은 JWT 없이 **세션 쿠키**로 한다. 프론트의 `/login`은 SPA 화면이고, Spring의 기본 로그인 페이지는 쓰지 않는다.
+
+**스키마는 Flyway가 소유한다.** `db/migration/V*.sql`이 원본이고 JPA는 `ddl-auto: validate`로 검증만 한다. 스키마를 바꿀 때는 기존 마이그레이션을 고치지 말고 새 `V{n}__*.sql`을 추가한 뒤 엔티티를 맞춘다. 컨텍스트 로드 테스트(`OhjumwhatApplicationTests`)가 불일치를 잡아낸다.
+
+**엔티티는 연관관계 매핑 없이 FK를 `Long` ID 필드로 들고 있다**(`organizationId`, `pollId` 등). 조회는 JPQL/쿼리로 조합하고, `open-in-view: false`이므로 지연 로딩에 기대지 않는다. Java 패키지는 도메인별이다(`user`, `organization`, `poll`, `schedule`, `menu`, `vote`, `common`).
+
+**시간은 전부 KST 기준 `Clock` 빈으로 계산한다**(`common/TimeConfig`, `TimeConfig.KST`). "오늘"(`poll_date`), 마감 판정, 정기 투표 시각이 모두 여기에 해당한다. 서비스 코드에서 `LocalDate.now()`나 `Instant.now()`를 직접 부르지 않고 `Clock`을 주입받는다(테스트에서 고정 Clock으로 바꾸기 위함). DB 타임스탬프는 `timestamptz`와 `Instant`로 다룬다.
+
+**도메인 규칙 중 코드만 봐서는 알기 어려운 것**
+- 마감은 별도 배치 없이 판정한다. 요청 시점이 `closes_at` 이후면 마감이다(`Poll.isClosed`).
+- 정기 투표는 1분 주기 `@Scheduled`가 만든다. `polls(schedule_id, poll_date)` UNIQUE 제약이 중복 생성을 막는다. 제약 위반은 무시하는 것이 의도된 동작이다(서버 재시작 후 누락분도 같은 방식으로 채운다).
+- `poll_schedules.days_of_week`는 요일 비트마스크다(월=1 … 일=64, 평일=31). 변환은 `PollSchedule.bitOf`/`runsOn`으로 한다.
+- `votes`는 (poll, user)당 한 행이다. 메뉴를 바꾸면 `option_id`만 갱신한다. `option_id`가 NULL이면 "오늘은 패스"다.
+- `votes.option_id` FK는 의도적으로 `NO ACTION`이다(RESTRICT 아님). 투표를 CASCADE로 삭제할 때 검사가 문장 끝으로 미뤄지게 하기 위해서다. 참여자가 있는 메뉴를 삭제하지 못하게 막는 검사는 서비스에서 먼저 한다.
+- 메뉴를 추가해도 추가한 사람이 자동으로 참여하지 않는다. 메뉴는 추가한 사람만, 참여자가 0명이고 투표가 진행 중일 때만 삭제할 수 있다. 메뉴 이름은 trim해서 저장하고, (poll, name)은 UNIQUE다.
+- 조직에는 관리자가 없고 모든 멤버의 권한이 같다. 마지막 멤버가 탈퇴하면 조직을 삭제하고, 하위 데이터는 DB `ON DELETE CASCADE`로 함께 지운다. 정기 규칙을 삭제하면 `polls.schedule_id`만 NULL이 된다.
+- 멤버가 탈퇴하면 그 조직의 **진행 중인** 투표에서 그 사람의 votes만 지운다. 마감된 투표 기록은 남긴다.
+- 메뉴 자동완성은 별도 테이블 없이 같은 조직 과거 투표의 `menu_options.name`을 중복 없이 조회해서 만든다.
+
+**프론트엔드.** 라우트는 `src/router.tsx` 한 곳에 모여 있다(기획서의 화면 7개 + `/` 진입 분기). 서버 상태는 TanStack Query로 관리한다. 투표 상세 화면은 WebSocket을 쓰지 않고 진행 중일 때 몇 초 간격으로 폴링한다(10~20명 규모). 스타일은 Tailwind v4(`@import 'tailwindcss'`, `@tailwindcss/vite` 플러그인)다.
+
+## 코드 스타일
+
+- Java: 탭 들여쓰기(Spring Initializr 스타일), Lombok 없음, 주석은 한국어.
+- TypeScript: 2칸 들여쓰기, 세미콜론 없음, 작은따옴표, 로컬 import에 `.tsx`/`.ts` 확장자를 붙인다(`allowImportingTsExtensions`).
