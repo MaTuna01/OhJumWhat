@@ -8,6 +8,18 @@ export function formatClock(iso: string): string {
   return clockFormat.format(new Date(iso))
 }
 
+/** 한국 시간 "HH:mm" → "오전 11:00" (정기 투표 시각 표시) */
+export function formatHhmm(hhmm: string): string {
+  return formatClock(`2026-01-01T${hhmm}:00+09:00`)
+}
+
+/** "오전 11:00 ~ 11:50", 오전·오후가 바뀌면 "오전 11:30 ~ 오후 12:10" */
+export function formatTimeRange(open: string, close: string): string {
+  const [a, b] = [formatHhmm(open), formatHhmm(close)]
+  const period = (t: string) => t.split(' ')[0]
+  return `${a} ~ ${period(a) === period(b) ? b.slice(period(b).length + 1) : b}`
+}
+
 /** 마감까지 남은 시간: "32분 남음", "1시간 5분 남음", "1분 안에 마감". 이미 지났으면 null */
 export function formatRemaining(closesAt: string, now: number): string | null {
   const ms = new Date(closesAt).getTime() - now

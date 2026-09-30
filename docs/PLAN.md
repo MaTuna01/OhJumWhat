@@ -18,8 +18,8 @@
 | 3 | 조직 (생성·초대·탈퇴·설정·마이페이지) | 완료 | [#2](https://github.com/MaTuna01/OhJumWhat/pull/2) |
 | - | 디자인 시스템·와이어프레임 (Figma) + 코드 토큰 적용 | 완료 | `feature/design-system` |
 | 4 | 투표 핵심 (메뉴·참여·현황·결과) | 완료 | `feature/poll` |
-| 5 | 정기 투표 | 다음 작업 | |
-| 6 | 배포·CI/CD | 예정 | |
+| 5 | 정기 투표 | 완료 | `feature/schedule` |
+| 6 | 배포·CI/CD | 다음 작업 | |
 | 7 | 마무리·QA | 예정 | |
 
 ## 계획을 세운 뒤 정한 것
@@ -27,6 +27,7 @@
 - Java는 **21 LTS**를 쓴다(개발 PC에 21이 설치되어 있어서). Spring Boot 4.1.1, PostgreSQL 18, Node 24.
 - 디렉터리 이름은 IDE에서 구분하기 쉽게 `ohjumwhat-backend/`, `ohjumwhat-frontend/`로 한다. Java 패키지는 `com.ohjumwhat`이다.
 - 세션은 **Spring Session JDBC로 DB에 저장**한다. 그래서 재시작·재배포 후에도 로그인이 유지되고, `SESSION` 쿠키는 30일 유효하다. 로그인하지 않은 요청에는 세션을 만들지 않는다(`NullRequestCache`).
+- DB의 DATE·TIME 값이 시간대 변환으로 틀어지는 문제가 있어 `hibernate.jdbc.time_zone` 설정을 제거했다(5단계에서 발견). 이제 한국 기준 값이 그대로 저장된다.
 - 백엔드 로깅은 Lombok `@Slf4j`로 한다. 로그에는 개인정보 대신 ID를 남긴다.
 - 화면·디자인 시스템은 Figma(https://www.figma.com/design/w0OIV1khSVnxlf5KfRo6aP/OhJumWhat)가 기준이다. 글꼴은 Noto Sans KR이고, 색은 의미 기반 토큰(`bg-bg-*`, `text-text-*`, `border-border-*`)만 쓴다. 자세한 규칙은 CLAUDE.md 「디자인 시스템」에 있다.
 
@@ -92,7 +93,7 @@ ohjumwhat/
 | 투표 | `GET /api/orgs/{id}/polls/today`, `POST /api/orgs/{id}/polls` (title, closesAt "HH:mm"), `GET /api/orgs/{id}/polls/{pollId}` (상세 집계) | 완료 |
 | 메뉴 | `POST /api/polls/{pollId}/options`, `DELETE /api/polls/{pollId}/options/{optionId}`, `GET /api/orgs/{id}/menu-names?q=` (자동완성) | 완료 |
 | 참여 | `PUT /api/polls/{pollId}/vote` `{optionId: number \| null}` (null이면 "오늘은 패스") | 완료 |
-| 정기 | `GET/POST /api/orgs/{id}/schedules`, `PUT/DELETE /api/orgs/{id}/schedules/{sid}` | 5단계 |
+| 정기 | `GET/POST /api/orgs/{id}/schedules`, `PUT/DELETE /api/orgs/{id}/schedules/{sid}` | 완료 |
 
 **핵심 규칙**
 - **투표 상세 응답**(폴링 대상): 한 번 호출로 화면 전체를 그릴 수 있게 한다. 담는 값은 `status`(OPEN/CLOSED, now ≥ closesAt이면 CLOSED), `options[{id, name, createdBy, voters[], deletable}]`, `myVote`, `passed[]`, `nonRespondents[]`, `soloOptionIds[]`다.

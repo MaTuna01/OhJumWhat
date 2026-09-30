@@ -4,10 +4,6 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: validate
-    properties:
-      hibernate:
-        jdbc:
-          time_zone: UTC
   security:
     oauth2:
       client:
@@ -16,3 +12,8 @@ spring:
             client-id: test-client-id
             client-secret: test-client-secret
             scope: openid,profile,email
+
+# 백그라운드 스케줄러는 끄고, 테스트에서 ScheduledPollOpener를 고정된 시계로 직접 호출한다.
+ohjumwhat:
+  scheduler:
+    enabled: false
