@@ -1,16 +1,16 @@
 export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost'
 
 const variants: Record<ButtonVariant, string> = {
-  primary: 'bg-orange-500 text-white hover:bg-orange-600',
-  secondary: 'border border-stone-300 bg-white text-stone-800 hover:bg-stone-50',
-  danger: 'bg-red-600 text-white hover:bg-red-700',
-  ghost: 'text-stone-600 hover:bg-stone-100',
+  primary: 'bg-bg-brand text-text-on-brand hover:bg-bg-brand-hover',
+  secondary: 'border border-border-strong bg-bg-surface text-text-primary hover:bg-bg-subtle',
+  danger: 'bg-bg-danger text-text-on-brand hover:bg-bg-danger/90',
+  ghost: 'text-text-secondary hover:bg-bg-muted',
 }
 
 /** 버튼 스타일. 버튼 모양이 필요한 Link에도 쓴다. */
 export function buttonClass(variant: ButtonVariant = 'primary', className = '') {
-  return `inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500 disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${className}`
+  return `inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-brand disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${className}`
 }
 
 export const inputClass =
-  'w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm placeholder:text-stone-400 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20'
+  'w-full rounded-lg border border-border-strong bg-bg-surface px-3 py-2 text-sm placeholder:text-text-placeholder focus:border-border-brand focus:outline-none focus:ring-2 focus:ring-border-brand/20'

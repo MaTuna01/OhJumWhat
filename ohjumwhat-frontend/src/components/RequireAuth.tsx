@@ -24,7 +24,7 @@ export default function RequireAuth() {
         <button
           type="button"
           onClick={() => me.refetch()}
-          className="rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700"
+          className="rounded-lg bg-bg-brand px-4 py-2 text-sm font-medium text-text-on-brand hover:bg-bg-brand-hover"
         >
           다시 시도
         </button>

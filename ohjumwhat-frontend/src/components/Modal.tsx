@@ -26,11 +26,11 @@ export default function Modal({ open, onClose, title, children }: Props) {
         if (e.target === ref.current) onClose()
       }}
       aria-labelledby="modal-title"
-      className="m-auto w-[calc(100%-2rem)] max-w-md rounded-2xl bg-white p-0 text-stone-900 shadow-xl backdrop:bg-stone-900/40"
+      className="m-auto w-[calc(100%-2rem)] max-w-md rounded-2xl bg-bg-surface p-0 text-text-primary shadow-xl backdrop:bg-bg-scrim"
     >
       {open && (
         <div className="p-5">
-          <h2 id="modal-title" className="text-lg font-semibold">
+          <h2 id="modal-title" className="text-lg font-bold">
             {title}
           </h2>
           <div className="mt-4">{children}</div>

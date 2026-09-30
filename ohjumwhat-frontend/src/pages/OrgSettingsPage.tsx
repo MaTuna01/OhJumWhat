@@ -21,7 +21,7 @@ export default function OrgSettingsPage() {
   return (
     <div className="space-y-6">
       <Section title="초대 링크">
-        <p className="mb-3 text-sm text-stone-500">이 링크를 받은 사람은 누구나 조직에 참여할 수 있어요.</p>
+        <p className="mb-3 text-sm text-text-tertiary">이 링크를 받은 사람은 누구나 조직에 참여할 수 있어요.</p>
         <InviteLinkField token={org.inviteToken} />
       </Section>
 
@@ -34,10 +34,10 @@ export default function OrgSettingsPage() {
 
       <Section title="조직 탈퇴">
         <div className="flex items-center justify-between gap-4">
-          <p className="text-sm text-stone-500">
+          <p className="text-sm text-text-tertiary">
             {org.memberCount <= 1 ? '마지막 멤버라서 탈퇴하면 조직이 삭제돼요.' : '탈퇴해도 조직과 다른 멤버의 기록은 남아요.'}
           </p>
-          <Button variant="secondary" className="shrink-0 text-red-600" onClick={() => setLeaving(true)}>
+          <Button variant="secondary" className="shrink-0 text-text-danger" onClick={() => setLeaving(true)}>
             탈퇴
           </Button>
         </div>
@@ -73,7 +73,7 @@ function RenameForm({ org }: { org: Organization }) {
         </Button>
       </div>
       {rename.error && (
-        <p role="alert" className="mt-2 text-sm text-red-600">
+        <p role="alert" className="mt-2 text-sm text-text-danger">
           {rename.error.message}
         </p>
       )}
@@ -90,7 +90,7 @@ function MemberList({ orgId }: { orgId: number }) {
       {members.isPending ? (
         <PageLoader />
       ) : members.isError ? (
-        <p className="text-sm text-red-600">{members.error.message}</p>
+        <p className="text-sm text-text-danger">{members.error.message}</p>
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
           {members.data.map((member) => (
@@ -98,7 +98,7 @@ function MemberList({ orgId }: { orgId: number }) {
               <Avatar name={member.name} imageUrl={member.profileImageUrl} />
               <span className="truncate text-sm">{member.name}</span>
               {member.userId === me?.id && (
-                <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-500">나</span>
+                <span className="rounded-full bg-bg-muted px-2 py-0.5 text-xs text-text-tertiary">나</span>
               )}
             </li>
           ))}

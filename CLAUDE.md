@@ -89,6 +89,33 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 
 **프론트엔드.** 라우트는 `src/router.tsx` 한 곳에 모여 있다(기획서의 화면 7개 + `/` 진입 분기). `/login`을 뺀 모든 화면은 `RequireAuth`(내 정보 조회가 401이면 경로를 기억하고 로그인 화면으로 보냄) 아래에 있다. API 호출은 `lib/api.ts`의 `api()`로만 하고, 서버 상태 훅과 query key는 `src/queries/`에 둔다. `/orgs/:orgId` 아래 화면은 `OrgLayout`이 조직 조회(방문 기록 갱신), 404 처리, 탭을 맡고, 하위 화면은 `useOrganization(orgId)` 캐시를 그대로 쓴다. 버튼·입력창 스타일은 `lib/ui.ts`(`buttonClass`, `inputClass`)에 있고, 모달은 네이티브 `<dialog>` 기반 `Modal`/`ConfirmDialog`를 쓴다. 다른 쿼리나 뮤테이션이 401을 받으면 `main.tsx`의 캐시 핸들러가 내 정보를 다시 불러오고, 그 결과로 로그인 화면으로 이동한다. 서버 상태는 TanStack Query로 관리한다. 투표 상세 화면은 WebSocket을 쓰지 않고 진행 중일 때 몇 초 간격으로 폴링한다(10~20명 규모). 스타일은 Tailwind v4(`@import 'tailwindcss'`, `@tailwindcss/vite` 플러그인)다.
 
+## 디자인 시스템 (Figma) — 프론트엔드는 이것을 기준으로 개발한다
+
+- Figma 파일: https://www.figma.com/design/w0OIV1khSVnxlf5KfRo6aP/OhJumWhat
+  - 「디자인 시스템」 페이지
+    - Foundations 프레임: 로고, 컨셉 컬러, 원색 팔레트, 의미 기반 토큰, 타이포그래피, 간격·둥글기·그림자
+    - Components 프레임: Button, Badge, Avatar, OptionCard, Input, Logo, TopBar
+  - 「와이어프레임」 페이지: 모바일(390px) 화면 12개. 01 로그인부터 07 조직 설정까지와 `-M` 모달
+- **새 화면이나 컴포넌트를 만들 때는 먼저 해당 Figma 프레임을 보고 그대로 구현한다.**
+  - 디자인과 다르게 구현해야 하면 이유를 PR에 적는다.
+  - Figma MCP는 데스크톱 연결(`figma-desktop`)을 쓴다. 원격 Figma MCP 계정에는 이 파일의 편집 권한이 없다.
+- **색은 의미 기반 토큰 클래스만 쓴다.**
+  - 예: `bg-bg-canvas`, `bg-bg-brand`, `text-text-secondary`, `border-border-default`
+  - `stone-*`, `orange-*` 같은 원색 클래스는 화면 코드에서 쓰지 않는다.
+  - 토큰은 `ohjumwhat-frontend/src/index.css`의 `@theme`에 있고, Figma `Color` 변수와 이름이 1:1이다(`color/bg/canvas` → `--color-bg-canvas` → `bg-bg-canvas`).
+  - 토큰을 추가하거나 바꿀 때는 Figma 변수와 `@theme`를 함께 고친다.
+- **글꼴은 Noto Sans KR**(`index.html`에서 Google Fonts로 불러옴)이다.
+  - 굵기는 400(본문) / 500(버튼·라벨·배지) / 700(제목·강조) / 900(로고)만 쓴다. `font-semibold`는 쓰지 않는다.
+  - 텍스트 스타일 대응: H1=`text-2xl font-bold`, H2=`text-lg font-bold`, H3=`font-bold`, Small=`text-sm`, Caption=`text-xs`.
+- **둥글기**: Figma `radius/md·lg·xl·full`(8·12·16·원형)은 Tailwind `rounded-lg·xl·2xl·full`에 대응한다. 입력·버튼 8, 메뉴 12, 카드·모달 16이다.
+- **컴포넌트 대응**
+  - Button → `components/Button.tsx`, `lib/ui.ts`의 `buttonClass`
+  - Input → `lib/ui.ts`의 `inputClass`
+  - Avatar → `components/Avatar.tsx`
+  - Logo → `components/Logo.tsx`(`Logo`, `LogoMark`)
+  - TopBar → `components/AppLayout.tsx`
+  - Badge, OptionCard는 4단계에서 만든다.
+
 ## 코드 스타일
 
 - Java: 탭 들여쓰기(Spring Initializr 스타일), 주석은 한국어.

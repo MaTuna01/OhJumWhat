@@ -16,6 +16,7 @@
 | 1 | 프로젝트 골격 | 완료 | 첫 커밋 (`main`) |
 | 2 | 인증 (구글 로그인·세션·CSRF) | 완료 | [#1](https://github.com/MaTuna01/OhJumWhat/pull/1) |
 | 3 | 조직 (생성·초대·탈퇴·설정·마이페이지) | 완료 | [#2](https://github.com/MaTuna01/OhJumWhat/pull/2) |
+| - | 디자인 시스템·와이어프레임 (Figma) + 코드 토큰 적용 | 완료 | `feature/design-system` |
 | 4 | 투표 핵심 (메뉴·참여·현황·결과) | 다음 작업 | |
 | 5 | 정기 투표 | 예정 | |
 | 6 | 배포·CI/CD | 예정 | |
@@ -27,6 +28,7 @@
 - 디렉터리 이름은 IDE에서 구분하기 쉽게 `ohjumwhat-backend/`, `ohjumwhat-frontend/`로 한다. Java 패키지는 `com.ohjumwhat`이다.
 - 세션은 **Spring Session JDBC로 DB에 저장**한다. 그래서 재시작·재배포 후에도 로그인이 유지되고, `SESSION` 쿠키는 30일 유효하다. 로그인하지 않은 요청에는 세션을 만들지 않는다(`NullRequestCache`).
 - 백엔드 로깅은 Lombok `@Slf4j`로 한다. 로그에는 개인정보 대신 ID를 남긴다.
+- 화면·디자인 시스템은 Figma(https://www.figma.com/design/w0OIV1khSVnxlf5KfRo6aP/OhJumWhat)가 기준이다. 글꼴은 Noto Sans KR이고, 색은 의미 기반 토큰(`bg-bg-*`, `text-text-*`, `border-border-*`)만 쓴다. 자세한 규칙은 CLAUDE.md 「디자인 시스템」에 있다.
 
 ## 형상관리
 - 원격 저장소: https://github.com/MaTuna01/OhJumWhat

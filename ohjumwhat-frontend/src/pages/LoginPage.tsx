@@ -1,4 +1,5 @@
 import { Navigate, useSearchParams } from 'react-router'
+import { LogoMark } from '../components/Logo.tsx'
 import { useMe } from '../queries/me.ts'
 
 export default function LoginPage() {
@@ -13,15 +14,18 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-dvh items-center justify-center px-4">
       <div className="w-full max-w-sm text-center">
-        <h1 className="text-4xl font-bold tracking-tight text-orange-600">오점왓</h1>
-        <p className="mt-3 text-stone-600">
+        <div className="flex justify-center">
+          <LogoMark size={72} />
+        </div>
+        <h1 className="mt-3 text-4xl font-black tracking-tight text-text-brand">오점왓</h1>
+        <p className="mt-3 text-text-secondary">
           오늘 점심 뭐 먹지?
           <br />
           먹고 싶은 메뉴를 올리고 같이 갈 사람을 모아요.
         </p>
 
         {failed && (
-          <p role="alert" className="mt-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+          <p role="alert" className="mt-6 rounded-lg bg-bg-danger-soft px-4 py-3 text-sm text-text-danger">
             로그인하지 못했어요. 다시 시도해 주세요.
           </p>
         )}
@@ -29,7 +33,7 @@ export default function LoginPage() {
         {/* 서버의 OAuth2 로그인 시작 주소. 로그인 후 서버가 /로 돌려보낸다. */}
         <a
           href="/oauth2/authorization/google"
-          className="mt-8 flex w-full items-center justify-center gap-3 rounded-xl border border-stone-300 bg-white px-4 py-3 font-medium shadow-sm hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
+          className="mt-8 flex w-full items-center justify-center gap-3 rounded-xl border border-border-strong bg-bg-surface px-4 py-3 font-medium shadow-sm hover:bg-bg-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-brand"
         >
           <GoogleLogo />
           구글 계정으로 계속하기

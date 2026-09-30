@@ -27,11 +27,11 @@ export default function InvitePage() {
 
   return (
     <div className="mx-auto max-w-sm py-10 text-center">
-      <p className="text-sm text-stone-500">초대를 받았어요</p>
+      <p className="text-sm text-text-tertiary">초대를 받았어요</p>
       <h1 className="mt-2 text-2xl font-bold tracking-tight">{invite.data.name}</h1>
-      <p className="mt-1 text-sm text-stone-500">멤버 {invite.data.memberCount}명</p>
+      <p className="mt-1 text-sm text-text-tertiary">멤버 {invite.data.memberCount}명</p>
       {join.error && (
-        <p role="alert" className="mt-4 text-sm text-red-600">
+        <p role="alert" className="mt-4 text-sm text-text-danger">
           {join.error.message}
         </p>
       )}
