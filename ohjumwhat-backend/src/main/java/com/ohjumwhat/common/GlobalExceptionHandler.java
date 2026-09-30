@@ -2,6 +2,7 @@ package com.ohjumwhat.common;
 
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -28,6 +29,14 @@ public class GlobalExceptionHandler {
 			.map(FieldError::getDefaultMessage)
 			.orElse("입력값을 확인해 주세요.");
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(message));
+	}
+
+	/** 동시에 들어온 요청이 DB 제약(UNIQUE·FK)에 걸린 경우. 예: 같은 메뉴를 동시에 추가 */
+	@ExceptionHandler(DataIntegrityViolationException.class)
+	ResponseEntity<ErrorResponse> handleConflict(DataIntegrityViolationException e) {
+		log.warn("DB 제약 위반: {}", e.getMostSpecificCause().getMessage());
+		return ResponseEntity.status(HttpStatus.CONFLICT)
+			.body(new ErrorResponse("다른 사람의 변경과 겹쳤어요. 다시 시도해 주세요."));
 	}
 
 	@ExceptionHandler(HttpMessageNotReadableException.class)

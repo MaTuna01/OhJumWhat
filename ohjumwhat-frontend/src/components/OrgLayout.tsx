@@ -1,4 +1,4 @@
-import { Link, NavLink, Outlet } from 'react-router'
+import { Link, NavLink, Outlet, useMatch } from 'react-router'
 import { useOrgId } from '../hooks/useOrgId.ts'
 import { ApiError } from '../lib/api.ts'
 import { buttonClass } from '../lib/ui.ts'
@@ -15,6 +15,8 @@ const tabs = [
 export default function OrgLayout() {
   const orgId = useOrgId()
   const org = useOrganization(orgId)
+  // 투표 상세는 Figma 05처럼 조직 머리글·탭 대신 "투표 목록으로" 링크만 둔다.
+  const onPollDetail = useMatch('/orgs/:orgId/polls/:pollId') != null
 
   if (!Number.isInteger(orgId) || (org.error instanceof ApiError && org.error.status === 404)) {
     return (
@@ -31,6 +33,10 @@ export default function OrgLayout() {
   }
   if (org.isPending) {
     return <PageLoader />
+  }
+
+  if (onPollDetail) {
+    return <Outlet />
   }
 
   return (

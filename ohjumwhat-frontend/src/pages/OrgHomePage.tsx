@@ -1,10 +1,82 @@
-import { Section } from '../components/PageState.tsx'
+import { useState } from 'react'
+import { Link } from 'react-router'
+import Badge from '../components/Badge.tsx'
+import Button from '../components/Button.tsx'
+import CreatePollModal from '../components/CreatePollModal.tsx'
+import { PageLoader } from '../components/PageState.tsx'
+import { useNow } from '../hooks/useNow.ts'
+import { useOrgId } from '../hooks/useOrgId.ts'
+import { formatClock, formatRemaining } from '../lib/time.ts'
+import { type PollSummary, useTodayPolls } from '../queries/polls.ts'
 
-// 오늘 열린 투표 카드와 투표 만들기는 4단계에서 추가한다.
+/** Figma 04 조직 홈: 오늘 열린 투표 카드와 투표 만들기 */
 export default function OrgHomePage() {
+  const orgId = useOrgId()
+  const polls = useTodayPolls(orgId)
+  const [creating, setCreating] = useState(false)
+
   return (
-    <Section title="오늘 열린 투표">
-      <p className="rounded-xl bg-bg-subtle px-4 py-8 text-center text-sm text-text-tertiary">오늘 열린 투표가 없어요.</p>
-    </Section>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="font-bold">오늘 열린 투표</h2>
+        <Button onClick={() => setCreating(true)}>+ 투표 만들기</Button>
+      </div>
+      {polls.isPending ? (
+        <PageLoader />
+      ) : polls.isError ? (
+        <p className="text-sm text-text-danger">{polls.error.message}</p>
+      ) : polls.data.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border-strong bg-bg-surface px-4 py-10 text-center">
+          <p className="font-medium">오늘 열린 투표가 없어요</p>
+          <p className="mt-1 text-sm text-text-tertiary">투표를 만들면 바로 열리고, 멤버들이 메뉴를 올릴 수 있어요.</p>
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {/* 진행 중인 투표를 먼저, 같은 상태끼리는 서버 순서(열린 시각 순) */}
+          {[...polls.data].sort((a, b) => Number(b.status === 'OPEN') - Number(a.status === 'OPEN')).map((poll) => (
+            <li key={poll.id}>
+              <PollCard orgId={orgId} poll={poll} />
+            </li>
+          ))}
+        </ul>
+      )}
+      <CreatePollModal orgId={orgId} open={creating} onClose={() => setCreating(false)} />
+    </div>
+  )
+}
+
+function PollCard({ orgId, poll }: { orgId: number; poll: PollSummary }) {
+  const now = useNow()
+  const open = poll.status === 'OPEN'
+  const remaining = open ? formatRemaining(poll.closesAt, now) : null
+  const myChoice =
+    poll.myResponse === 'OPTION' ? `내 선택: ${poll.myOptionName}` : poll.myResponse === 'PASS' ? '내 선택: 오늘은 패스' : '아직 응답하지 않았어요'
+
+  return (
+    <Link
+      to={`/orgs/${orgId}/polls/${poll.id}`}
+      className="flex flex-col gap-2.5 rounded-2xl border border-border-default bg-bg-surface p-4 transition-colors hover:border-border-brand-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-brand"
+    >
+      <div className="flex items-center gap-2">
+        <span className="truncate font-bold">{poll.title}</span>
+        <Badge tone={open ? 'brand' : 'neutral'}>{open ? '진행 중' : '마감'}</Badge>
+        <span className="ml-auto text-lg text-icon-muted" aria-hidden>
+          ›
+        </span>
+      </div>
+      <p className={`text-sm ${open ? 'font-medium text-text-brand' : 'text-text-tertiary'}`}>
+        {open ? `${formatClock(poll.closesAt)} 마감${remaining ? ` · ${remaining}` : ''}` : `${formatClock(poll.closesAt)}에 마감됐어요`}
+      </p>
+      <p className="text-sm text-text-secondary">
+        응답 {poll.respondedCount}/{poll.memberCount}명 · {open ? `메뉴 ${poll.optionCount}개` : `${poll.teamCount}팀`}
+      </p>
+      <span
+        className={`self-start rounded-lg px-2.5 py-1 text-xs font-medium ${
+          poll.myResponse === 'OPTION' ? 'bg-bg-brand-soft text-text-brand-strong' : 'bg-bg-muted text-text-tertiary'
+        }`}
+      >
+        {myChoice}
+      </span>
+    </Link>
   )
 }

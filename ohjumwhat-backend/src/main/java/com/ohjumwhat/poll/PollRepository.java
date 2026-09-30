@@ -10,6 +10,9 @@ import org.springframework.data.jpa.repository.Query;
 
 public interface PollRepository extends JpaRepository<Poll, Long> {
 
+	/** 조직 홈의 "오늘 열린 투표" (poll_date = 오늘, 한국 날짜) */
+	List<Poll> findByOrganizationIdAndPollDateOrderByOpensAtAscIdAsc(Long organizationId, LocalDate pollDate);
+
 	/** 오늘(한국 날짜) 열려 있고 아직 마감되지 않은 투표가 있는 조직 ID */
 	@Query("""
 			select distinct p.organizationId from Poll p
