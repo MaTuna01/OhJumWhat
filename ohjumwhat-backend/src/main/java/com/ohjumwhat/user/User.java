@@ -4,6 +4,8 @@ import java.time.Instant;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -30,6 +32,13 @@ public class User {
 
 	private String profileImageUrl;
 
+	// DB 기본값은 Hibernate가 INSERT에 컬럼을 넣으므로 쓰이지 않는다. 여기서 기본값을 둔다.
+	@Enumerated(EnumType.STRING)
+	@Column(nullable = false, length = 20)
+	private Role role = Role.USER;
+
+	private Instant lastLoginAt;
+
 	@Column(nullable = false)
 	private Instant createdAt;
 
@@ -51,6 +60,22 @@ public class User {
 		this.email = email;
 		this.name = name;
 		this.profileImageUrl = profileImageUrl;
+	}
+
+	public void recordLogin(Instant now) {
+		this.lastLoginAt = now;
+	}
+
+	public void promote() {
+		this.role = Role.ADMIN;
+	}
+
+	public void demote() {
+		this.role = Role.USER;
+	}
+
+	public boolean isAdmin() {
+		return role == Role.ADMIN;
 	}
 
 	@PrePersist
@@ -82,5 +107,17 @@ public class User {
 
 	public String getProfileImageUrl() {
 		return profileImageUrl;
+	}
+
+	public Role getRole() {
+		return role;
+	}
+
+	public Instant getLastLoginAt() {
+		return lastLoginAt;
+	}
+
+	public Instant getCreatedAt() {
+		return createdAt;
 	}
 }

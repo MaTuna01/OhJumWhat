@@ -17,3 +17,6 @@ spring:
 ohjumwhat:
   scheduler:
     enabled: false
+  # 관리자 이메일(테스트용). 이 이메일로 인증된 구글 로그인을 하면 관리자가 된다.
+  admin:
+    emails: admin@example.com

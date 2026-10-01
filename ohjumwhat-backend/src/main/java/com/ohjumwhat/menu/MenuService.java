@@ -58,7 +58,7 @@ public class MenuService {
 		MenuOption option = menuOptionRepository.findById(optionId)
 			.filter(o -> o.getPollId().equals(pollId))
 			.orElseThrow(() -> ApiException.notFound("메뉴를 찾을 수 없어요."));
-		if (!option.getCreatedBy().equals(userId)) {
+		if (!userId.equals(option.getCreatedBy())) {
 			throw ApiException.forbidden("메뉴를 추가한 사람만 삭제할 수 있어요.");
 		}
 		pollService.requireOpen(poll);
