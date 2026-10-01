@@ -220,9 +220,9 @@ class PollIntegrationTest extends IntegrationTest {
 		addOption(other, otherPoll, "순두부찌개");
 
 		mockMvc.perform(get("/api/orgs/" + orgId + "/menu-names").param("q", "순").with(loginAs(lee)))
-			.andExpect(jsonPath("$", contains("순대국")));
+			.andExpect(jsonPath("$[*].name", contains("순대국")));
 		mockMvc.perform(get("/api/orgs/" + orgId + "/menu-names").with(loginAs(lee)))
-			.andExpect(jsonPath("$", containsInAnyOrder("김치찌개", "순대국")));
+			.andExpect(jsonPath("$[*].name", containsInAnyOrder("김치찌개", "순대국")));
 	}
 
 	@Test

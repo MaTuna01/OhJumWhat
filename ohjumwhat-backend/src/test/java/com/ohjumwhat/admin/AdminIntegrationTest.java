@@ -107,8 +107,8 @@ class AdminIntegrationTest extends IntegrationTest {
 		soloOrgId = organizationService.create(lee.getId(), "혼자팀").id();
 
 		pollId = pollService.create(devOrgId, kim.getId(), new PollRequest("점심", "11:50")).id();
-		menuService.add(pollId, kim.getId(), "김치찌개");
-		PollDetailResponse detail = menuService.add(pollId, lee.getId(), "마라탕");
+		menuService.add(pollId, kim.getId(), "김치찌개", null);
+		PollDetailResponse detail = menuService.add(pollId, lee.getId(), "마라탕", null);
 		leeMenuId = detail.options().get(1).id();
 		voteService.vote(pollId, lee.getId(), leeMenuId);
 	}

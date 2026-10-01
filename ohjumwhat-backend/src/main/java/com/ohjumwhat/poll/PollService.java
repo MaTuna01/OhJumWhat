@@ -201,8 +201,8 @@ public class PollService {
 			// 추가한 사람이 강제 탈퇴로 삭제됐으면 createdBy는 null이다("탈퇴한 사용자").
 			boolean mine = userId.equals(option.getCreatedBy());
 			PersonResponse creator = option.getCreatedBy() == null ? null : people.get(option.getCreatedBy());
-			return new PollDetailResponse.Option(option.getId(), option.getName(), creator, voters, mine,
-					mine && voters.isEmpty() && !closed);
+			return new PollDetailResponse.Option(option.getId(), option.getName(), option.getLinkUrl(), creator, voters,
+					mine, mine && voters.isEmpty() && !closed);
 		}).toList();
 
 		Set<Long> responded = votes.stream().map(Vote::getUserId).collect(Collectors.toSet());

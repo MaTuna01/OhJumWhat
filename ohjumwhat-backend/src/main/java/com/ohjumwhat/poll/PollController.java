@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.ohjumwhat.auth.LoginUser;
 import com.ohjumwhat.menu.MenuService;
+import com.ohjumwhat.menu.MenuSuggestion;
 import com.ohjumwhat.vote.VoteService;
 
 @RestController
@@ -73,7 +74,7 @@ public class PollController {
 	}
 
 	@GetMapping("/api/orgs/{orgId}/menu-names")
-	List<String> menuNames(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long orgId,
+	List<MenuSuggestion> menuNames(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long orgId,
 			@RequestParam(defaultValue = "") String q) {
 		return menuService.suggestions(orgId, loginUser.getUserId(), q);
 	}
@@ -82,7 +83,14 @@ public class PollController {
 	@ResponseStatus(HttpStatus.CREATED)
 	PollDetailResponse addOption(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId,
 			@Valid @RequestBody AddOptionRequest request) {
-		return menuService.add(pollId, loginUser.getUserId(), request.name());
+		return menuService.add(pollId, loginUser.getUserId(), request.name(), request.link());
+	}
+
+	/** link가 비어 있으면 링크를 지운다. */
+	@PutMapping("/api/polls/{pollId}/options/{optionId}/link")
+	PollDetailResponse changeLink(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId,
+			@PathVariable Long optionId, @Valid @RequestBody LinkRequest request) {
+		return menuService.changeLink(pollId, optionId, loginUser.getUserId(), request.link());
 	}
 
 	@DeleteMapping("/api/polls/{pollId}/options/{optionId}")
@@ -98,10 +106,16 @@ public class PollController {
 		return voteService.vote(pollId, loginUser.getUserId(), request.optionId());
 	}
 
+	/** link: 식당 지도 링크(선택). 지도 앱의 공유 문구를 통째로 붙여도 된다. */
 	record AddOptionRequest(
 			@NotBlank(message = "메뉴 이름을 입력해 주세요.")
 			@Size(max = 50, message = "메뉴 이름은 50자 이하로 입력해 주세요.")
-			String name) {
+			String name,
+			@Size(max = 1000, message = "링크가 너무 길어요.")
+			String link) {
+	}
+
+	record LinkRequest(@Size(max = 1000, message = "링크가 너무 길어요.") String link) {
 	}
 
 	record VoteRequest(Long optionId) {
