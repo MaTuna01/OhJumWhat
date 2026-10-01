@@ -71,6 +71,41 @@ public class NoticeService {
 		}
 	}
 
+	/** 관리자: 개발자 노트 쓰기. 지금 게시한다. */
+	@Transactional
+	public NoticePageResponse.Item createNote(Long adminId, NoticeRequest request) {
+		Notice notice = noticeRepository
+			.save(Notice.note(request.title().strip(), request.body().strip(), adminId, Instant.now(clock)));
+		log.info("관리자 공지 작성: adminId={}, noticeId={}", adminId, notice.getId());
+		return item(notice, seenSince(adminId));
+	}
+
+	/** 관리자: 개발자 노트 고치기. 게시 시각은 그대로라 다시 알리지 않는다. */
+	@Transactional
+	public NoticePageResponse.Item updateNote(Long adminId, Long noticeId, NoticeRequest request) {
+		Notice notice = requireNote(noticeId);
+		notice.revise(request.title().strip(), request.body().strip());
+		log.info("관리자 공지 수정: adminId={}, noticeId={}", adminId, noticeId);
+		return item(notice, seenSince(adminId));
+	}
+
+	/** 관리자: 개발자 노트 지우기 */
+	@Transactional
+	public void deleteNote(Long adminId, Long noticeId) {
+		noticeRepository.delete(requireNote(noticeId));
+		log.info("관리자 공지 삭제: adminId={}, noticeId={}", adminId, noticeId);
+	}
+
+	/** 콘솔에서 고칠 수 있는 공지(개발자 노트). 업데이트 글은 저장소 파일이 원본이라 409로 막는다. */
+	private Notice requireNote(Long noticeId) {
+		Notice notice = noticeRepository.findById(noticeId)
+			.orElseThrow(() -> ApiException.notFound("공지를 찾을 수 없어요."));
+		if (notice.isRelease()) {
+			throw ApiException.conflict("업데이트 글은 저장소 파일에서 고쳐요.");
+		}
+		return notice;
+	}
+
 	/** 읽음 기준 시각. 강제 탈퇴 등으로 회원이 없어졌다면 401로 응답해 로그인 화면으로 보낸다. */
 	private Instant seenSince(Long userId) {
 		User user = userRepository.findById(userId)
