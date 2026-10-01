@@ -87,6 +87,10 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 
 **도메인 규칙 중 코드만 봐서는 알기 어려운 것**
 - 마감은 별도 배치 없이 판정한다. 요청 시점이 `closes_at` 이후면 마감이다(`Poll.isClosed`).
+- 진행 중인 투표는 조직 멤버 누구나 관리한다(투표 상세 제목 옆 ⋯, `PollService.update`/`close`/`delete`). 마감된 투표는 기록이라 수정·삭제하지 않는다.
+  - 수정: 제목과 마감 시간("HH:mm", 투표 날짜 기준). 마감 시간은 지금보다 뒤여야 한다. 정기 투표도 그 투표만 바뀐다.
+  - 지금 마감: 상태 컬럼 없이 `closes_at`을 지금으로 당긴다. CHECK `closes_at > opens_at` 때문에 열린 지 1초 안에는 409다.
+  - 삭제: 수동 투표만 된다. 정기 투표로 열린 투표는 지워도 스케줄러가 1분 안에 다시 열기 때문에 409를 주고 "지금 마감"을 안내한다.
 - 정기 투표는 매분 0초(KST)에 `PollScheduler`가 `ScheduledPollOpener.openDuePolls()`를 호출해서 연다.
   - 조건: 오늘 요일이 규칙에 포함되고, 오픈 ≤ 지금 < 마감이고, (규칙, 오늘) 투표가 아직 없을 때
   - 투표의 `opens_at`은 규칙의 오픈 시각이고, 제목은 규칙 이름이다.
@@ -151,8 +155,8 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 「디자인 시스템」 페이지
     - Foundations 프레임: 로고, 컨셉 컬러, 원색 팔레트, 의미 기반 토큰, 타이포그래피, 간격·둥글기·그림자
     - Components 프레임: Button, Badge, Avatar, OptionCard, Input, Logo, TopBar
-  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면 12개. 01 로그인부터 07 조직 설정까지와 `-M` 모달
-  - 「와이어프레임 · 데스크톱」 페이지: 같은 화면 12개의 데스크톱(1440px) 버전(`D01`~`D07-M`)
+  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제)
+  - 「와이어프레임 · 데스크톱」 페이지: 같은 화면의 데스크톱(1440px) 버전(`D01`~`D07-M`, `D05-A`). 모달은 모바일 `-M` 프레임과 같다.
   - 「관리자 콘솔」 페이지: 관리자 화면(모바일 `A01`~`A07`, 데스크톱 `DA01`~`DA07`, 강제 탈퇴 모달 `-M`, 차단된 로그인 `L01`)과 로컬 컴포넌트 StatCard·ListRow
     - 콘텐츠 폭 1024px 가운데 정렬. 1024px 이상(`lg`)에서 본문 + 오른쪽 사이드(320px) 2단, 그보다 좁으면 모바일 레이아웃을 쓴다.
     - 로그인은 좌우 분할(왼쪽 브랜드 소개·투표 미리보기, 오른쪽 로그인), 모달은 폭 448px이다.
@@ -178,6 +182,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - Badge → `components/Badge.tsx`
   - OptionCard → `components/OptionCard.tsx`(투표 상세의 메뉴 카드, 결과 모드 포함)
   - 멤버 카드(Figma 「멤버 N명」) → `components/MemberList.tsx`(조직 설정, 데스크톱 조직 홈 사이드)
+  - 투표 관리 메뉴·모달(05-A, 05-M1~M3) → `components/PollManageMenu.tsx`. 제목·마감 시간 입력은 만들기(04-M)와 수정이 `components/PollForm.tsx`를 같이 쓴다.
   - StatCard·ListRow(관리자 콘솔) → `components/AdminParts.tsx`(`StatCard`, `ListRow`, `ActionRow`, `DangerZone`, `AdminSearch`)
 
 ## 코드 스타일
