@@ -16,6 +16,7 @@ import MyPage from './pages/MyPage.tsx'
 import NotFoundPage from './pages/NotFoundPage.tsx'
 import OrgHomePage from './pages/OrgHomePage.tsx'
 import OrgSettingsPage from './pages/OrgSettingsPage.tsx'
+import OrgStatsPage from './pages/OrgStatsPage.tsx'
 import PollDetailPage from './pages/PollDetailPage.tsx'
 import RootRedirect from './pages/RootRedirect.tsx'
 import RouteErrorPage from './pages/RouteErrorPage.tsx'
@@ -44,6 +45,7 @@ export const router = createBrowserRouter([
                   { index: true, element: <OrgHomePage /> },
                   { path: 'polls/:pollId', element: <PollDetailPage /> },
                   { path: 'schedules', element: <SchedulesPage /> },
+                  { path: 'stats', element: <OrgStatsPage /> },
                   { path: 'settings', element: <OrgSettingsPage /> },
                 ],
               },

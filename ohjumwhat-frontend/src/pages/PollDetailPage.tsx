@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import Badge from '../components/Badge.tsx'
+import MapLinkModal from '../components/MapLinkModal.tsx'
 import MenuInput from '../components/MenuInput.tsx'
 import OptionCard from '../components/OptionCard.tsx'
 import { PageLoader, PageMessage, Section } from '../components/PageState.tsx'
@@ -57,6 +59,7 @@ function OpenPoll({ orgId, poll }: { orgId: number; poll: PollDetail }) {
   const vote = useVote(orgId, poll.id, me)
   const addOption = useAddOption(orgId, poll.id)
   const deleteOption = useDeleteOption(orgId, poll.id)
+  const [linkOptionId, setLinkOptionId] = useState<number | null>(null)
   const remaining = formatRemaining(poll.closesAt, now)
   const error = vote.error ?? addOption.error ?? deleteOption.error
   const passedMe = poll.myResponse === 'PASS'
@@ -84,7 +87,7 @@ function OpenPoll({ orgId, poll }: { orgId: number; poll: PollDetail }) {
           orgId={orgId}
           existing={poll.options.map((o) => o.name)}
           pending={addOption.isPending}
-          onAdd={(name) => addOption.mutateAsync(name)}
+          onAdd={(name, link) => addOption.mutateAsync({ name, link })}
         />
 
         {error && (
@@ -109,12 +112,19 @@ function OpenPoll({ orgId, poll }: { orgId: number; poll: PollDetail }) {
                   selected={poll.myOptionId === option.id}
                   onSelect={() => poll.myOptionId !== option.id && vote.mutate(option.id)}
                   onDelete={() => deleteOption.mutate(option.id)}
+                  onEditLink={() => setLinkOptionId(option.id)}
                   disabled={deleteOption.isPending}
                 />
               ))}
             </>
           )}
         </section>
+        <MapLinkModal
+          orgId={orgId}
+          pollId={poll.id}
+          option={poll.options.find((o) => o.id === linkOptionId) ?? null}
+          onClose={() => setLinkOptionId(null)}
+        />
       </div>
 
       <aside className="space-y-4">
