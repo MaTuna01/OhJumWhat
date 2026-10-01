@@ -4,6 +4,7 @@ import AppLayout from './components/AppLayout.tsx'
 import OrgLayout from './components/OrgLayout.tsx'
 import RequireAuth from './components/RequireAuth.tsx'
 import AdminBlocksPage from './pages/admin/AdminBlocksPage.tsx'
+import AdminNoticesPage from './pages/admin/AdminNoticesPage.tsx'
 import AdminOrgPage from './pages/admin/AdminOrgPage.tsx'
 import AdminOrgsPage from './pages/admin/AdminOrgsPage.tsx'
 import AdminOverviewPage from './pages/admin/AdminOverviewPage.tsx'
@@ -63,6 +64,7 @@ export const router = createBrowserRouter([
               { path: 'orgs/:orgId', element: <AdminOrgPage /> },
               { path: 'polls/:pollId', element: <AdminPollPage /> },
               { path: 'blocks', element: <AdminBlocksPage /> },
+              { path: 'notices', element: <AdminNoticesPage /> },
             ],
           },
           { path: '*', element: <NotFoundPage /> },

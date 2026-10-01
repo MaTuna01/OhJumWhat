@@ -46,7 +46,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 
 ## 아키텍처
 
-7단계(마무리·QA)까지 모두 마쳤고, https://www.ohjumwhat.cloud 에서 운영 중이다(`main` push 시 자동 배포, 버전은 `CHANGELOG.md`). 구현된 범위는 골격·스키마, 구글 로그인·세션, 조직, 투표·메뉴·참여·결과, 정기 투표, 배포, 마무리·QA(오류 화면, 링크 미리보기, 보안 헤더, 데스크톱 레이아웃)이고, 그 뒤에 서비스 관리자 콘솔(`/admin`)을 추가했다.
+7단계(마무리·QA)까지 모두 마쳤고, https://www.ohjumwhat.cloud 에서 운영 중이다(`main` push 시 자동 배포, 버전은 `CHANGELOG.md`). 구현된 범위는 골격·스키마, 구글 로그인·세션, 조직, 투표·메뉴·참여·결과, 정기 투표, 배포, 마무리·QA(오류 화면, 링크 미리보기, 보안 헤더, 데스크톱 레이아웃)이고, 그 뒤에 서비스 관리자 콘솔(`/admin`)과 새 소식(`/notices`, 업데이트·개발자 노트)을 추가했다.
 
 **동일 출처 구조.** 운영에서는 React 빌드 결과를 Spring Boot jar의 static 리소스로 넣어 이미지 하나로 배포한다(Caddy가 앞단). 개발에서는 Vite가 백엔드 경로를 프록시하는데, `changeOrigin: false`로 Host 헤더를 유지하고 백엔드는 `server.forward-headers-strategy: framework`로 설정한다. 그래서 CORS 설정이 없고, 인증은 JWT 없이 **세션 쿠키**로 한다. 프론트의 `/login`은 SPA 화면이고, Spring의 기본 로그인 페이지는 쓰지 않는다. 운영에서 파일이 없는 화면 경로는 `common/SpaWebConfig`가 `index.html`로 돌려준다.
 
@@ -122,6 +122,20 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 진행 중인 정기 투표를 지우면 스케줄러가 1분 안에 다시 열기 때문에, 투표 삭제는 `withSchedule`로 규칙도 함께 지울 수 있다.
 - 조회 쿼리는 `admin/AdminRepository`(JPQL `select new AdminResponses$...`)에 모아 둔다. 목록은 검색어 `q`, 최대 100건이다.
 
+**새 소식**(`notice` 패키지, 프론트 `/notices`, Notion 「14. 공지사항 기능」)
+- 업데이트(`RELEASE`, 릴리스 노트)와 개발자 노트(`NOTE`)를 `notices` 테이블(V6) 하나에 둔다. 글을 고쳐도 `published_at`은 그대로라 다시 알리지 않는다.
+- 업데이트 글의 원본은 저장소 파일 `ohjumwhat-backend/src/main/resources/release-notes/{버전}.md`(첫 줄 `# 제목`, 나머지 본문)다.
+  - 서버가 뜰 때 `ReleaseNoteSync`(ApplicationRunner)가 DB와 맞춘다. 새 버전은 지금 게시하고(게시 시각 = 배포 시각), 내용이 바뀐 글은 게시 시각을 두고 고친다. 파일이 없어져도 지우지 않는다.
+  - 형식이 잘못된 파일은 건너뛰고, 어떤 오류도 서버 시작을 막지 않는다(시작 실패 = 헬스 체크 실패 = 서비스 중단). 실제 파일 형식은 `ReleaseNoteTest`가 CI에서 확인한다.
+  - 테스트에서는 `ohjumwhat.release-notes.enabled=false`로 끄고 `NoticeService.syncReleaseNotes`를 직접 부른다(시작 때 넣은 행이 첫 테스트까지 남기 때문).
+- 개발자 노트는 관리자 콘솔 「공지」(`/api/admin/notices`)에서 쓰고 고치고 지운다. 업데이트 글은 콘솔에서 고칠 수 없다(409).
+- 안 읽은 공지 = `published_at > coalesce(users.notices_seen_at, users.created_at)`. 새로 가입한 사람에게 지난 공지는 안 읽음이 아니다. 공지별 읽음은 없다.
+  - `/notices`를 열거나 배너를 닫으면 `POST /api/notices/seen`이 `notices_seen_at`만 update한다(엔티티를 저장하면 같은 순간의 로그인·별명 변경을 덮어쓸 수 있다).
+  - `users.created_at`은 `Clock`이 아니라 실제 시각이다. 안 읽음 테스트의 게시 시각은 회원의 실제 가입 시각을 기준으로 정한다.
+- 화면: 상단 바 종 아이콘(`NoticeBell`, 안 읽으면 점), 조직 홈 맨 위 배너(`NoticeBanner`, 속한 조직이 없으면 마이페이지, 투표 상세에는 없음), `/notices`(`NoticesPage`, 연 시점 기준 NEW).
+  - 본문은 일반 텍스트다(`lib/noticeBody.ts`): 빈 줄 = 문단, "- " = 목록, http(s) 주소 = 새 탭 링크. HTML·마크다운은 해석하지 않는다.
+- 새 버전 안내: Vite가 빌드 ID를 코드(`__BUILD_ID__`)와 `dist/version.json`에 넣는다. 운영 빌드에서 창이 다시 보일 때와 5분마다 비교해 다르면 `UpdateToast`를 띄운다. `__APP_VERSION__`은 `package.json` 버전이다.
+
 **투표 화면.**
 - 투표 상세(`PollDetailPage`)는 진행 중일 때 3초마다 폴링하고, 마감 응답을 받으면 결과 모드로 바뀌며 폴링을 멈춘다.
 - 참여·패스는 `lib/pollDetail.ts`의 `applyVote`로 먼저 화면에 반영(낙관적 업데이트)하고, 실패하면 되돌린다. 이 함수는 서버 `PollService.detail`과 같은 규칙으로 다시 계산하므로, 규칙을 바꿀 때는 둘을 함께 고친다.
@@ -129,7 +143,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 마감 결과의 「결과 복사」는 `lib/share.ts`의 `resultText`(메신저에 붙일 글)와 `copyText`(클립보드, 안 되면 숨긴 입력창)로 한다.
 - 시간 표시는 `lib/time.ts`(한국 시간 기준)를 쓴다. 요일 비트마스크(월=1 … 일=64, 평일=31)는 `lib/daysOfWeek.ts`로 변환한다.
 
-**프론트엔드.** 라우트는 `src/router.tsx` 한 곳에 모여 있다(기획서의 화면 7개 + `/` 진입 분기). `/login`을 뺀 모든 화면은 `RequireAuth`(내 정보 조회가 401이면 경로를 기억하고 로그인 화면으로 보냄) 아래에 있다. API 호출은 `lib/api.ts`의 `api()`로만 하고, 서버 상태 훅과 query key는 `src/queries/`에 둔다. `/orgs/:orgId` 아래 화면은 `OrgLayout`이 조직 조회(방문 기록 갱신), 404 처리, 탭을 맡고, 하위 화면은 `useOrganization(orgId)` 캐시를 그대로 쓴다. 버튼·입력창 스타일은 `lib/ui.ts`(`buttonClass`, `inputClass`)에 있고, 모달은 네이티브 `<dialog>` 기반 `Modal`/`ConfirmDialog`를 쓴다. 다른 쿼리나 뮤테이션이 401을 받으면 `main.tsx`의 캐시 핸들러가 내 정보를 다시 불러오고, 그 결과로 로그인 화면으로 이동한다. 서버 상태는 TanStack Query로 관리한다. 투표 상세 화면은 WebSocket을 쓰지 않고 진행 중일 때 몇 초 간격으로 폴링한다(10~20명 규모). 스타일은 Tailwind v4(`@import 'tailwindcss'`, `@tailwindcss/vite` 플러그인)다.
+**프론트엔드.** 라우트는 `src/router.tsx` 한 곳에 모여 있다(기획서의 화면 7개 + `/` 진입 분기 + 새 소식·관리자 콘솔). `/login`을 뺀 모든 화면은 `RequireAuth`(내 정보 조회가 401이면 경로를 기억하고 로그인 화면으로 보냄) 아래에 있다. API 호출은 `lib/api.ts`의 `api()`로만 하고, 서버 상태 훅과 query key는 `src/queries/`에 둔다. `/orgs/:orgId` 아래 화면은 `OrgLayout`이 조직 조회(방문 기록 갱신), 404 처리, 탭을 맡고, 하위 화면은 `useOrganization(orgId)` 캐시를 그대로 쓴다. 버튼·입력창 스타일은 `lib/ui.ts`(`buttonClass`, `inputClass`)에 있고, 모달은 네이티브 `<dialog>` 기반 `Modal`/`ConfirmDialog`를 쓴다. 다른 쿼리나 뮤테이션이 401을 받으면 `main.tsx`의 캐시 핸들러가 내 정보를 다시 불러오고, 그 결과로 로그인 화면으로 이동한다. 서버 상태는 TanStack Query로 관리한다. 투표 상세 화면은 WebSocket을 쓰지 않고 진행 중일 때 몇 초 간격으로 폴링한다(10~20명 규모). 스타일은 Tailwind v4(`@import 'tailwindcss'`, `@tailwindcss/vite` 플러그인)다.
 
 **반응형.** 1024px(`lg`) 미만은 모바일 레이아웃을 가운데 768px로 보여주고, `lg` 이상은 Figma 「와이어프레임 · 데스크톱」대로 콘텐츠 폭 1024px에 본문 + 오른쪽 사이드(320px) 2단이다(`AppLayout`, `lib/ui.ts`의 `columnsClass`).
 - DOM 순서는 모바일 순서로 둔다. 사이드로 보낼 카드가 모바일 순서 중간에 있으면 grid 위치 클래스(`lg:col-start-2` 등)로 옮긴다(예: `MyPage`, `OrgSettingsPage`).
@@ -148,6 +162,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - Caddy가 HTTPS를 맡고, `X-Forwarded-*` 헤더로 원래 주소를 넘긴다. 그래서 앱은 https 리디렉션 URI를 만들고, `Secure` 쿠키를 쓴다.
 - 서버 설정, Secrets, 롤백, 백업·복원 방법은 `docs/DEPLOY.md`에 있다.
 - `dev` → `main` 승격 하나가 릴리스 하나다. 승격 전에 버전(`build.gradle.kts`, `package.json`)을 올리고 `CHANGELOG.md`를 적는다. 배포 뒤에는 `vX.Y.Z` 태그와 GitHub Release를 만든다(`docs/DEPLOY.md` 「릴리스와 버전」).
+  - 사용자에게 보이는 변경이 있으면 업데이트 글 `ohjumwhat-backend/src/main/resources/release-notes/X.Y.Z.md`도 함께 적는다. 배포되면 새 소식에 자동으로 올라간다. CHANGELOG는 개발자용, 업데이트 글은 사용자용이다(사용자 말투 3~5줄, DB·마이그레이션 같은 개발 용어는 쓰지 않는다).
 - 보안 헤더
   - HSTS·nosniff·X-Frame-Options는 Spring Security가 붙인다.
   - Referrer-Policy·Permissions-Policy·**CSP**는 `deploy/Caddyfile`이 붙인다. Caddyfile이 바뀌면 배포 스크립트가 검증 후 Caddy 컨테이너를 다시 만든다(단일 파일 마운트라 `up -d`만으로는 반영되지 않는다).
@@ -159,10 +174,10 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - Figma 파일: https://www.figma.com/design/w0OIV1khSVnxlf5KfRo6aP/OhJumWhat
   - 「디자인 시스템」 페이지
     - Foundations 프레임: 로고, 컨셉 컬러, 원색 팔레트, 의미 기반 토큰, 타이포그래피, 간격·둥글기·그림자
-    - Components 프레임: Button, Badge, Avatar, OptionCard, Input, Logo, TopBar
-  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 별명(`03-N` 마이페이지, `03-M2` 이름 바꾸기), 지난 투표(`04-H`), 결과 복사(`05b-S`), 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제), 식당 지도 링크(`05-L`, `05-M4` 링크 모달), 메뉴 추천(`05-R`), `08 통계`
-  - 「와이어프레임 · 데스크톱」 페이지: 같은 화면의 데스크톱(1440px) 버전(`D01`~`D07-M`, `D03-N`, `D04-H`, `D05-A`, `D08`). 모달은 모바일 `-M` 프레임과 같다.
-  - 「관리자 콘솔」 페이지: 관리자 화면(모바일 `A01`~`A07`, 데스크톱 `DA01`~`DA07`, 강제 탈퇴 모달 `-M`, 차단된 로그인 `L01`)과 로컬 컴포넌트 StatCard·ListRow
+    - Components 프레임: Button, Badge, Avatar, OptionCard, Input, Logo, TopBar(「새 소식 점」 속성), UpdateToast
+  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 별명(`03-N` 마이페이지, `03-M2` 이름 바꾸기), 지난 투표(`04-H`), 새 소식 배너(`04-B`), 결과 복사(`05b-S`), 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제), 식당 지도 링크(`05-L`, `05-M4` 링크 모달), 메뉴 추천(`05-R`), `08 통계`, `09 새 소식`
+  - 「와이어프레임 · 데스크톱」 페이지: 같은 화면의 데스크톱(1440px) 버전(`D01`~`D07-M`, `D03-N`, `D04-H`, `D05-A`, `D08`, `D09`). 모달은 모바일 `-M` 프레임과 같다.
+  - 「관리자 콘솔」 페이지: 관리자 화면(모바일 `A01`~`A08`, 데스크톱 `DA01`~`DA08`, 강제 탈퇴 모달 `-M`, 공지 글쓰기 모달 `A08-M`, 차단된 로그인 `L01`)과 로컬 컴포넌트 StatCard·ListRow
     - 콘텐츠 폭 1024px 가운데 정렬. 1024px 이상(`lg`)에서 본문 + 오른쪽 사이드(320px) 2단, 그보다 좁으면 모바일 레이아웃을 쓴다.
     - 로그인은 좌우 분할(왼쪽 브랜드 소개·투표 미리보기, 오른쪽 로그인), 모달은 폭 448px이다.
 - **새 화면이나 컴포넌트를 만들 때는 먼저 해당 Figma 프레임을 보고 그대로 구현한다.**
@@ -190,6 +205,9 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 이름 바꾸기 모달(03-M2) → `components/NicknameModal.tsx`
   - 투표 관리 메뉴·모달(05-A, 05-M1~M3) → `components/PollManageMenu.tsx`. 제목·마감 시간 입력은 만들기(04-M)와 수정이 `components/PollForm.tsx`를 같이 쓴다.
   - StatCard·ListRow(관리자 콘솔) → `components/AdminParts.tsx`(`StatCard`, `ListRow`, `ActionRow`, `DangerZone`, `AdminSearch`)
+  - TopBar 종 아이콘(「새 소식 점」) → `components/NoticeBell.tsx`, 새 소식 배너(04-B) → `components/NoticeBanner.tsx`, 새 소식 카드의 배지·본문 → `components/NoticeBadge.tsx`·`components/NoticeBody.tsx`
+  - UpdateToast → `components/UpdateToast.tsx`
+  - 공지 글쓰기 모달(A08-M) → `components/NoticeFormModal.tsx`(쓰기·고치기 공용, 「미리보기」 토글)
 
 ## 코드 스타일
 
