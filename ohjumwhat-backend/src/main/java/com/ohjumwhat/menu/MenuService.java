@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.ohjumwhat.common.ApiException;
 import com.ohjumwhat.organization.MembershipService;
+import com.ohjumwhat.place.PlaceLinks;
 import com.ohjumwhat.poll.Poll;
 import com.ohjumwhat.poll.PollDetailResponse;
 import com.ohjumwhat.poll.PollService;
@@ -49,7 +50,7 @@ public class MenuService {
 		Poll poll = pollService.getForMember(pollId, userId);
 		pollService.requireOpen(poll);
 		String name = rawName.strip();
-		String link = MenuLinks.normalize(rawLink);
+		String link = PlaceLinks.normalize(rawLink);
 		if (menuOptionRepository.existsByPollIdAndName(pollId, name)) {
 			throw ApiException.conflict("이미 있는 메뉴예요.");
 		}
@@ -67,7 +68,7 @@ public class MenuService {
 			throw ApiException.forbidden("메뉴를 추가한 사람만 링크를 고칠 수 있어요.");
 		}
 		pollService.requireOpen(poll);
-		option.changeLink(MenuLinks.normalize(rawLink));
+		option.changeLink(PlaceLinks.normalize(rawLink));
 		log.info("메뉴 링크 변경: pollId={}, optionId={}, userId={}, 링크={}", pollId, optionId, userId,
 				option.getLinkUrl() != null);
 		return pollService.detail(poll, userId);
