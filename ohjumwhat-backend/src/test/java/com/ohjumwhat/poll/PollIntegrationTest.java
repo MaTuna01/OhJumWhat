@@ -322,6 +322,62 @@ class PollIntegrationTest extends IntegrationTest {
 			.andExpect(jsonPath("$.title").value("점심"));
 	}
 
+	@Test
+	void 지난_투표는_오늘_이전_투표를_최신순으로_팀과_내_응답과_함께_보여준다() throws Exception {
+		clock.set(2026, 9, 28, 11, 0);
+		Long monday = pollId(createPoll(kim, "점심", "11:50"));
+		Long donkatsu = optionId(addOption(kim, monday, "돈까스"), "돈까스");
+		addOption(lee, monday, "냉면");
+		vote(kim, monday, donkatsu);
+		vote(lee, monday, donkatsu);
+
+		clock.set(2026, 9, 29, 11, 0);
+		Long tuesday = pollId(createPoll(kim, "늦은 점심", "11:50"));
+		vote(kim, tuesday, optionId(addOption(kim, tuesday, "김치찌개"), "김치찌개"));
+		vote(lee, tuesday, null);
+
+		clock.set(2026, 9, 30, 11, 0);
+		createPoll(kim, "오늘 점심", "11:50");
+
+		mockMvc.perform(get("/api/orgs/" + orgId + "/polls/history").with(loginAs(lee)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.hasMore").value(false))
+			.andExpect(jsonPath("$.polls[*].title", contains("늦은 점심", "점심")))
+			.andExpect(jsonPath("$.polls[0].pollDate").value("2026-09-29"))
+			.andExpect(jsonPath("$.polls[0].teams[0].name").value("김치찌개"))
+			.andExpect(jsonPath("$.polls[0].respondedCount").value(2))
+			.andExpect(jsonPath("$.polls[0].passCount").value(1))
+			.andExpect(jsonPath("$.polls[0].myResponse").value("PASS"))
+			.andExpect(jsonPath("$.polls[1].teams", hasSize(1)))
+			.andExpect(jsonPath("$.polls[1].teams[0].name").value("돈까스"))
+			.andExpect(jsonPath("$.polls[1].teams[0].count").value(2))
+			.andExpect(jsonPath("$.polls[1].myResponse").value("OPTION"))
+			.andExpect(jsonPath("$.polls[1].myOptionName").value("돈까스"));
+	}
+
+	@Test
+	void 지난_투표는_10개씩_나눠_보여준다() throws Exception {
+		for (int day = 10; day <= 20; day++) {
+			clock.set(2026, 9, day, 11, 0);
+			createPoll(kim, "점심 " + day, "11:50");
+		}
+		clock.set(2026, 9, 30, 11, 0);
+
+		mockMvc.perform(get("/api/orgs/" + orgId + "/polls/history").with(loginAs(kim)))
+			.andExpect(jsonPath("$.polls", hasSize(10)))
+			.andExpect(jsonPath("$.polls[0].title").value("점심 20"))
+			.andExpect(jsonPath("$.hasMore").value(true));
+		mockMvc.perform(get("/api/orgs/" + orgId + "/polls/history").param("page", "1").with(loginAs(kim)))
+			.andExpect(jsonPath("$.polls[*].title", contains("점심 10")))
+			.andExpect(jsonPath("$.hasMore").value(false));
+		mockMvc.perform(get("/api/orgs/" + orgId + "/polls/history").param("page", "-1").with(loginAs(kim)))
+			.andExpect(status().isBadRequest());
+
+		User stranger = userRepository.save(new User("sub-x", "x@example.com", "외부인", null));
+		mockMvc.perform(get("/api/orgs/" + orgId + "/polls/history").with(loginAs(stranger)))
+			.andExpect(status().isNotFound());
+	}
+
 	private ResultActions closePoll(User user, Long pollId) throws Exception {
 		return mockMvc.perform(post("/api/polls/" + pollId + "/close").with(loginAs(user)).with(xsrf()));
 	}

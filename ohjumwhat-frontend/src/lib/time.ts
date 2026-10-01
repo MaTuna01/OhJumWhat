@@ -97,3 +97,16 @@ export function formatEatenDay(day: string, now: number): string {
   if (days <= 30) return `${days}일 전`
   return formatDay(day, now)
 }
+
+const weekdayFormat = new Intl.DateTimeFormat('ko-KR', { timeZone: TIME_ZONE, weekday: 'short' })
+
+/** 지난 투표 날짜: "오늘", "어제", 그 전은 요일을 붙여 "9월 28일 (일)" */
+export function formatPollDay(day: string, now: number): string {
+  const label = formatDay(day, now)
+  return daysAgo(day, now) <= 1 ? label : `${label} (${weekdayFormat.format(new Date(day))})`
+}
+
+/** "9월 28일" (결과 복사 글머리) */
+export function formatMonthDay(value: string): string {
+  return monthDayFormat.format(new Date(value))
+}

@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -17,6 +18,9 @@ import java.util.stream.Collectors;
 
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +40,8 @@ import com.ohjumwhat.vote.VoteRepository;
 public class PollService {
 
 	static final String POLL_NOT_FOUND = "투표를 찾을 수 없어요.";
+
+	private static final int HISTORY_PAGE_SIZE = 10;
 
 	private final PollRepository pollRepository;
 
@@ -141,6 +147,28 @@ public class PollService {
 			.toList();
 	}
 
+	/** 지난 투표: 오늘(한국 날짜) 이전 투표를 최신순으로 10개씩. 메뉴·응답은 페이지 단위로 한 번에 읽는다. */
+	@Transactional(readOnly = true)
+	public PollHistoryResponse history(Long organizationId, Long userId, int page) {
+		membershipService.requireMember(organizationId, userId);
+		if (page < 0) {
+			throw ApiException.badRequest("페이지 번호가 올바르지 않아요.");
+		}
+		Slice<Poll> polls = pollRepository.findByOrganizationIdAndPollDateBefore(organizationId, LocalDate.now(clock),
+				PageRequest.of(page, HISTORY_PAGE_SIZE,
+						Sort.by(Sort.Order.desc("pollDate"), Sort.Order.desc("opensAt"), Sort.Order.desc("id"))));
+		List<Long> pollIds = polls.map(Poll::getId).toList();
+		Map<Long, List<MenuOption>> optionsByPoll = pollIds.isEmpty() ? Map.of()
+				: menuOptionRepository.findByPollIdIn(pollIds).stream()
+					.collect(Collectors.groupingBy(MenuOption::getPollId));
+		Map<Long, List<Vote>> votesByPoll = pollIds.isEmpty() ? Map.of()
+				: voteRepository.findByPollIdIn(pollIds).stream().collect(Collectors.groupingBy(Vote::getPollId));
+		List<PollHistoryResponse.Item> items = polls.map(poll -> historyItem(poll, userId,
+				optionsByPoll.getOrDefault(poll.getId(), List.of()), votesByPoll.getOrDefault(poll.getId(), List.of())))
+			.toList();
+		return new PollHistoryResponse(items, polls.hasNext());
+	}
+
 	@Transactional(readOnly = true)
 	public PollDetailResponse get(Long organizationId, Long pollId, Long userId) {
 		Poll poll = getForMember(pollId, userId);
@@ -220,6 +248,27 @@ public class PollService {
 				closed ? PollStatus.CLOSED : PollStatus.OPEN, poll.getOpensAt(), poll.getClosesAt(),
 				poll.getScheduleId() != null, members.size(), optionResponses, myResponse,
 				myVote == null ? null : myVote.getOptionId(), passed, nonRespondents, soloOptionIds);
+	}
+
+	private static PollHistoryResponse.Item historyItem(Poll poll, Long userId, List<MenuOption> options,
+			List<Vote> votes) {
+		Map<Long, Long> countByOption = votes.stream()
+			.filter(v -> !v.isPass())
+			.collect(Collectors.groupingBy(Vote::getOptionId, Collectors.counting()));
+		List<PollHistoryResponse.Team> teams = options.stream()
+			.filter(o -> countByOption.containsKey(o.getId()))
+			.sorted(Comparator.comparing((MenuOption o) -> countByOption.get(o.getId())).reversed()
+				.thenComparing(MenuOption::getId))
+			.map(o -> new PollHistoryResponse.Team(o.getName(), countByOption.get(o.getId()).intValue()))
+			.toList();
+		Vote myVote = votes.stream().filter(v -> v.getUserId().equals(userId)).findFirst().orElse(null);
+		MyResponse myResponse = myVote == null ? MyResponse.NONE : myVote.isPass() ? MyResponse.PASS : MyResponse.OPTION;
+		String myOptionName = myResponse != MyResponse.OPTION ? null
+				: options.stream().filter(o -> o.getId().equals(myVote.getOptionId())).map(MenuOption::getName)
+					.findFirst().orElse(null);
+		int passCount = (int) votes.stream().filter(Vote::isPass).count();
+		return new PollHistoryResponse.Item(poll.getId(), poll.getTitle(), poll.getPollDate(), poll.getClosesAt(),
+				votes.size(), passCount, teams, myResponse, myOptionName);
 	}
 
 	private PollSummaryResponse summary(Poll poll, Long userId, int memberCount, Instant now) {
