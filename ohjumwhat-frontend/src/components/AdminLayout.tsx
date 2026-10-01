@@ -7,6 +7,7 @@ const tabs = [
   { to: '/admin/users', label: '회원', end: true },
   { to: '/admin/orgs', label: '조직', end: true },
   { to: '/admin/blocks', label: '차단', end: true },
+  { to: '/admin/notices', label: '공지', end: true },
 ]
 
 /**

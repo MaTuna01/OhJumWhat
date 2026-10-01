@@ -4,6 +4,7 @@ import AppLayout from './components/AppLayout.tsx'
 import OrgLayout from './components/OrgLayout.tsx'
 import RequireAuth from './components/RequireAuth.tsx'
 import AdminBlocksPage from './pages/admin/AdminBlocksPage.tsx'
+import AdminNoticesPage from './pages/admin/AdminNoticesPage.tsx'
 import AdminOrgPage from './pages/admin/AdminOrgPage.tsx'
 import AdminOrgsPage from './pages/admin/AdminOrgsPage.tsx'
 import AdminOverviewPage from './pages/admin/AdminOverviewPage.tsx'
@@ -14,6 +15,7 @@ import InvitePage from './pages/InvitePage.tsx'
 import LoginPage from './pages/LoginPage.tsx'
 import MyPage from './pages/MyPage.tsx'
 import NotFoundPage from './pages/NotFoundPage.tsx'
+import NoticesPage from './pages/NoticesPage.tsx'
 import OrgHomePage from './pages/OrgHomePage.tsx'
 import OrgSettingsPage from './pages/OrgSettingsPage.tsx'
 import OrgStatsPage from './pages/OrgStatsPage.tsx'
@@ -37,6 +39,7 @@ export const router = createBrowserRouter([
             children: [
               { path: '/invite/:token', element: <InvitePage /> },
               { path: '/me', element: <MyPage /> },
+              { path: '/notices', element: <NoticesPage /> },
               {
                 // 조직 화면 공통: 조직 조회(방문 기록)·404 처리·탭
                 path: '/orgs/:orgId',
@@ -61,6 +64,7 @@ export const router = createBrowserRouter([
               { path: 'orgs/:orgId', element: <AdminOrgPage /> },
               { path: 'polls/:pollId', element: <AdminPollPage /> },
               { path: 'blocks', element: <AdminBlocksPage /> },
+              { path: 'notices', element: <AdminNoticesPage /> },
             ],
           },
           { path: '*', element: <NotFoundPage /> },

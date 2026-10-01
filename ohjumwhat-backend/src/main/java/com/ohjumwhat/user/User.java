@@ -43,6 +43,9 @@ public class User {
 
 	private Instant lastLoginAt;
 
+	/** 「새 소식」을 마지막으로 본 시각(없으면 null, 가입 시각으로 본다). UserRepository.markNoticesSeen으로만 바꾼다. */
+	private Instant noticesSeenAt;
+
 	@Column(nullable = false)
 	private Instant createdAt;
 
@@ -133,6 +136,10 @@ public class User {
 
 	public Instant getLastLoginAt() {
 		return lastLoginAt;
+	}
+
+	public Instant getNoticesSeenAt() {
+		return noticesSeenAt;
 	}
 
 	public Instant getCreatedAt() {

@@ -1,5 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api.ts'
+import type { Notice } from './notices.ts'
 import type { PollDetail, PollStatus } from './polls.ts'
 import type { Schedule } from './schedules.ts'
 
@@ -146,8 +147,8 @@ export function useAdminBlocks() {
 }
 
 /**
- * 관리자 삭제 작업 공통: 성공하면 화면에 떠 있는 모든 쿼리를 다시 불러온다.
- * 관리자 자신이 속한 조직이나 투표가 지워졌을 수도 있어서, 관리자 콘솔 밖의 캐시도 함께 맞춘다.
+ * 관리자 쓰기 작업 공통: 성공하면 화면에 떠 있는 모든 쿼리를 다시 불러온다.
+ * 관리자 자신이 속한 조직이나 투표가 지워졌을 수도 있고 새 소식(점·배너)도 바뀌므로, 관리자 콘솔 밖의 캐시도 함께 맞춘다.
  */
 function useAdminMutation<T, V>(mutationFn: (variables: V) => Promise<T>) {
   const queryClient = useQueryClient()
@@ -178,3 +179,17 @@ export const useDeleteMenuOption = () =>
 
 export const useDeleteSchedule = () =>
   useAdminMutation((scheduleId: number) => api<void>(`/api/admin/schedules/${scheduleId}`, { method: 'DELETE' }))
+
+/** 개발자 노트(새 소식). 업데이트 글은 저장소 파일이 원본이라 여기서 고칠 수 없다(서버 409). */
+export type NoticeInput = { title: string; body: string }
+
+export const useCreateNotice = () =>
+  useAdminMutation((input: NoticeInput) => api<Notice>('/api/admin/notices', { method: 'POST', body: input }))
+
+export const useUpdateNotice = () =>
+  useAdminMutation(({ id, ...input }: NoticeInput & { id: number }) =>
+    api<Notice>(`/api/admin/notices/${id}`, { method: 'PUT', body: input }),
+  )
+
+export const useDeleteNotice = () =>
+  useAdminMutation((noticeId: number) => api<void>(`/api/admin/notices/${noticeId}`, { method: 'DELETE' }))
