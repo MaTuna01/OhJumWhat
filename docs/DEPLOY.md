@@ -15,7 +15,7 @@
 |---|---|
 | `Dockerfile` | 프론트 빌드 → `static/`에 복사 → Spring Boot jar → JRE 21 이미지(비루트 사용자, `MaxRAMPercentage=50`) |
 | `deploy/docker-compose.yml` | 운영 스택. DB는 외부 포트를 열지 않고, 80·443은 Caddy만 연다. |
-| `deploy/Caddyfile` | 인증서 자동 발급·갱신, 압축, 루트 도메인 → www 리디렉션 |
+| `deploy/Caddyfile` | 인증서 자동 발급·갱신, 압축, 보안 헤더(CSP 등), 루트 도메인 → www 리디렉션. 바뀌면 배포 때 검증한 뒤 Caddy 컨테이너를 다시 만든다(파일 하나를 마운트해서 `up -d`만으로는 반영되지 않는다). |
 | `deploy/backup.sh` | `pg_dump` 일일 백업(14일 보관) |
 | `deploy/.env.example` | 서버 `.env` 템플릿 |
 | `.github/workflows/ci.yml` | PR과 `dev` push에서 백엔드 테스트, 프론트 린트·테스트·빌드 |

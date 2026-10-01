@@ -123,7 +123,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - `dev` → `main` 승격 하나가 릴리스 하나다. 승격 전에 버전(`build.gradle.kts`, `package.json`)을 올리고 `CHANGELOG.md`를 적는다. 배포 뒤에는 `vX.Y.Z` 태그와 GitHub Release를 만든다(`docs/DEPLOY.md` 「릴리스와 버전」).
 - 보안 헤더
   - HSTS·nosniff·X-Frame-Options는 Spring Security가 붙인다.
-  - Referrer-Policy·Permissions-Policy·**CSP**는 `deploy/Caddyfile`이 붙인다.
+  - Referrer-Policy·Permissions-Policy·**CSP**는 `deploy/Caddyfile`이 붙인다. Caddyfile이 바뀌면 배포 스크립트가 검증 후 Caddy 컨테이너를 다시 만든다(단일 파일 마운트라 `up -d`만으로는 반영되지 않는다).
   - CSP가 허용하는 외부 출처는 Google Fonts와 `*.googleusercontent.com`(프로필 사진)뿐이다. 새 외부 리소스(스크립트, 폰트, 이미지 CDN, 분석 도구)를 추가하면 CSP도 함께 고친다. 안 고치면 운영에서만 막힌다(개발 서버에는 CSP가 없다).
 - `Dockerfile`이나 `deploy/`를 바꾸면, 합치기 전에 로컬에서 `docker build`와 `deploy/docker-compose.yml`로 스택을 띄워 확인한다(도메인은 `localhost`).
 
