@@ -46,7 +46,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 
 ## 아키텍처
 
-현재 6단계까지 구현되어 있고, https://www.ohjumwhat.cloud 에서 운영 중이다(`main` push 시 자동 배포). 구현된 범위는 골격·스키마, 구글 로그인·세션, 조직, 투표·메뉴·참여·결과, 정기 투표, 배포다.
+7단계(마무리·QA)까지 모두 마쳤고, https://www.ohjumwhat.cloud 에서 운영 중이다(`main` push 시 자동 배포, 버전은 `CHANGELOG.md`). 구현된 범위는 골격·스키마, 구글 로그인·세션, 조직, 투표·메뉴·참여·결과, 정기 투표, 배포, 마무리·QA(오류 화면, 링크 미리보기, 보안 헤더, 데스크톱 레이아웃)다.
 
 **동일 출처 구조.** 운영에서는 React 빌드 결과를 Spring Boot jar의 static 리소스로 넣어 이미지 하나로 배포한다(Caddy가 앞단). 개발에서는 Vite가 백엔드 경로를 프록시하는데, `changeOrigin: false`로 Host 헤더를 유지하고 백엔드는 `server.forward-headers-strategy: framework`로 설정한다. 그래서 CORS 설정이 없고, 인증은 JWT 없이 **세션 쿠키**로 한다. 프론트의 `/login`은 SPA 화면이고, Spring의 기본 로그인 페이지는 쓰지 않는다. 운영에서 파일이 없는 화면 경로는 `common/SpaWebConfig`가 `index.html`로 돌려준다.
 
