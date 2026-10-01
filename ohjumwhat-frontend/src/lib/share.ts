@@ -8,7 +8,7 @@ const names = (people: Person[]) => people.map((p) => p.name).join(', ')
  * 마감 결과를 메신저에 붙일 글로 만든다(Figma 05b-S).
  * 예) [오점왓] 9월 30일 점심 결과 · 2팀
  *     · 돈까스 3명: 김오점, 김철수, 정하늘
- *       지도 https://naver.me/…
+ *       할매집 https://map.naver.com/p/entry/place/…   (식당 이름이 없으면 "지도")
  *     패스: 한가람
  *     응답 안 함: 윤서준
  *     https://www.ohjumwhat.cloud/orgs/1/polls/3
@@ -21,7 +21,7 @@ export function resultText(poll: PollDetail, url: string): string {
   ]
   for (const team of teams) {
     lines.push(`· ${team.name} ${team.voters.length}명: ${names(team.voters)}`)
-    if (team.link) lines.push(`  지도 ${team.link}`)
+    if (team.link) lines.push(`  ${team.placeName ?? '지도'} ${team.link}`)
   }
   if (poll.passed.length > 0) lines.push(`패스: ${names(poll.passed)}`)
   if (poll.nonRespondents.length > 0) lines.push(`응답 안 함: ${names(poll.nonRespondents)}`)

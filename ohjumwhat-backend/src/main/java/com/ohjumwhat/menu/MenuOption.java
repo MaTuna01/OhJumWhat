@@ -10,6 +10,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
+import com.ohjumwhat.place.PlaceLink;
+
 @Entity
 @Table(name = "menu_options")
 public class MenuOption {
@@ -27,8 +29,11 @@ public class MenuOption {
 	@Column(nullable = false)
 	private String name;
 
-	/** 식당 지도 링크(선택, http/https). 추가한 사람이 투표 진행 중에 달거나 고친다. */
+	/** 식당 지도 링크(선택, http/https. 네이버 장소면 정식 링크). 추가한 사람이 투표 진행 중에 달거나 고친다. */
 	private String linkUrl;
+
+	/** 식당 이름(선택). 링크가 있을 때만 둔다. */
+	private String placeName;
 
 	@Column(nullable = false)
 	private Instant createdAt;
@@ -40,16 +45,17 @@ public class MenuOption {
 		this(pollId, createdBy, name, null);
 	}
 
-	public MenuOption(Long pollId, Long createdBy, String name, String linkUrl) {
+	public MenuOption(Long pollId, Long createdBy, String name, PlaceLink place) {
 		this.pollId = pollId;
 		this.createdBy = createdBy;
 		this.name = name;
-		this.linkUrl = linkUrl;
+		changePlace(place);
 	}
 
-	/** null이면 링크를 지운다. */
-	public void changeLink(String linkUrl) {
-		this.linkUrl = linkUrl;
+	/** 식당 달기·고치기. null이면 링크와 이름을 함께 지운다. */
+	public void changePlace(PlaceLink place) {
+		this.linkUrl = place == null ? null : place.url();
+		this.placeName = place == null ? null : place.name();
 	}
 
 	@PrePersist
@@ -75,6 +81,10 @@ public class MenuOption {
 
 	public String getLinkUrl() {
 		return linkUrl;
+	}
+
+	public String getPlaceName() {
+		return placeName;
 	}
 
 	public Instant getCreatedAt() {

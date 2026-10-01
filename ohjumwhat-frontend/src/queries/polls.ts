@@ -12,8 +12,10 @@ export type Person = { userId: number; name: string; profileImageUrl: string | n
 export type PollOption = {
   id: number
   name: string
-  /** 식당 지도 링크(http/https). 없으면 null */
+  /** 식당 지도 링크(http/https, 네이버 장소면 정식 링크). 없으면 null */
   link: string | null
+  /** 식당 이름(링크가 있을 때만). 없으면 null */
+  placeName: string | null
   /** 추가한 사람. 강제 탈퇴로 삭제된 회원이면 null("탈퇴한 사용자") */
   createdBy: Person | null
   voters: Person[]
@@ -189,16 +191,20 @@ export function useDeletePoll(orgId: number, pollId: number) {
   })
 }
 
+/** 메뉴 추가. 식당(링크·이름)은 선택이고, naver.me 공유 링크는 서버가 장소 정식 링크로 바꾼다. */
 export function useAddOption(orgId: number, pollId: number) {
-  return usePollMutation(pollId, orgId, (body: { name: string; link: string | null }) =>
+  return usePollMutation(pollId, orgId, (body: { name: string; link: string | null; placeName: string | null }) =>
     api<PollDetail>(`/api/polls/${pollId}/options`, { method: 'POST', body }),
   )
 }
 
-/** 식당 지도 링크 달기·고치기. link가 null이면 지운다. */
-export function useChangeLink(orgId: number, pollId: number) {
-  return usePollMutation(pollId, orgId, ({ optionId, link }: { optionId: number; link: string | null }) =>
-    api<PollDetail>(`/api/polls/${pollId}/options/${optionId}/link`, { method: 'PUT', body: { link } }),
+/** 식당 달기·고치기. link가 null이면 식당(링크·이름)을 뺀다. */
+export function useChangePlace(orgId: number, pollId: number) {
+  return usePollMutation(
+    pollId,
+    orgId,
+    ({ optionId, link, placeName }: { optionId: number; link: string | null; placeName: string | null }) =>
+      api<PollDetail>(`/api/polls/${pollId}/options/${optionId}/link`, { method: 'PUT', body: { link, placeName } }),
   )
 }
 

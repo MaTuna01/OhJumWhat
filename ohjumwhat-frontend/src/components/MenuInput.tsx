@@ -1,17 +1,21 @@
 import { type FormEvent, useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useDismiss } from '../hooks/useDismiss.ts'
 import { useNow } from '../hooks/useNow.ts'
+import { EMPTY_PLACE, placeInput } from '../lib/place.ts'
 import { daysAgo, formatEatenDay } from '../lib/time.ts'
 import { inputClass } from '../lib/ui.ts'
 import { useMenuNames, useMenuRecommendations } from '../queries/polls.ts'
 import Button from './Button.tsx'
+import PlaceFields from './PlaceFields.tsx'
 
 type Props = {
   orgId: number
+  /** 조직 검색 지역(「네이버 지도에서 찾기」 검색어 앞에 붙인다) */
+  area: string | null
   /** 이미 이 투표에 있는 메뉴(자동완성·추천에서 뺀다) */
   existing: string[]
   pending: boolean
-  onAdd: (name: string, link: string | null) => Promise<unknown>
+  onAdd: (name: string, link: string | null, placeName: string | null) => Promise<unknown>
 }
 
 type Item = { name: string; caption: string }
@@ -20,15 +24,15 @@ type Item = { name: string; caption: string }
  * 메뉴 추가 입력창(Figma 05·05-L·05-R).
  * - 비운 채 누르면 "오늘은 이거 어때요?"(자주 먹었지만 최근 7일 안에는 먹지 않은 메뉴)를 보여준다.
  * - 입력하면 같은 조직에서 전에 나온 메뉴를 자동완성하고, 마지막으로 먹은 날을 함께 보여준다.
- * - 「＋ 식당 지도 링크」로 링크 입력창을 열 수 있다(선택).
+ * - 「＋ 식당」으로 식당 패널(Figma 05-L)을 열어 네이버 지도에서 찾고 공유 링크를 붙일 수 있다(선택).
  */
-export default function MenuInput({ orgId, existing, pending, onAdd }: Props) {
+export default function MenuInput({ orgId, area, existing, pending, onAdd }: Props) {
   const [value, setValue] = useState('')
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(-1)
-  const [linkOpen, setLinkOpen] = useState(false)
-  const [link, setLink] = useState('')
+  const [placeOpen, setPlaceOpen] = useState(false)
+  const [place, setPlace] = useState(EMPTY_PLACE)
   const ref = useRef<HTMLDivElement>(null)
   const listId = useId()
   const close = useCallback(() => setOpen(false), [])
@@ -58,14 +62,15 @@ export default function MenuInput({ orgId, existing, pending, onAdd }: Props) {
   const submit = async (name: string) => {
     const trimmed = name.trim()
     if (!trimmed || pending) return
+    const { link, placeName } = placeOpen ? placeInput(place) : placeInput(EMPTY_PLACE)
     try {
-      await onAdd(trimmed, linkOpen && link.trim() ? link.trim() : null)
+      await onAdd(trimmed, link, placeName)
       setValue('')
       setQuery('')
       setOpen(false)
       setActive(-1)
-      setLink('')
-      setLinkOpen(false)
+      setPlace(EMPTY_PLACE)
+      setPlaceOpen(false)
     } catch {
       // 오류 문구는 투표 화면이 보여준다. 입력값은 그대로 둔다.
     }
@@ -135,33 +140,26 @@ export default function MenuInput({ orgId, existing, pending, onAdd }: Props) {
           )}
         </div>
 
-        {linkOpen ? (
-          <div className="space-y-1.5">
-            <input
-              value={link}
-              onChange={(e) => setLink(e.target.value)}
-              maxLength={1000}
-              placeholder="지도 앱의 공유 링크를 붙여 넣으세요"
-              aria-label="식당 지도 링크"
-              className={inputClass}
-            />
-            <div className="flex items-center justify-between gap-3 text-xs">
-              <p className="text-text-tertiary">식당 지도 링크(선택) · 지도 앱의 공유 문구를 그대로 붙여도 돼요</p>
+        {placeOpen ? (
+          <div className="space-y-2 rounded-xl border border-border-default bg-bg-subtle p-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-medium">식당(선택)</p>
               <button
                 type="button"
                 onClick={() => {
-                  setLinkOpen(false)
-                  setLink('')
+                  setPlaceOpen(false)
+                  setPlace(EMPTY_PLACE)
                 }}
-                className="shrink-0 font-medium text-text-tertiary hover:text-text-secondary"
+                className="shrink-0 text-xs font-medium text-text-tertiary hover:text-text-secondary"
               >
-                링크 빼기
+                식당 빼기
               </button>
             </div>
+            <PlaceFields value={place} onChange={setPlace} searchQuery={value} area={area} />
           </div>
         ) : (
-          <button type="button" onClick={() => setLinkOpen(true)} className="text-xs font-medium text-text-tertiary hover:text-text-secondary">
-            ＋ 식당 지도 링크
+          <button type="button" onClick={() => setPlaceOpen(true)} className="text-xs font-medium text-text-tertiary hover:text-text-secondary">
+            ＋ 식당
           </button>
         )}
       </form>

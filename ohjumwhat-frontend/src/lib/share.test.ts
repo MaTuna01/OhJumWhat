@@ -3,10 +3,11 @@ import type { Person, PollDetail, PollOption } from '../queries/polls.ts'
 import { resultText } from './share.ts'
 
 const person = (userId: number, name: string): Person => ({ userId, name, profileImageUrl: null })
-const option = (id: number, name: string, voters: Person[], link: string | null = null): PollOption => ({
+const option = (id: number, name: string, voters: Person[], link: string | null = null, placeName: string | null = null): PollOption => ({
   id,
   name,
   link,
+  placeName,
   createdBy: null,
   voters,
   mine: false,
@@ -54,6 +55,17 @@ describe('resultText', () => {
         'https://www.ohjumwhat.cloud/orgs/1/polls/3',
       ].join('\n'),
     )
+  })
+
+  it('식당 이름이 있으면 「지도」 대신 식당 이름을 쓴다', () => {
+    const poll: PollDetail = {
+      ...base,
+      options: [option(10, '김치찌개', [person(4, '박민수')], 'https://map.naver.com/p/entry/place/1868364770', '할매집')],
+    }
+    expect(resultText(poll, 'u').split('\n').slice(2, 4)).toEqual([
+      '· 김치찌개 1명: 박민수',
+      '  할매집 https://map.naver.com/p/entry/place/1868364770',
+    ])
   })
 
   it('참여한 메뉴가 없으면 그렇게 적는다', () => {
