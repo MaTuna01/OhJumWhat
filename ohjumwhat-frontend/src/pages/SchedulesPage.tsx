@@ -8,6 +8,7 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { useOrgId } from '../hooks/useOrgId.ts'
 import { daysLabel } from '../lib/daysOfWeek.ts'
 import { formatTimeRange } from '../lib/time.ts'
+import { columnsClass } from '../lib/ui.ts'
 import { useOrganization } from '../queries/orgs.ts'
 import { type Schedule, useDeleteSchedule, useSchedules } from '../queries/schedules.ts'
 
@@ -28,44 +29,46 @@ export default function SchedulesPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="font-bold">정기 투표 규칙</h2>
-        <Button onClick={() => setEditing(null)}>+ 규칙 추가</Button>
-      </div>
-
-      {schedules.isPending ? (
-        <PageLoader />
-      ) : schedules.isError ? (
-        <p className="text-sm text-text-danger">{schedules.error.message}</p>
-      ) : schedules.data.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border-strong bg-bg-surface px-4 py-10 text-center">
-          <p className="font-medium">정기 투표가 없어요</p>
-          <p className="mt-1 text-sm text-text-tertiary">예: 점심 · 평일 오전 11:00 ~ 11:50 규칙을 만들면 매일 자동으로 투표가 열려요.</p>
+    <div className={`flex flex-col gap-4 ${columnsClass}`}>
+      <div className="min-w-0 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-bold">정기 투표 규칙</h2>
+          <Button onClick={() => setEditing(null)}>+ 규칙 추가</Button>
         </div>
-      ) : (
-        <ul className="space-y-3">
-          {schedules.data.map((schedule) => (
-            <li key={schedule.id} className="space-y-3 rounded-2xl border border-border-default bg-bg-surface p-4">
-              <div className="flex items-center gap-1">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-bold">{schedule.name}</p>
-                  <p className="text-sm text-text-secondary">
-                    {daysLabel(schedule.daysOfWeek)} · {formatTimeRange(schedule.openTime, schedule.closeTime)}
-                  </p>
+
+        {schedules.isPending ? (
+          <PageLoader />
+        ) : schedules.isError ? (
+          <p className="text-sm text-text-danger">{schedules.error.message}</p>
+        ) : schedules.data.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-border-strong bg-bg-surface px-4 py-10 text-center">
+            <p className="font-medium">정기 투표가 없어요</p>
+            <p className="mt-1 text-sm text-text-tertiary">예: 점심 · 평일 오전 11:00 ~ 11:50 규칙을 만들면 매일 자동으로 투표가 열려요.</p>
+          </div>
+        ) : (
+          <ul className="space-y-3">
+            {schedules.data.map((schedule) => (
+              <li key={schedule.id} className="space-y-3 rounded-2xl border border-border-default bg-bg-surface p-4">
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-bold">{schedule.name}</p>
+                    <p className="text-sm text-text-secondary">
+                      {daysLabel(schedule.daysOfWeek)} · {formatTimeRange(schedule.openTime, schedule.closeTime)}
+                    </p>
+                  </div>
+                  <Button variant="ghost" className="py-1.5" onClick={() => setEditing(schedule)}>
+                    수정
+                  </Button>
+                  <Button variant="ghost" className="py-1.5" onClick={() => setDeleting(schedule)}>
+                    삭제
+                  </Button>
                 </div>
-                <Button variant="ghost" className="py-1.5" onClick={() => setEditing(schedule)}>
-                  수정
-                </Button>
-                <Button variant="ghost" className="py-1.5" onClick={() => setDeleting(schedule)}>
-                  삭제
-                </Button>
-              </div>
-              <DayPills mask={schedule.daysOfWeek} />
-            </li>
-          ))}
-        </ul>
-      )}
+                <DayPills mask={schedule.daysOfWeek} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <ul className="space-y-1 rounded-xl bg-bg-muted px-3.5 py-3 text-xs text-text-secondary">
         <li>· 규칙에 맞춰 오픈 시간에 투표가 자동으로 열려요.</li>

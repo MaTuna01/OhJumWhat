@@ -1,15 +1,14 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
-import Avatar from '../components/Avatar.tsx'
 import Button from '../components/Button.tsx'
 import InviteLinkField from '../components/InviteLinkField.tsx'
 import LeaveOrgDialog from '../components/LeaveOrgDialog.tsx'
-import { PageLoader, Section } from '../components/PageState.tsx'
+import MemberList from '../components/MemberList.tsx'
+import { Section } from '../components/PageState.tsx'
 import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { useOrgId } from '../hooks/useOrgId.ts'
-import { inputClass } from '../lib/ui.ts'
-import { useMe } from '../queries/me.ts'
-import { type Organization, useMembers, useOrganization, useRenameOrganization } from '../queries/orgs.ts'
+import { columnsClass, inputClass } from '../lib/ui.ts'
+import { type Organization, useOrganization, useRenameOrganization } from '../queries/orgs.ts'
 
 export default function OrgSettingsPage() {
   const orgId = useOrgId()
@@ -28,15 +27,18 @@ export default function OrgSettingsPage() {
 
   if (!org) return null
 
+  // 모바일은 DOM 순서(초대 링크 → 이름 → 멤버 → 탈퇴)대로 쌓고,
+  // 데스크톱은 멤버만 오른쪽 사이드로 보낸다. 마지막 행(1fr)이 남는 높이를 받아 왼쪽 카드 사이가 벌어지지 않는다.
   return (
-    <div className="space-y-6">
-      <Section title="초대 링크">
+    <div className={`flex flex-col gap-6 lg:grid-rows-[auto_auto_1fr] ${columnsClass}`}>
+      <Section title="초대 링크" className="lg:col-start-1">
         <p className="mb-3 text-sm text-text-tertiary">이 링크를 받은 사람은 누구나 조직에 참여할 수 있어요.</p>
         <InviteLinkField token={org.inviteToken} />
       </Section>
 
       <Section
         title="조직 이름"
+        className="lg:col-start-1"
         action={
           renamed && (
             <span role="status" className="text-sm font-medium text-text-success">
@@ -49,9 +51,9 @@ export default function OrgSettingsPage() {
         <RenameForm key={org.name} org={org} onRenamed={() => setRenamed(true)} />
       </Section>
 
-      <MemberList orgId={orgId} />
+      <MemberList orgId={orgId} className="lg:col-start-2 lg:row-span-3 lg:row-start-1" />
 
-      <Section title="조직 탈퇴">
+      <Section title="조직 탈퇴" className="lg:col-start-1">
         <div className="flex items-center justify-between gap-4">
           <p className="text-sm text-text-tertiary">
             {org.memberCount <= 1 ? '마지막 멤버라서 탈퇴하면 조직이 삭제돼요.' : '탈퇴해도 조직과 다른 멤버의 기록은 남아요.'}
@@ -97,32 +99,5 @@ function RenameForm({ org, onRenamed }: { org: Organization; onRenamed: () => vo
         </p>
       )}
     </form>
-  )
-}
-
-function MemberList({ orgId }: { orgId: number }) {
-  const members = useMembers(orgId)
-  const { data: me } = useMe()
-
-  return (
-    <Section title={members.data ? `멤버 ${members.data.length}명` : '멤버'}>
-      {members.isPending ? (
-        <PageLoader />
-      ) : members.isError ? (
-        <p className="text-sm text-text-danger">{members.error.message}</p>
-      ) : (
-        <ul className="grid gap-3 sm:grid-cols-2">
-          {members.data.map((member) => (
-            <li key={member.userId} className="flex items-center gap-2.5">
-              <Avatar name={member.name} imageUrl={member.profileImageUrl} />
-              <span className="truncate text-sm">{member.name}</span>
-              {member.userId === me?.id && (
-                <span className="rounded-full bg-bg-muted px-2 py-0.5 text-xs text-text-tertiary">나</span>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </Section>
   )
 }
