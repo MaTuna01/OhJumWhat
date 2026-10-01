@@ -1,0 +1,103 @@
+package com.ohjumwhat.menu;
+
+import static com.ohjumwhat.TestAuth.loginAs;
+import static com.ohjumwhat.TestAuth.xsrf;
+import static org.hamcrest.Matchers.nullValue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.ResultActions;
+
+import com.ohjumwhat.IntegrationTest;
+import com.ohjumwhat.organization.InviteService;
+import com.ohjumwhat.organization.OrganizationService;
+import com.ohjumwhat.poll.PollRequest;
+import com.ohjumwhat.poll.PollService;
+import com.ohjumwhat.user.User;
+import com.ohjumwhat.user.UserRepository;
+
+class MenuLinkIntegrationTest extends IntegrationTest {
+
+	@Autowired
+	UserRepository userRepository;
+
+	@Autowired
+	OrganizationService organizationService;
+
+	@Autowired
+	InviteService inviteService;
+
+	@Autowired
+	PollService pollService;
+
+	@Autowired
+	MenuService menuService;
+
+	User kim;
+
+	User lee;
+
+	Long pollId;
+
+	@BeforeEach
+	void setUp() {
+		clock.set(2026, 9, 30, 11, 0);
+		kim = userRepository.save(new User("sub-kim", "kim@example.com", "김철수", null));
+		lee = userRepository.save(new User("sub-lee", "lee@example.com", "이영희", null));
+		var org = organizationService.create(kim.getId(), "개발팀");
+		inviteService.join(org.inviteToken(), lee.getId());
+		pollId = pollService.create(org.id(), kim.getId(), new PollRequest("점심", "11:50")).id();
+	}
+
+	@Test
+	void 메뉴를_추가할_때_지도_공유_문구를_붙이면_주소만_저장한다() throws Exception {
+		addOption(kim, "김밥", "[네이버 지도]\\n김밥천국 강남점\\nhttps://naver.me/5abcDEF")
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.options[0].link").value("https://naver.me/5abcDEF"));
+		addOption(kim, "돈까스", null)
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.options[1].link").value(nullValue()));
+		addOption(kim, "국밥", "국밥집")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("링크 주소가 올바르지 않아요. 지도 앱의 공유 링크를 붙여 주세요."));
+	}
+
+	@Test
+	void 링크는_메뉴를_추가한_사람만_진행_중에_달고_고치고_지울_수_있다() throws Exception {
+		Long optionId = menuService.add(pollId, kim.getId(), "김치찌개", null).options().getFirst().id();
+
+		changeLink(lee, optionId, "https://naver.me/x")
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.message").value("메뉴를 추가한 사람만 링크를 고칠 수 있어요."));
+		changeLink(kim, optionId, "map.kakao.com/123")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.options[0].link").value("https://map.kakao.com/123"));
+		changeLink(kim, optionId, "")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.options[0].link").value(nullValue()));
+		changeLink(kim, optionId, "javascript:alert(1)").andExpect(status().isBadRequest());
+
+		clock.set(2026, 9, 30, 11, 50);
+		changeLink(kim, optionId, "https://naver.me/x").andExpect(status().isConflict());
+	}
+
+	private ResultActions addOption(User user, String name, String link) throws Exception {
+		String linkJson = link == null ? "null" : "\"" + link + "\"";
+		return mockMvc.perform(post("/api/polls/" + pollId + "/options").with(loginAs(user)).with(xsrf())
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"name\": \"" + name + "\", \"link\": " + linkJson + "}"));
+	}
+
+	private ResultActions changeLink(User user, Long optionId, String link) throws Exception {
+		return mockMvc.perform(put("/api/polls/" + pollId + "/options/" + optionId + "/link").with(loginAs(user))
+			.with(xsrf())
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"link\": \"" + link + "\"}"));
+	}
+}

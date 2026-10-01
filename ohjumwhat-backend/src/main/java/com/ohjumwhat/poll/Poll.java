@@ -73,6 +73,17 @@ public class Poll {
 		return !now.isBefore(closesAt);
 	}
 
+	/** 진행 중인 투표의 제목·마감 시각 수정 */
+	public void update(String title, Instant closesAt) {
+		this.title = title;
+		this.closesAt = closesAt;
+	}
+
+	/** 조기 마감: 마감 시각을 지금으로 당긴다. 이후 요청부터 마감된 투표로 판단된다. */
+	public void closeAt(Instant now) {
+		this.closesAt = now;
+	}
+
 	@PrePersist
 	void onCreate() {
 		createdAt = Instant.now();

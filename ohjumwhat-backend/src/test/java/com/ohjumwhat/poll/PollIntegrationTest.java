@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.LocalTime;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -26,6 +27,9 @@ import com.jayway.jsonpath.JsonPath;
 import com.ohjumwhat.IntegrationTest;
 import com.ohjumwhat.organization.OrganizationService;
 import com.ohjumwhat.organization.InviteService;
+import com.ohjumwhat.schedule.PollSchedule;
+import com.ohjumwhat.schedule.PollScheduleRepository;
+import com.ohjumwhat.schedule.ScheduledPollOpener;
 import com.ohjumwhat.user.User;
 import com.ohjumwhat.user.UserRepository;
 
@@ -33,6 +37,15 @@ class PollIntegrationTest extends IntegrationTest {
 
 	@Autowired
 	UserRepository userRepository;
+
+	@Autowired
+	PollRepository pollRepository;
+
+	@Autowired
+	PollScheduleRepository scheduleRepository;
+
+	@Autowired
+	ScheduledPollOpener scheduledPollOpener;
 
 	@Autowired
 	OrganizationService organizationService;
@@ -207,9 +220,120 @@ class PollIntegrationTest extends IntegrationTest {
 		addOption(other, otherPoll, "순두부찌개");
 
 		mockMvc.perform(get("/api/orgs/" + orgId + "/menu-names").param("q", "순").with(loginAs(lee)))
-			.andExpect(jsonPath("$", contains("순대국")));
+			.andExpect(jsonPath("$[*].name", contains("순대국")));
 		mockMvc.perform(get("/api/orgs/" + orgId + "/menu-names").with(loginAs(lee)))
-			.andExpect(jsonPath("$", containsInAnyOrder("김치찌개", "순대국")));
+			.andExpect(jsonPath("$[*].name", containsInAnyOrder("김치찌개", "순대국")));
+	}
+
+	@Test
+	void 멤버_누구나_진행_중인_투표를_지금_마감할_수_있다() throws Exception {
+		Long pollId = pollId(createPoll(kim, "점심", "11:50"));
+		Long kimchi = optionId(addOption(kim, pollId, "김치찌개"), "김치찌개");
+		vote(kim, pollId, kimchi);
+
+		clock.set(2026, 9, 30, 11, 20);
+		closePoll(lee, pollId)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.status").value("CLOSED"))
+			.andExpect(jsonPath("$.closesAt").value("2026-09-30T02:20:00Z"))
+			.andExpect(jsonPath("$.options[0].voters", hasSize(1)));
+
+		vote(lee, pollId, kimchi).andExpect(status().isConflict());
+		closePoll(kim, pollId).andExpect(status().isConflict()).andExpect(jsonPath("$.message").value("마감된 투표예요."));
+		mockMvc.perform(get("/api/orgs/" + orgId + "/polls/today").with(loginAs(lee)))
+			.andExpect(jsonPath("$[0].status").value("CLOSED"));
+	}
+
+	@Test
+	void 방금_열린_투표는_바로_마감할_수_없다() throws Exception {
+		Long pollId = pollId(createPoll(kim, "점심", "11:50"));
+
+		closePoll(kim, pollId)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.message").value("방금 열린 투표예요. 잠시 후 다시 시도해 주세요."));
+	}
+
+	@Test
+	void 멤버_누구나_진행_중인_투표의_제목과_마감_시간을_바꿀_수_있다() throws Exception {
+		Long pollId = pollId(createPoll(kim, "점심", "11:50"));
+
+		updatePoll(lee, pollId, "  늦은 점심 ", "12:30")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.title").value("늦은 점심"))
+			.andExpect(jsonPath("$.closesAt").value("2026-09-30T03:30:00Z"))
+			.andExpect(jsonPath("$.status").value("OPEN"));
+		updatePoll(lee, pollId, "점심", "10:30")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("마감 시간은 지금보다 뒤여야 해요."));
+		updatePoll(lee, pollId, " ", "12:00")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("투표 제목을 입력해 주세요."));
+
+		clock.set(2026, 9, 30, 12, 30);
+		updatePoll(kim, pollId, "점심", "13:00").andExpect(status().isConflict());
+	}
+
+	@Test
+	void 멤버_누구나_진행_중인_수동_투표를_삭제할_수_있다() throws Exception {
+		Long pollId = pollId(createPoll(kim, "점심", "11:50"));
+		Long kimchi = optionId(addOption(kim, pollId, "김치찌개"), "김치찌개");
+		vote(kim, pollId, kimchi);
+
+		deletePoll(lee, pollId).andExpect(status().isNoContent());
+
+		mockMvc.perform(get("/api/orgs/" + orgId + "/polls/" + pollId).with(loginAs(kim)))
+			.andExpect(status().isNotFound());
+		mockMvc.perform(get("/api/orgs/" + orgId + "/polls/today").with(loginAs(kim)))
+			.andExpect(jsonPath("$", empty()));
+		assertThat(pollRepository.count()).isZero();
+	}
+
+	@Test
+	void 마감된_투표와_정기_투표는_삭제할_수_없다() throws Exception {
+		Long manual = pollId(createPoll(kim, "점심", "11:50"));
+		clock.set(2026, 9, 30, 11, 50);
+		deletePoll(kim, manual).andExpect(status().isConflict()).andExpect(jsonPath("$.message").value("마감된 투표예요."));
+
+		scheduleRepository.save(new PollSchedule(orgId, "저녁", 31, LocalTime.of(17, 0), LocalTime.of(18, 0)));
+		clock.set(2026, 9, 30, 17, 0);
+		scheduledPollOpener.openDuePolls();
+		Long scheduled = pollRepository.findAll().stream().filter(p -> p.getScheduleId() != null).findFirst()
+			.orElseThrow().getId();
+
+		deletePoll(lee, scheduled)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.message").value("정기 투표는 삭제할 수 없어요. 대신 지금 마감해 주세요."));
+		clock.set(2026, 9, 30, 17, 10);
+		closePoll(lee, scheduled).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("CLOSED"));
+		assertThat(scheduledPollOpener.openDuePolls()).isZero();
+	}
+
+	@Test
+	void 조직_멤버가_아니면_투표를_마감_수정_삭제할_수_없다() throws Exception {
+		Long pollId = pollId(createPoll(kim, "점심", "11:50"));
+		User stranger = userRepository.save(new User("sub-x", "x@example.com", "외부인", null));
+		clock.set(2026, 9, 30, 11, 10);
+
+		closePoll(stranger, pollId).andExpect(status().isNotFound());
+		updatePoll(stranger, pollId, "점심", "12:00").andExpect(status().isNotFound());
+		deletePoll(stranger, pollId).andExpect(status().isNotFound());
+		mockMvc.perform(get("/api/orgs/" + orgId + "/polls/" + pollId).with(loginAs(kim)))
+			.andExpect(jsonPath("$.status").value("OPEN"))
+			.andExpect(jsonPath("$.title").value("점심"));
+	}
+
+	private ResultActions closePoll(User user, Long pollId) throws Exception {
+		return mockMvc.perform(post("/api/polls/" + pollId + "/close").with(loginAs(user)).with(xsrf()));
+	}
+
+	private ResultActions updatePoll(User user, Long pollId, String title, String closesAt) throws Exception {
+		return mockMvc.perform(put("/api/polls/" + pollId).with(loginAs(user)).with(xsrf())
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"title\": \"" + title + "\", \"closesAt\": \"" + closesAt + "\"}"));
+	}
+
+	private ResultActions deletePoll(User user, Long pollId) throws Exception {
+		return mockMvc.perform(delete("/api/polls/" + pollId).with(loginAs(user)).with(xsrf()));
 	}
 
 	private ResultActions createPoll(User user, String title, String closesAt) throws Exception {

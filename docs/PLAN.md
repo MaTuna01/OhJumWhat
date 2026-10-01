@@ -22,6 +22,11 @@
 | 6 | 배포·CI/CD | 완료 — https://www.ohjumwhat.cloud 운영 중 | [#7](https://github.com/MaTuna01/OhJumWhat/pull/7), 릴리스 [#8](https://github.com/MaTuna01/OhJumWhat/pull/8) |
 | 7 | 마무리·QA | 완료 — 404·오류 화면, 링크 미리보기, 탭 제목, CSP 등(v1.1.0~v1.1.1), 데스크톱 레이아웃(v1.2.0) | [#10](https://github.com/MaTuna01/OhJumWhat/pull/10), [#14](https://github.com/MaTuna01/OhJumWhat/pull/14), [#16](https://github.com/MaTuna01/OhJumWhat/pull/16) |
 | - | 관리자 콘솔 (superadmin: 회원·조직·투표 관리, 강제 탈퇴·차단) | 완료(v1.3.0) | [#20](https://github.com/MaTuna01/OhJumWhat/pull/20) |
+| 8 | 투표 조기 마감·수정·삭제 (확장 기능 1번째) | 완료(v1.4.0) | [#23](https://github.com/MaTuna01/OhJumWhat/pull/23) |
+| 9 | 메뉴에 식당 지도 링크 (지도 연동 1단계) | 완료(v1.4.0) | [#24](https://github.com/MaTuna01/OhJumWhat/pull/24) |
+| 10 | 메뉴 통계 (자주 먹은 메뉴, 최근 먹은 메뉴 제외 추천) | 완료(v1.4.0) | [#24](https://github.com/MaTuna01/OhJumWhat/pull/24) |
+
+확장 기능(8~13단계)의 순서와 체크리스트는 Notion Tasks에 있다. 기획서 「나중에」 목록을 구현 난이도 순으로 정렬했다: 8 투표 조기 마감·수정·삭제 → 9 메뉴에 식당 지도 링크 → 10 메뉴 통계 → 11 지도 API 연동 → 12 중복 투표 → 13 최소 인원 미달 자동 해산.
 
 ## 계획을 세운 뒤 정한 것
 - 메뉴를 추가해도 추가한 사람이 **자동으로 참여하지 않는다**. 추가와 참여는 따로 한다.
@@ -65,6 +70,8 @@ ohjumwhat/
 **스키마**(Flyway가 원본, JPA는 `ddl-auto: validate`)
 - V1: ERD의 테이블 7개
 - V2: `spring_session` 테이블
+- V3: 관리자(회원 역할·최근 로그인, 차단 목록, 메뉴 작성자 NULL 허용)
+- V4: `menu_options.link_url`(식당 지도 링크)
 - UNIQUE: memberships(org, user), votes(poll, user), polls(schedule_id, poll_date), menu_options(poll_id, name)
 - CHECK: close_time > open_time, closes_at > opens_at. 인덱스: polls(organization_id, poll_date)
 - FK
@@ -92,7 +99,9 @@ ohjumwhat/
 | 조직 | `POST /api/orgs`, `GET /api/orgs/{id}` (last_visited_at 갱신), `PATCH /api/orgs/{id}`, `GET /api/orgs/{id}/members`, `DELETE /api/orgs/{id}/membership` | 완료 |
 | 초대 | `GET /api/invites/{token}`, `POST /api/invites/{token}/join` | 완료 |
 | 투표 | `GET /api/orgs/{id}/polls/today`, `POST /api/orgs/{id}/polls` (title, closesAt "HH:mm"), `GET /api/orgs/{id}/polls/{pollId}` (상세 집계) | 완료 |
-| 메뉴 | `POST /api/polls/{pollId}/options`, `DELETE /api/polls/{pollId}/options/{optionId}`, `GET /api/orgs/{id}/menu-names?q=` (자동완성) | 완료 |
+| 투표 관리 | `PUT /api/polls/{pollId}` (title, closesAt "HH:mm"), `POST /api/polls/{pollId}/close` (지금 마감), `DELETE /api/polls/{pollId}` (수동 투표만) — 진행 중일 때 멤버 누구나 | 완료 |
+| 메뉴 | `POST /api/polls/{pollId}/options` (name, link 선택), `DELETE /api/polls/{pollId}/options/{optionId}`, `PUT /api/polls/{pollId}/options/{optionId}/link`, `GET /api/orgs/{id}/menu-names?q=` (자동완성: 이름 + 마지막으로 먹은 날) | 완료 |
+| 통계 | `GET /api/orgs/{id}/menu-stats?days=` (없으면 전체), `GET /api/orgs/{id}/menu-recommendations` | 완료 |
 | 참여 | `PUT /api/polls/{pollId}/vote` `{optionId: number \| null}` (null이면 "오늘은 패스") | 완료 |
 | 정기 | `GET/POST /api/orgs/{id}/schedules`, `PUT/DELETE /api/orgs/{id}/schedules/{sid}` | 완료 |
 

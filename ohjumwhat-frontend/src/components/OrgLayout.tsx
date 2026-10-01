@@ -8,6 +8,7 @@ import { PageLoader, PageMessage } from './PageState.tsx'
 const tabs = [
   { to: '', label: '투표', end: true },
   { to: 'schedules', label: '정기 투표', end: false },
+  { to: 'stats', label: '통계', end: false },
   { to: 'settings', label: '설정', end: false },
 ]
 

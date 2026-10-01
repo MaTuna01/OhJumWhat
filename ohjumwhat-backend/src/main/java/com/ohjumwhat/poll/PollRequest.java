@@ -5,9 +5,11 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
- * @param closesAt 오늘(한국 시간) 마감 시각, "HH:mm"
+ * 투표 만들기·수정 요청.
+ *
+ * @param closesAt 투표 날짜(한국 시간)의 마감 시각, "HH:mm"
  */
-public record CreatePollRequest(
+public record PollRequest(
 		@NotBlank(message = "투표 제목을 입력해 주세요.")
 		@Size(max = 100, message = "투표 제목은 100자 이하로 입력해 주세요.")
 		String title,

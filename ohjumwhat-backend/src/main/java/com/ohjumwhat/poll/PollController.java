@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.ohjumwhat.auth.LoginUser;
 import com.ohjumwhat.menu.MenuService;
+import com.ohjumwhat.menu.MenuSuggestion;
 import com.ohjumwhat.vote.VoteService;
 
 @RestController
@@ -45,7 +46,7 @@ public class PollController {
 	@PostMapping("/api/orgs/{orgId}/polls")
 	@ResponseStatus(HttpStatus.CREATED)
 	PollDetailResponse create(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long orgId,
-			@Valid @RequestBody CreatePollRequest request) {
+			@Valid @RequestBody PollRequest request) {
 		return pollService.create(orgId, loginUser.getUserId(), request);
 	}
 
@@ -55,8 +56,25 @@ public class PollController {
 		return pollService.get(orgId, pollId, loginUser.getUserId());
 	}
 
+	@PutMapping("/api/polls/{pollId}")
+	PollDetailResponse update(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId,
+			@Valid @RequestBody PollRequest request) {
+		return pollService.update(pollId, loginUser.getUserId(), request);
+	}
+
+	@PostMapping("/api/polls/{pollId}/close")
+	PollDetailResponse close(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId) {
+		return pollService.close(pollId, loginUser.getUserId());
+	}
+
+	@DeleteMapping("/api/polls/{pollId}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	void delete(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId) {
+		pollService.delete(pollId, loginUser.getUserId());
+	}
+
 	@GetMapping("/api/orgs/{orgId}/menu-names")
-	List<String> menuNames(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long orgId,
+	List<MenuSuggestion> menuNames(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long orgId,
 			@RequestParam(defaultValue = "") String q) {
 		return menuService.suggestions(orgId, loginUser.getUserId(), q);
 	}
@@ -65,7 +83,14 @@ public class PollController {
 	@ResponseStatus(HttpStatus.CREATED)
 	PollDetailResponse addOption(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId,
 			@Valid @RequestBody AddOptionRequest request) {
-		return menuService.add(pollId, loginUser.getUserId(), request.name());
+		return menuService.add(pollId, loginUser.getUserId(), request.name(), request.link());
+	}
+
+	/** link가 비어 있으면 링크를 지운다. */
+	@PutMapping("/api/polls/{pollId}/options/{optionId}/link")
+	PollDetailResponse changeLink(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId,
+			@PathVariable Long optionId, @Valid @RequestBody LinkRequest request) {
+		return menuService.changeLink(pollId, optionId, loginUser.getUserId(), request.link());
 	}
 
 	@DeleteMapping("/api/polls/{pollId}/options/{optionId}")
@@ -81,10 +106,16 @@ public class PollController {
 		return voteService.vote(pollId, loginUser.getUserId(), request.optionId());
 	}
 
+	/** link: 식당 지도 링크(선택). 지도 앱의 공유 문구를 통째로 붙여도 된다. */
 	record AddOptionRequest(
 			@NotBlank(message = "메뉴 이름을 입력해 주세요.")
 			@Size(max = 50, message = "메뉴 이름은 50자 이하로 입력해 주세요.")
-			String name) {
+			String name,
+			@Size(max = 1000, message = "링크가 너무 길어요.")
+			String link) {
+	}
+
+	record LinkRequest(@Size(max = 1000, message = "링크가 너무 길어요.") String link) {
 	}
 
 	record VoteRequest(Long optionId) {

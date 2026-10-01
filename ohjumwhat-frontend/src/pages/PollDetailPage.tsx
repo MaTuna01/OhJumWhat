@@ -1,9 +1,12 @@
+import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import Badge from '../components/Badge.tsx'
+import MapLinkModal from '../components/MapLinkModal.tsx'
 import MenuInput from '../components/MenuInput.tsx'
 import OptionCard from '../components/OptionCard.tsx'
 import { PageLoader, PageMessage, Section } from '../components/PageState.tsx'
 import PersonChip from '../components/PersonChip.tsx'
+import PollManageMenu from '../components/PollManageMenu.tsx'
 import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { useNow } from '../hooks/useNow.ts'
 import { useOrgId } from '../hooks/useOrgId.ts'
@@ -18,6 +21,7 @@ import { type PollDetail, type Person, useAddOption, useDeleteOption, usePollDet
 /**
  * Figma 05 투표 상세(진행 중) / 05b(마감 결과). 진행 중에는 3초마다 다시 불러온다.
  * 데스크톱(D05·D05b)은 메뉴를 본문에, 응답 현황·패스·미응답을 오른쪽 사이드에 둔다.
+ * 진행 중일 때 제목 옆 ⋯(05-A)에서 수정·지금 마감·삭제를 한다.
  */
 export default function PollDetailPage() {
   const orgId = useOrgId()
@@ -29,6 +33,7 @@ export default function PollDetailPage() {
   if (!Number.isInteger(pollId) || (poll.error instanceof ApiError && poll.error.status === 404)) {
     return (
       <PageMessage title="투표를 찾을 수 없어요">
+        <p>삭제됐거나 볼 수 없는 투표예요.</p>
         <Link to={`/orgs/${orgId}`} className={buttonClass('secondary', 'mt-4')}>
           투표 목록으로
         </Link>
@@ -54,6 +59,7 @@ function OpenPoll({ orgId, poll }: { orgId: number; poll: PollDetail }) {
   const vote = useVote(orgId, poll.id, me)
   const addOption = useAddOption(orgId, poll.id)
   const deleteOption = useDeleteOption(orgId, poll.id)
+  const [linkOptionId, setLinkOptionId] = useState<number | null>(null)
   const remaining = formatRemaining(poll.closesAt, now)
   const error = vote.error ?? addOption.error ?? deleteOption.error
   const passedMe = poll.myResponse === 'PASS'
@@ -62,9 +68,12 @@ function OpenPoll({ orgId, poll }: { orgId: number; poll: PollDetail }) {
     <div className={`flex flex-col gap-4 ${columnsClass}`}>
       <div className="min-w-0 space-y-4">
         <header className="space-y-2">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight">{poll.title}</h1>
-            <Badge tone="brand">진행 중</Badge>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <h1 className="min-w-0 text-2xl font-bold tracking-tight break-words">{poll.title}</h1>
+              <Badge tone="brand">진행 중</Badge>
+            </div>
+            <PollManageMenu orgId={orgId} poll={poll} />
           </div>
           <p className="text-sm font-medium text-text-brand">
             {formatClock(poll.closesAt)} 마감 · {remaining ?? '곧 결과가 나와요'}
@@ -78,7 +87,7 @@ function OpenPoll({ orgId, poll }: { orgId: number; poll: PollDetail }) {
           orgId={orgId}
           existing={poll.options.map((o) => o.name)}
           pending={addOption.isPending}
-          onAdd={(name) => addOption.mutateAsync(name)}
+          onAdd={(name, link) => addOption.mutateAsync({ name, link })}
         />
 
         {error && (
@@ -103,12 +112,19 @@ function OpenPoll({ orgId, poll }: { orgId: number; poll: PollDetail }) {
                   selected={poll.myOptionId === option.id}
                   onSelect={() => poll.myOptionId !== option.id && vote.mutate(option.id)}
                   onDelete={() => deleteOption.mutate(option.id)}
+                  onEditLink={() => setLinkOptionId(option.id)}
                   disabled={deleteOption.isPending}
                 />
               ))}
             </>
           )}
         </section>
+        <MapLinkModal
+          orgId={orgId}
+          pollId={poll.id}
+          option={poll.options.find((o) => o.id === linkOptionId) ?? null}
+          onClose={() => setLinkOptionId(null)}
+        />
       </div>
 
       <aside className="space-y-4">

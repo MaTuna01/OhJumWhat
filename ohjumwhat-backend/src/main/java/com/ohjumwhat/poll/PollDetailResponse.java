@@ -14,10 +14,11 @@ public record PollDetailResponse(Long id, Long organizationId, String title, Pol
 		Long myOptionId, List<PersonResponse> passed, List<PersonResponse> nonRespondents, List<Long> soloOptionIds) {
 
 	/**
+	 * @param link 식당 지도 링크(없으면 null)
 	 * @param mine 내가 추가한 메뉴인지
 	 * @param deletable 내가 추가했고 참여자가 없고 투표가 진행 중이라 삭제할 수 있는지
 	 */
-	public record Option(Long id, String name, PersonResponse createdBy, List<PersonResponse> voters, boolean mine,
+	public record Option(Long id, String name, String link, PersonResponse createdBy, List<PersonResponse> voters, boolean mine,
 			boolean deletable) {
 	}
 }
