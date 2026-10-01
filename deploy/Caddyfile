@@ -1,7 +1,20 @@
 # HTTPS 인증서는 Caddy가 Let's Encrypt로 자동 발급·갱신한다(도메인 A 레코드가 이 서버를 가리켜야 한다).
 # X-Forwarded-Proto/Host를 넘기므로 Spring(forward-headers-strategy: framework)이 https 리디렉션 URI를 만든다.
+# HSTS·X-Content-Type-Options·X-Frame-Options는 Spring Security가 붙이고, 나머지 보안 헤더는 여기서 붙인다.
+
+(security_headers) {
+	header {
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		# 외부 리소스는 Google Fonts와 구글 프로필 사진뿐이다. 인라인 스크립트·스타일 태그는 쓰지 않는다.
+		# 새 외부 리소스(분석 도구, CDN 등)를 추가하면 여기도 함께 고친다.
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://*.googleusercontent.com; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		-Server
+	}
+}
 
 {$APP_DOMAIN} {
+	import security_headers
 	encode zstd gzip
 	reverse_proxy app:8080
 }

@@ -2,7 +2,7 @@
 
 > 기획서: Notion 「점심메뉴 선정」 https://app.notion.com/p/3eb11d838f8d802e81dbfcd702c34692
 > 작업 관리: 같은 페이지의 Tasks DB (단계별 작업 7개, 선행/후속 관계 연결)
-> 마지막 갱신: 2026-09-30
+> 마지막 갱신: 2026-10-01 · 운영: https://www.ohjumwhat.cloud (`main` push 시 자동 배포)
 
 ## 목표
 조직 안에서 점심·저녁 메뉴를 투표로 정하는 웹 서비스 **오점왓(ohjumwhat)**의 MVP를 만든다. 결과는 "1등 메뉴"가 아니라 **메뉴별 참여자 명단(팀)**이다. 메신저 투표에는 열린 투표에 항목을 추가하는 기능 등이 부족해서 전용 도구를 만든다. 사용 규모는 조직당 10~20명이다.
@@ -16,11 +16,11 @@
 | 1 | 프로젝트 골격 | 완료 | 첫 커밋 (`main`) |
 | 2 | 인증 (구글 로그인·세션·CSRF) | 완료 | [#1](https://github.com/MaTuna01/OhJumWhat/pull/1) |
 | 3 | 조직 (생성·초대·탈퇴·설정·마이페이지) | 완료 | [#2](https://github.com/MaTuna01/OhJumWhat/pull/2) |
-| - | 디자인 시스템·와이어프레임 (Figma) + 코드 토큰 적용 | 완료 | `feature/design-system` |
-| 4 | 투표 핵심 (메뉴·참여·현황·결과) | 완료 | `feature/poll` |
-| 5 | 정기 투표 | 완료 | `feature/schedule` |
-| 6 | 배포·CI/CD | 구성 완료 · 서버 적용 대기 | `feature/deploy` |
-| 7 | 마무리·QA | 다음 작업 | |
+| - | 디자인 시스템·와이어프레임 (Figma) + 코드 토큰 적용 | 완료 | [#4](https://github.com/MaTuna01/OhJumWhat/pull/4) |
+| 4 | 투표 핵심 (메뉴·참여·현황·결과) | 완료 | [#5](https://github.com/MaTuna01/OhJumWhat/pull/5) |
+| 5 | 정기 투표 | 완료 | [#6](https://github.com/MaTuna01/OhJumWhat/pull/6) |
+| 6 | 배포·CI/CD | 완료 — https://www.ohjumwhat.cloud 운영 중 | [#7](https://github.com/MaTuna01/OhJumWhat/pull/7), 릴리스 [#8](https://github.com/MaTuna01/OhJumWhat/pull/8) |
+| 7 | 마무리·QA | 진행 중 — 404·오류 화면, 링크 미리보기, 탭 제목, CSP 등. 데스크톱 와이어프레임(Figma) 추가, 코드 반영은 남음 | [#10](https://github.com/MaTuna01/OhJumWhat/pull/10) |
 
 ## 계획을 세운 뒤 정한 것
 - 메뉴를 추가해도 추가한 사람이 **자동으로 참여하지 않는다**. 추가와 참여는 따로 한다.

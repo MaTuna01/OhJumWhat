@@ -1,10 +1,11 @@
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import Avatar from '../components/Avatar.tsx'
 import Button from '../components/Button.tsx'
 import InviteLinkField from '../components/InviteLinkField.tsx'
 import LeaveOrgDialog from '../components/LeaveOrgDialog.tsx'
 import { PageLoader, Section } from '../components/PageState.tsx'
+import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { useOrgId } from '../hooks/useOrgId.ts'
 import { inputClass } from '../lib/ui.ts'
 import { useMe } from '../queries/me.ts'
@@ -15,6 +16,15 @@ export default function OrgSettingsPage() {
   const { data: org } = useOrganization(orgId)
   const navigate = useNavigate()
   const [leaving, setLeaving] = useState(false)
+  const [renamed, setRenamed] = useState(false)
+  useDocumentTitle('설정', org?.name)
+
+  // "저장했어요"는 잠깐만 보여준다. (저장 후 입력창이 새로 그려지므로 상태는 여기서 들고 있다)
+  useEffect(() => {
+    if (!renamed) return
+    const timer = setTimeout(() => setRenamed(false), 2500)
+    return () => clearTimeout(timer)
+  }, [renamed])
 
   if (!org) return null
 
@@ -25,9 +35,18 @@ export default function OrgSettingsPage() {
         <InviteLinkField token={org.inviteToken} />
       </Section>
 
-      <Section title="조직 이름">
+      <Section
+        title="조직 이름"
+        action={
+          renamed && (
+            <span role="status" className="text-sm font-medium text-text-success">
+              ✓ 저장했어요
+            </span>
+          )
+        }
+      >
         {/* 이름이 바뀌면(다른 멤버가 바꾼 경우 포함) 입력창을 새 값으로 초기화한다. */}
-        <RenameForm key={org.name} org={org} />
+        <RenameForm key={org.name} org={org} onRenamed={() => setRenamed(true)} />
       </Section>
 
       <MemberList orgId={orgId} />
@@ -48,14 +67,14 @@ export default function OrgSettingsPage() {
   )
 }
 
-function RenameForm({ org }: { org: Organization }) {
+function RenameForm({ org, onRenamed }: { org: Organization; onRenamed: () => void }) {
   const [name, setName] = useState(org.name)
   const rename = useRenameOrganization(org.id)
   const trimmed = name.trim()
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    rename.mutate(trimmed)
+    rename.mutate(trimmed, { onSuccess: onRenamed })
   }
 
   return (

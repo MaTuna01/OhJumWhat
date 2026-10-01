@@ -46,7 +46,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 
 ## 아키텍처
 
-현재 6단계(골격·스키마, 구글 로그인·세션, 조직, 투표·메뉴·참여·결과, 정기 투표, 배포 구성)까지 구현되어 있다.
+현재 6단계까지 구현되어 있고, https://www.ohjumwhat.cloud 에서 운영 중이다(`main` push 시 자동 배포). 구현된 범위는 골격·스키마, 구글 로그인·세션, 조직, 투표·메뉴·참여·결과, 정기 투표, 배포다.
 
 **동일 출처 구조.** 운영에서는 React 빌드 결과를 Spring Boot jar의 static 리소스로 넣어 이미지 하나로 배포한다(Caddy가 앞단). 개발에서는 Vite가 백엔드 경로를 프록시하는데, `changeOrigin: false`로 Host 헤더를 유지하고 백엔드는 `server.forward-headers-strategy: framework`로 설정한다. 그래서 CORS 설정이 없고, 인증은 JWT 없이 **세션 쿠키**로 한다. 프론트의 `/login`은 SPA 화면이고, Spring의 기본 로그인 페이지는 쓰지 않는다. 운영에서 파일이 없는 화면 경로는 `common/SpaWebConfig`가 `index.html`로 돌려준다.
 
@@ -104,6 +104,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 **투표 화면.**
 - 투표 상세(`PollDetailPage`)는 진행 중일 때 3초마다 폴링하고, 마감 응답을 받으면 결과 모드로 바뀌며 폴링을 멈춘다.
 - 참여·패스는 `lib/pollDetail.ts`의 `applyVote`로 먼저 화면에 반영(낙관적 업데이트)하고, 실패하면 되돌린다. 이 함수는 서버 `PollService.detail`과 같은 규칙으로 다시 계산하므로, 규칙을 바꿀 때는 둘을 함께 고친다.
+- 화면마다 `useDocumentTitle(...)`로 탭 제목을 붙인다(예: "점심 · 개발팀 · 오점왓"). 없는 경로는 `NotFoundPage`가, 예상하지 못한 렌더링 오류는 `RouteErrorPage`(라우터 errorElement)가 처리한다.
 - 시간 표시는 `lib/time.ts`(한국 시간 기준)를 쓴다. 요일 비트마스크(월=1 … 일=64, 평일=31)는 `lib/daysOfWeek.ts`로 변환한다.
 
 **프론트엔드.** 라우트는 `src/router.tsx` 한 곳에 모여 있다(기획서의 화면 7개 + `/` 진입 분기). `/login`을 뺀 모든 화면은 `RequireAuth`(내 정보 조회가 401이면 경로를 기억하고 로그인 화면으로 보냄) 아래에 있다. API 호출은 `lib/api.ts`의 `api()`로만 하고, 서버 상태 훅과 query key는 `src/queries/`에 둔다. `/orgs/:orgId` 아래 화면은 `OrgLayout`이 조직 조회(방문 기록 갱신), 404 처리, 탭을 맡고, 하위 화면은 `useOrganization(orgId)` 캐시를 그대로 쓴다. 버튼·입력창 스타일은 `lib/ui.ts`(`buttonClass`, `inputClass`)에 있고, 모달은 네이티브 `<dialog>` 기반 `Modal`/`ConfirmDialog`를 쓴다. 다른 쿼리나 뮤테이션이 401을 받으면 `main.tsx`의 캐시 핸들러가 내 정보를 다시 불러오고, 그 결과로 로그인 화면으로 이동한다. 서버 상태는 TanStack Query로 관리한다. 투표 상세 화면은 WebSocket을 쓰지 않고 진행 중일 때 몇 초 간격으로 폴링한다(10~20명 규모). 스타일은 Tailwind v4(`@import 'tailwindcss'`, `@tailwindcss/vite` 플러그인)다.
@@ -119,6 +120,11 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 이미지를 만들 때 `application.example.yml`을 `application.yml`로 복사한다. 그래서 설정 키를 추가하면 예시 파일에도 반드시 넣어야 운영에 반영된다. 실제 값은 서버 `~/ohjumwhat/.env`(템플릿: `deploy/.env.example`)에 둔다.
 - Caddy가 HTTPS를 맡고, `X-Forwarded-*` 헤더로 원래 주소를 넘긴다. 그래서 앱은 https 리디렉션 URI를 만들고, `Secure` 쿠키를 쓴다.
 - 서버 설정, Secrets, 롤백, 백업·복원 방법은 `docs/DEPLOY.md`에 있다.
+- `dev` → `main` 승격 하나가 릴리스 하나다. 승격 전에 버전(`build.gradle.kts`, `package.json`)을 올리고 `CHANGELOG.md`를 적는다. 배포 뒤에는 `vX.Y.Z` 태그와 GitHub Release를 만든다(`docs/DEPLOY.md` 「릴리스와 버전」).
+- 보안 헤더
+  - HSTS·nosniff·X-Frame-Options는 Spring Security가 붙인다.
+  - Referrer-Policy·Permissions-Policy·**CSP**는 `deploy/Caddyfile`이 붙인다.
+  - CSP가 허용하는 외부 출처는 Google Fonts와 `*.googleusercontent.com`(프로필 사진)뿐이다. 새 외부 리소스(스크립트, 폰트, 이미지 CDN, 분석 도구)를 추가하면 CSP도 함께 고친다. 안 고치면 운영에서만 막힌다(개발 서버에는 CSP가 없다).
 - `Dockerfile`이나 `deploy/`를 바꾸면, 합치기 전에 로컬에서 `docker build`와 `deploy/docker-compose.yml`로 스택을 띄워 확인한다(도메인은 `localhost`).
 
 ## 디자인 시스템 (Figma) — 프론트엔드는 이것을 기준으로 개발한다
@@ -127,7 +133,10 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 「디자인 시스템」 페이지
     - Foundations 프레임: 로고, 컨셉 컬러, 원색 팔레트, 의미 기반 토큰, 타이포그래피, 간격·둥글기·그림자
     - Components 프레임: Button, Badge, Avatar, OptionCard, Input, Logo, TopBar
-  - 「와이어프레임」 페이지: 모바일(390px) 화면 12개. 01 로그인부터 07 조직 설정까지와 `-M` 모달
+  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면 12개. 01 로그인부터 07 조직 설정까지와 `-M` 모달
+  - 「와이어프레임 · 데스크톱」 페이지: 같은 화면 12개의 데스크톱(1440px) 버전(`D01`~`D07-M`)
+    - 콘텐츠 폭 1024px 가운데 정렬. 1024px 이상(`lg`)에서 본문 + 오른쪽 사이드(320px) 2단, 그보다 좁으면 모바일 레이아웃을 쓴다.
+    - 로그인은 좌우 분할(왼쪽 브랜드 소개·투표 미리보기, 오른쪽 로그인), 모달은 폭 448px이다.
 - **새 화면이나 컴포넌트를 만들 때는 먼저 해당 Figma 프레임을 보고 그대로 구현한다.**
   - 디자인과 다르게 구현해야 하면 이유를 PR에 적는다.
   - Figma MCP는 데스크톱 연결(`figma-desktop`)을 쓴다. 원격 Figma MCP 계정에는 이 파일의 편집 권한이 없다.
@@ -139,6 +148,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - **글꼴은 Noto Sans KR**(`index.html`에서 Google Fonts로 불러옴)이다.
   - 굵기는 400(본문) / 500(버튼·라벨·배지) / 700(제목·강조) / 900(로고)만 쓴다. `font-semibold`는 쓰지 않는다.
   - 텍스트 스타일 대응: H1=`text-2xl font-bold`, H2=`text-lg font-bold`, H3=`font-bold`, Small=`text-sm`, Caption=`text-xs`.
+- 링크 미리보기 이미지(`public/og-image.png`, 1200×630)와 iOS 아이콘(`public/apple-touch-icon.png`)은 Figma 「디자인 시스템」 페이지의 `OG Image`·`Apple Touch Icon` 프레임에서 내보낸다.
 - **둥글기**: Figma `radius/md·lg·xl·full`(8·12·16·원형)은 Tailwind `rounded-lg·xl·2xl·full`에 대응한다. 입력·버튼 8, 메뉴 12, 카드·모달 16이다.
 - **컴포넌트 대응**
   - Button → `components/Button.tsx`, `lib/ui.ts`의 `buttonClass`

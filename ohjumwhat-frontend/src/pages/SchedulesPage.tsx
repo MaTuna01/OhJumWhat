@@ -4,9 +4,11 @@ import ConfirmDialog from '../components/ConfirmDialog.tsx'
 import DayPills from '../components/DayPills.tsx'
 import { PageLoader } from '../components/PageState.tsx'
 import ScheduleModal from '../components/ScheduleModal.tsx'
+import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { useOrgId } from '../hooks/useOrgId.ts'
 import { daysLabel } from '../lib/daysOfWeek.ts'
 import { formatTimeRange } from '../lib/time.ts'
+import { useOrganization } from '../queries/orgs.ts'
 import { type Schedule, useDeleteSchedule, useSchedules } from '../queries/schedules.ts'
 
 /** Figma 06 정기 투표 관리. 모든 멤버가 규칙을 추가·수정·삭제할 수 있다. */
@@ -17,6 +19,8 @@ export default function SchedulesPage() {
   // undefined: 닫힘, null: 새 규칙, Schedule: 수정
   const [editing, setEditing] = useState<Schedule | null | undefined>(undefined)
   const [deleting, setDeleting] = useState<Schedule | null>(null)
+  const { data: org } = useOrganization(orgId)
+  useDocumentTitle('정기 투표', org?.name)
 
   const closeDelete = () => {
     remove.reset()

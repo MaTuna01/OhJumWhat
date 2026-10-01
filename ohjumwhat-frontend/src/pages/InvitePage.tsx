@@ -1,6 +1,7 @@
 import { Link, Navigate, useNavigate, useParams } from 'react-router'
 import Button from '../components/Button.tsx'
 import { PageLoader, PageMessage } from '../components/PageState.tsx'
+import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { buttonClass } from '../lib/ui.ts'
 import { useInvite, useJoinInvite } from '../queries/orgs.ts'
 
@@ -9,6 +10,7 @@ export default function InvitePage() {
   const invite = useInvite(token)
   const join = useJoinInvite(token)
   const navigate = useNavigate()
+  useDocumentTitle(invite.data ? `${invite.data.name} 초대` : '초대')
 
   if (invite.isPending) return <PageLoader />
   if (invite.isError) {
