@@ -43,6 +43,13 @@ public class PollController {
 		return pollService.today(orgId, loginUser.getUserId());
 	}
 
+	/** 지난 투표(오늘 이전, 최신순 10개씩). page는 0부터 */
+	@GetMapping("/api/orgs/{orgId}/polls/history")
+	PollHistoryResponse history(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long orgId,
+			@RequestParam(defaultValue = "0") int page) {
+		return pollService.history(orgId, loginUser.getUserId(), page);
+	}
+
 	@PostMapping("/api/orgs/{orgId}/polls")
 	@ResponseStatus(HttpStatus.CREATED)
 	PollDetailResponse create(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long orgId,

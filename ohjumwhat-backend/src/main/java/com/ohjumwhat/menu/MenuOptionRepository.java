@@ -1,5 +1,6 @@
 package com.ohjumwhat.menu;
 
+import java.util.Collection;
 import java.util.List;
 
 import org.springframework.data.domain.Pageable;
@@ -9,6 +10,8 @@ import org.springframework.data.jpa.repository.Query;
 public interface MenuOptionRepository extends JpaRepository<MenuOption, Long> {
 
 	List<MenuOption> findByPollIdOrderByIdAsc(Long pollId);
+
+	List<MenuOption> findByPollIdIn(Collection<Long> pollIds);
 
 	boolean existsByPollIdAndName(Long pollId, String name);
 

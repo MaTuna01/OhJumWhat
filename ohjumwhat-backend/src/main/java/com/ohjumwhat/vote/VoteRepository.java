@@ -1,6 +1,7 @@
 package com.ohjumwhat.vote;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,6 +14,8 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
 	List<Vote> findByPollIdOrderByUpdatedAtAscIdAsc(Long pollId);
 
 	long countByOptionId(Long optionId);
+
+	List<Vote> findByPollIdIn(Collection<Long> pollIds);
 
 	/**
 	 * 한 사람 한 표: (poll_id, user_id) 행이 있으면 option_id만 바꾼다. option_id가 NULL이면 "오늘은 패스".
