@@ -9,13 +9,13 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { useNow } from '../hooks/useNow.ts'
 import { useOrgId } from '../hooks/useOrgId.ts'
 import { daysLabel } from '../lib/daysOfWeek.ts'
-import { formatClock, formatRemaining, formatTimeRange } from '../lib/time.ts'
-import { columnsClass } from '../lib/ui.ts'
-import { type PollSummary, useTodayPolls } from '../queries/polls.ts'
+import { formatClock, formatPollDay, formatRemaining, formatTimeRange } from '../lib/time.ts'
+import { buttonClass, columnsClass } from '../lib/ui.ts'
+import { type PollHistoryItem, type PollSummary, usePollHistory, useTodayPolls } from '../queries/polls.ts'
 import { useOrganization } from '../queries/orgs.ts'
 import { useSchedules } from '../queries/schedules.ts'
 
-/** Figma 04 조직 홈: 오늘 열린 투표 카드와 투표 만들기 */
+/** Figma 04 조직 홈: 오늘 열린 투표 카드와 투표 만들기, 지난 투표(04-H) */
 export default function OrgHomePage() {
   const orgId = useOrgId()
   const polls = useTodayPolls(orgId)
@@ -49,6 +49,7 @@ export default function OrgHomePage() {
             ))}
           </ul>
         )}
+        <PollHistory orgId={orgId} />
         <ScheduleHint orgId={orgId} />
       </div>
       {/* 데스크톱 사이드: 정기 투표 요약과 멤버. 모바일은 위의 한 줄 요약(ScheduleHint)만 보여준다. */}
@@ -58,6 +59,73 @@ export default function OrgHomePage() {
       </aside>
       <CreatePollModal orgId={orgId} open={creating} onClose={() => setCreating(false)} />
     </div>
+  )
+}
+
+/** Figma 04-H·D04-H 「지난 투표」: 오늘 이전 투표를 최신순으로 10개씩. 누르면 결과 화면으로 간다. */
+function PollHistory({ orgId }: { orgId: number }) {
+  const history = usePollHistory(orgId)
+  const now = useNow(60_000)
+  const polls = history.data?.pages.flatMap((page) => page.polls) ?? []
+  if (history.isPending || history.isError || polls.length === 0) return null
+
+  return (
+    <section className="rounded-2xl border border-border-default bg-bg-surface px-4 pt-4 pb-2" aria-label="지난 투표">
+      <h2 className="font-bold">지난 투표</h2>
+      <ul>
+        {polls.map((poll, i) => (
+          <li key={poll.id} className={i > 0 ? 'border-t border-border-default' : ''}>
+            <HistoryRow orgId={orgId} poll={poll} now={now} />
+          </li>
+        ))}
+      </ul>
+      {history.hasNextPage && (
+        <button
+          type="button"
+          onClick={() => history.fetchNextPage()}
+          disabled={history.isFetchingNextPage}
+          className={buttonClass('ghost', 'mb-1 w-full')}
+        >
+          {history.isFetchingNextPage ? '불러오는 중…' : '더 보기'}
+        </button>
+      )}
+    </section>
+  )
+}
+
+const TEAM_PREVIEW = 3
+
+function HistoryRow({ orgId, poll, now }: { orgId: number; poll: PollHistoryItem; now: number }) {
+  const shown = poll.teams.slice(0, TEAM_PREVIEW)
+  const rest = poll.teams.length - shown.length
+  const teams =
+    poll.teams.length === 0
+      ? `참여한 메뉴가 없어요 · 응답 ${poll.respondedCount}명`
+      : `${shown.map((t) => `${t.name} ${t.count}`).join(' · ')}${rest > 0 ? ` 외 ${rest}팀` : ''}`
+  const myChoice =
+    poll.myResponse === 'OPTION' ? `내 선택: ${poll.myOptionName}` : poll.myResponse === 'PASS' ? '내 선택: 오늘은 패스' : '응답하지 않았어요'
+
+  return (
+    <Link
+      to={`/orgs/${orgId}/polls/${poll.id}`}
+      className="-mx-2 flex flex-col items-start gap-1 rounded-lg px-2 py-3 hover:bg-bg-subtle focus-visible:outline-2 focus-visible:outline-border-brand"
+    >
+      <span className="flex w-full items-center gap-2">
+        <span className="truncate text-sm font-bold">{poll.title}</span>
+        <span className="shrink-0 text-xs text-text-tertiary">{formatPollDay(poll.pollDate, now)}</span>
+        <span className="ml-auto text-base text-icon-muted" aria-hidden>
+          ›
+        </span>
+      </span>
+      <span className="text-sm text-text-secondary">{teams}</span>
+      <span
+        className={`rounded-lg px-2 py-0.5 text-xs font-medium ${
+          poll.myResponse === 'OPTION' ? 'bg-bg-brand-soft text-text-brand-strong' : 'bg-bg-muted text-text-tertiary'
+        }`}
+      >
+        {myChoice}
+      </span>
+    </Link>
   )
 }
 

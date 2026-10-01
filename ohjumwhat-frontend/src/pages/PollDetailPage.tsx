@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import Badge from '../components/Badge.tsx'
+import Button from '../components/Button.tsx'
 import MapLinkModal from '../components/MapLinkModal.tsx'
 import MenuInput from '../components/MenuInput.tsx'
 import OptionCard from '../components/OptionCard.tsx'
@@ -12,6 +13,7 @@ import { useNow } from '../hooks/useNow.ts'
 import { useOrgId } from '../hooks/useOrgId.ts'
 import { ApiError } from '../lib/api.ts'
 import { confirmedTeams } from '../lib/pollDetail.ts'
+import { copyText, resultText } from '../lib/share.ts'
 import { formatClock, formatRemaining } from '../lib/time.ts'
 import { buttonClass, columnsClass } from '../lib/ui.ts'
 import { useMe } from '../queries/me.ts'
@@ -192,9 +194,12 @@ function ClosedPoll({ poll }: { poll: PollDetail }) {
     <div className={`flex flex-col gap-4 ${columnsClass}`}>
       <div className="min-w-0 space-y-4">
         <header className="space-y-2">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight">{poll.title}</h1>
-            <Badge tone="neutral">마감</Badge>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <h1 className="min-w-0 text-2xl font-bold tracking-tight break-words">{poll.title}</h1>
+              <Badge tone="neutral">마감</Badge>
+            </div>
+            <CopyResultButton poll={poll} />
           </div>
           <p className="text-sm text-text-secondary">
             {formatClock(poll.closesAt)}에 마감됐어요 · {teams.length > 0 ? `${teams.length}팀으로 나뉘었어요` : '참여한 메뉴가 없어요'}
@@ -236,6 +241,28 @@ function ClosedPoll({ poll }: { poll: PollDetail }) {
         <p className="text-xs text-text-placeholder">마감된 투표는 메뉴를 추가하거나 바꿀 수 없어요</p>
       </aside>
     </div>
+  )
+}
+
+/** 결과 복사(Figma 05b-S): 메신저에 붙일 결과 글을 복사하고 2초 동안 "✓ 복사했어요"를 보여준다. */
+function CopyResultButton({ poll }: { poll: PollDetail }) {
+  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
+
+  useEffect(() => {
+    if (state === 'idle') return
+    const timer = setTimeout(() => setState('idle'), 2000)
+    return () => clearTimeout(timer)
+  }, [state])
+
+  const copy = async () => {
+    const url = `${window.location.origin}/orgs/${poll.organizationId}/polls/${poll.id}`
+    setState((await copyText(resultText(poll, url))) ? 'copied' : 'failed')
+  }
+
+  return (
+    <Button variant="secondary" onClick={copy} className="shrink-0 py-1.5" aria-live="polite">
+      {state === 'copied' ? '✓ 복사했어요' : state === 'failed' ? '복사하지 못했어요' : '결과 복사'}
+    </Button>
   )
 }
 

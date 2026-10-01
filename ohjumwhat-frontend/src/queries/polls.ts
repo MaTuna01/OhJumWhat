@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError, api } from '../lib/api.ts'
 import { applyVote } from '../lib/pollDetail.ts'
 import type { Me } from './me.ts'
@@ -52,6 +52,21 @@ export type PollSummary = {
   myOptionName: string | null
 }
 
+/** 지난 투표 한 줄. teams는 참여자가 있는 메뉴(인원 많은 순) */
+export type PollHistoryItem = {
+  id: number
+  title: string
+  pollDate: string
+  closesAt: string
+  respondedCount: number
+  passCount: number
+  teams: { name: string; count: number }[]
+  myResponse: MyResponse
+  myOptionName: string | null
+}
+
+export type PollHistoryPage = { polls: PollHistoryItem[]; hasMore: boolean }
+
 /** 메뉴 자동완성. lastEatenOn은 마지막으로 먹은 날(한국 날짜), 먹은 적이 없으면 null */
 export type MenuSuggestion = { name: string; lastEatenOn: string | null }
 
@@ -63,6 +78,7 @@ export const pollKeys = {
   detail: (pollId: number) => ['polls', pollId] as const,
   menuNames: (orgId: number, q: string) => ['orgs', orgId, 'menu-names', q] as const,
   recommendations: (orgId: number) => ['orgs', orgId, 'menu-recommendations'] as const,
+  history: (orgId: number) => ['orgs', orgId, 'polls', 'history'] as const,
 }
 
 /** 진행 중인 투표는 3초마다 다시 불러온다(백그라운드 탭에서는 멈춘다). */
@@ -73,6 +89,17 @@ export function useTodayPolls(orgId: number) {
     queryKey: pollKeys.today(orgId),
     queryFn: () => api<PollSummary[]>(`/api/orgs/${orgId}/polls/today`),
     refetchInterval: (query) => (query.state.data?.some((p) => p.status === 'OPEN') ? 15_000 : false),
+  })
+}
+
+/** 지난 투표(오늘 이전, 최신순 10개씩). 「더 보기」로 다음 페이지를 붙인다. */
+export function usePollHistory(orgId: number) {
+  return useInfiniteQuery({
+    queryKey: pollKeys.history(orgId),
+    queryFn: ({ pageParam }) => api<PollHistoryPage>(`/api/orgs/${orgId}/polls/history?page=${pageParam}`),
+    initialPageParam: 0,
+    getNextPageParam: (last, pages) => (last.hasMore ? pages.length : undefined),
+    staleTime: 60_000,
   })
 }
 
