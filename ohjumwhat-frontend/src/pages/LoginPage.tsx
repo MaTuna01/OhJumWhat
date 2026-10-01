@@ -8,7 +8,7 @@ import type { Person, PollOption } from '../queries/polls.ts'
 export default function LoginPage() {
   const me = useMe()
   const [searchParams] = useSearchParams()
-  const failed = searchParams.has('error')
+  const error = searchParams.get('error')
   useDocumentTitle('로그인')
 
   if (me.isSuccess) {
@@ -37,9 +37,9 @@ export default function LoginPage() {
             <p className="mt-2 text-sm text-text-secondary">구글 계정 하나로 바로 시작해요.</p>
           </div>
 
-          {failed && (
+          {error != null && (
             <p role="alert" className="mt-6 rounded-lg bg-bg-danger-soft px-4 py-3 text-sm text-text-danger">
-              로그인하지 못했어요. 다시 시도해 주세요.
+              {error === 'blocked' ? '이 계정은 관리자가 이용을 제한했어요. 문의는 서비스 관리자에게 해 주세요.' : '로그인하지 못했어요. 다시 시도해 주세요.'}
             </p>
           )}
 

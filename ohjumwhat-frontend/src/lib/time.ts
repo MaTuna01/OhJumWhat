@@ -46,3 +46,39 @@ export function defaultCloseTime(now: number): string {
   const hhmm = toKstHhmm(new Date(target))
   return hhmm < toKstHhmm(new Date(now)) ? '23:50' : hhmm
 }
+
+const dayKeyFormat = new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' })
+const monthDayFormat = new Intl.DateTimeFormat('ko-KR', { timeZone: TIME_ZONE, month: 'long', day: 'numeric' })
+const fullDateFormat = new Intl.DateTimeFormat('ko-KR', { timeZone: TIME_ZONE, year: 'numeric', month: 'long', day: 'numeric' })
+
+/** 한국 날짜 "YYYY-MM-DD". 서버의 LocalDate("2026-09-30")나 시각(ISO)을 모두 받는다. */
+function kstDayKey(value: string | number): string {
+  return dayKeyFormat.format(new Date(value))
+}
+
+/** "2026년 9월 28일" */
+export function formatDate(value: string): string {
+  return fullDateFormat.format(new Date(value))
+}
+
+/** 날짜를 짧게: "오늘", "어제", 올해면 "9월 28일", 그 전이면 "2025년 9월 28일" (관리자 콘솔 목록) */
+export function formatDay(value: string, now: number): string {
+  const day = kstDayKey(value)
+  if (day === kstDayKey(now)) return '오늘'
+  if (day === kstDayKey(now - 86_400_000)) return '어제'
+  return day.slice(0, 4) === kstDayKey(now).slice(0, 4) ? monthDayFormat.format(new Date(value)) : formatDate(value)
+}
+
+/** "오늘 오전 9:12", "어제 오후 3:00", "9월 28일 오전 9:12" */
+export function formatDayTime(iso: string, now: number): string {
+  return `${formatDay(iso, now)} ${formatClock(iso)}`
+}
+
+/** 최근 활동: "방금", "5분 전", "3시간 전", 하루가 지나면 formatDayTime */
+export function formatAgo(iso: string, now: number): string {
+  const minutes = Math.floor((now - new Date(iso).getTime()) / 60_000)
+  if (minutes < 1) return '방금'
+  if (minutes < 60) return `${minutes}분 전`
+  if (minutes < 24 * 60) return `${Math.floor(minutes / 60)}시간 전`
+  return formatDayTime(iso, now)
+}

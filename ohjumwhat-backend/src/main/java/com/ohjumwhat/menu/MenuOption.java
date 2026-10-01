@@ -21,7 +21,7 @@ public class MenuOption {
 	@Column(nullable = false)
 	private Long pollId;
 
-	@Column(nullable = false)
+	// 추가한 사람이 강제 탈퇴로 삭제되면 NULL이 된다(메뉴는 남는다).
 	private Long createdBy;
 
 	@Column(nullable = false)

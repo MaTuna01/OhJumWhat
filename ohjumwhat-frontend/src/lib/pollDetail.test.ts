@@ -3,7 +3,7 @@ import type { Me } from '../queries/me.ts'
 import type { PollDetail } from '../queries/polls.ts'
 import { applyVote, confirmedTeams } from './pollDetail.ts'
 
-const me: Me = { id: 1, name: '김철수', email: 'kim@example.com', profileImageUrl: null, lastVisitedOrgId: 1 }
+const me: Me = { id: 1, name: '김철수', email: 'kim@example.com', profileImageUrl: null, lastVisitedOrgId: 1, admin: false }
 const lee = { userId: 2, name: '이영희', profileImageUrl: null }
 const base: PollDetail = {
   id: 10,

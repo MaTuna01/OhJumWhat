@@ -31,4 +31,8 @@ public interface MembershipRepository extends JpaRepository<Membership, Long> {
 			where m.organizationId = :organizationId
 			order by m.joinedAt, m.id""")
 	List<MemberResponse> findMembers(Long organizationId);
+
+	/** 강제 탈퇴: 그 회원이 속한 조직 ID(잠금 순서를 맞추기 위해 오름차순) */
+	@Query("select m.organizationId from Membership m where m.userId = :userId order by m.organizationId")
+	List<Long> findOrganizationIdsByUserId(Long userId);
 }

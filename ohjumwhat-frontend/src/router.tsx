@@ -1,7 +1,15 @@
 import { createBrowserRouter } from 'react-router'
+import AdminLayout from './components/AdminLayout.tsx'
 import AppLayout from './components/AppLayout.tsx'
 import OrgLayout from './components/OrgLayout.tsx'
 import RequireAuth from './components/RequireAuth.tsx'
+import AdminBlocksPage from './pages/admin/AdminBlocksPage.tsx'
+import AdminOrgPage from './pages/admin/AdminOrgPage.tsx'
+import AdminOrgsPage from './pages/admin/AdminOrgsPage.tsx'
+import AdminOverviewPage from './pages/admin/AdminOverviewPage.tsx'
+import AdminPollPage from './pages/admin/AdminPollPage.tsx'
+import AdminUserPage from './pages/admin/AdminUserPage.tsx'
+import AdminUsersPage from './pages/admin/AdminUsersPage.tsx'
 import InvitePage from './pages/InvitePage.tsx'
 import LoginPage from './pages/LoginPage.tsx'
 import MyPage from './pages/MyPage.tsx'
@@ -39,7 +47,21 @@ export const router = createBrowserRouter([
                   { path: 'settings', element: <OrgSettingsPage /> },
                 ],
               },
-              { path: '*', element: <NotFoundPage /> },
+              {
+            // 관리자 콘솔: 관리자가 아니면 AdminLayout이 없는 페이지로 보여준다(권한은 서버가 확인).
+            path: '/admin',
+            element: <AdminLayout />,
+            children: [
+              { index: true, element: <AdminOverviewPage /> },
+              { path: 'users', element: <AdminUsersPage /> },
+              { path: 'users/:userId', element: <AdminUserPage /> },
+              { path: 'orgs', element: <AdminOrgsPage /> },
+              { path: 'orgs/:orgId', element: <AdminOrgPage /> },
+              { path: 'polls/:pollId', element: <AdminPollPage /> },
+              { path: 'blocks', element: <AdminBlocksPage /> },
+            ],
+          },
+          { path: '*', element: <NotFoundPage /> },
             ],
           },
         ],

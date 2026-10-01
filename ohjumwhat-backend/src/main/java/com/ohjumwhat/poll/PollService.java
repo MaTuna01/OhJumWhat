@@ -127,7 +127,7 @@ public class PollService {
 		// 명단에 필요한 사람: 현재 멤버 + (마감된 투표라면) 이미 탈퇴한 참여자와 메뉴 작성자
 		Set<Long> userIds = new HashSet<>();
 		votes.forEach(v -> userIds.add(v.getUserId()));
-		options.forEach(o -> userIds.add(o.getCreatedBy()));
+		options.stream().map(MenuOption::getCreatedBy).filter(Objects::nonNull).forEach(userIds::add);
 		members.forEach(m -> userIds.remove(m.userId()));
 		Map<Long, PersonResponse> people = new LinkedHashMap<>();
 		members.forEach(m -> people.put(m.userId(), new PersonResponse(m.userId(), m.name(), m.profileImageUrl())));
@@ -147,9 +147,11 @@ public class PollService {
 
 		List<PollDetailResponse.Option> optionResponses = options.stream().map(option -> {
 			List<PersonResponse> voters = votersByOption.getOrDefault(option.getId(), List.of());
-			boolean mine = option.getCreatedBy().equals(userId);
-			return new PollDetailResponse.Option(option.getId(), option.getName(), people.get(option.getCreatedBy()),
-					voters, mine, mine && voters.isEmpty() && !closed);
+			// 추가한 사람이 강제 탈퇴로 삭제됐으면 createdBy는 null이다("탈퇴한 사용자").
+			boolean mine = userId.equals(option.getCreatedBy());
+			PersonResponse creator = option.getCreatedBy() == null ? null : people.get(option.getCreatedBy());
+			return new PollDetailResponse.Option(option.getId(), option.getName(), creator, voters, mine,
+					mine && voters.isEmpty() && !closed);
 		}).toList();
 
 		Set<Long> responded = votes.stream().map(Vote::getUserId).collect(Collectors.toSet());

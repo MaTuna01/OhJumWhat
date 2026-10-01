@@ -34,4 +34,9 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
 			  and v.pollId in (select p.id from com.ohjumwhat.poll.Poll p
 			                   where p.organizationId = :organizationId and p.closesAt > :now)""")
 	int deleteInOpenPolls(Long organizationId, Long userId, Instant now);
+
+	/** 관리자가 메뉴를 강제로 지울 때 그 메뉴의 응답부터 지운다(응답한 사람은 미응답이 된다). */
+	@Modifying
+	@Query("delete from Vote v where v.optionId = :optionId")
+	int deleteByOptionId(Long optionId);
 }

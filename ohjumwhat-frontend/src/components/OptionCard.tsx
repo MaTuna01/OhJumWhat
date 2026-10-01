@@ -22,7 +22,7 @@ export default function OptionCard({ option, meId, result, selected, onSelect, o
   const count = option.voters.length
   const solo = count === 1
   const interactive = !result && !disabled
-  const creator = option.mine ? '내가 추가' : `${option.createdBy.name}가 추가`
+  const creator = option.mine ? '내가 추가' : `${option.createdBy?.name ?? '탈퇴한 사용자'}가 추가`
 
   const onKeyDown = (e: KeyboardEvent) => {
     if (interactive && (e.key === 'Enter' || e.key === ' ')) {

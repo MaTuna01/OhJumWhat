@@ -21,6 +21,7 @@
 | 5 | 정기 투표 | 완료 | [#6](https://github.com/MaTuna01/OhJumWhat/pull/6) |
 | 6 | 배포·CI/CD | 완료 — https://www.ohjumwhat.cloud 운영 중 | [#7](https://github.com/MaTuna01/OhJumWhat/pull/7), 릴리스 [#8](https://github.com/MaTuna01/OhJumWhat/pull/8) |
 | 7 | 마무리·QA | 완료 — 404·오류 화면, 링크 미리보기, 탭 제목, CSP 등(v1.1.0~v1.1.1), 데스크톱 레이아웃(v1.2.0) | [#10](https://github.com/MaTuna01/OhJumWhat/pull/10), [#14](https://github.com/MaTuna01/OhJumWhat/pull/14), [#16](https://github.com/MaTuna01/OhJumWhat/pull/16) |
+| - | 관리자 콘솔 (superadmin: 회원·조직·투표 관리, 강제 탈퇴·차단) | 완료(dev) | `feature/admin` |
 
 ## 계획을 세운 뒤 정한 것
 - 메뉴를 추가해도 추가한 사람이 **자동으로 참여하지 않는다**. 추가와 참여는 따로 한다.

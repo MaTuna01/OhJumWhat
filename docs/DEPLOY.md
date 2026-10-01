@@ -88,6 +88,7 @@ DB_USERNAME=ohjumwhat
 DB_PASSWORD=<openssl rand -hex 24 로 만든 값>
 GOOGLE_CLIENT_ID=<구글 OAuth 클라이언트 ID>
 GOOGLE_CLIENT_SECRET=<구글 OAuth 클라이언트 시크릿>
+ADMIN_EMAILS=<관리자 콘솔을 쓸 구글 계정 이메일, 쉼표로 여러 개>
 APP_DOMAIN=www.ohjumwhat.cloud
 APP_APEX_DOMAIN=ohjumwhat.cloud
 APP_IMAGE=ghcr.io/matuna01/ohjumwhat:latest
@@ -135,12 +136,23 @@ curl -I http://ohjumwhat.cloud                    # https://www.ohjumwhat.cloud 
 
 `dev` → `main` 승격(사용자 결정) 한 번이 릴리스 하나다. 버전은 `vMAJOR.MINOR.PATCH`로 붙인다.
 
+0. DB 스키마가 바뀌는 릴리스(새 `V{n}__*.sql`)라면 승격 전에 서버에서 `./backup.sh`로 백업한다. 새 설정 키가 있으면 서버 `.env`에 먼저 넣는다.
 1. 기능 브랜치에서 버전을 올린다: `ohjumwhat-backend/build.gradle.kts`의 `version`, 프론트는 `npm version X.Y.Z --no-git-tag-version`(package.json·package-lock.json). `CHANGELOG.md`에 바뀐 점을 적고 `dev`에 머지한다.
 2. `dev` → `main` 릴리스 PR을 만들어 머지한다. Deploy 워크플로가 배포한다.
 3. 배포가 끝나면 `main`의 머지 커밋에 태그와 GitHub Release를 만든다.
 ```bash
 git tag -a vX.Y.Z -m "vX.Y.Z" origin/main && git push origin vX.Y.Z
 gh release create vX.Y.Z -R MaTuna01/OhJumWhat --title "vX.Y.Z" --notes "<CHANGELOG의 해당 절>"
+```
+
+## 관리자 지정
+
+관리자 콘솔(`/admin`)은 서버 `.env`의 `ADMIN_EMAILS`에 적힌 구글 계정만 쓸 수 있다. 바꾼 뒤 앱을 다시 띄우면 목록과 맞춰진다(목록에 없는 관리자는 해제된다).
+```bash
+cd ~/ohjumwhat
+nano .env                       # ADMIN_EMAILS=a@gmail.com,b@gmail.com
+docker compose up -d app        # 설정을 다시 읽도록 앱 컨테이너를 다시 만든다
+docker compose logs app | grep 관리자
 ```
 
 ## 운영
