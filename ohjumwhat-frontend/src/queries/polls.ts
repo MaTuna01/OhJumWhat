@@ -12,8 +12,10 @@ export type Person = { userId: number; name: string; profileImageUrl: string | n
 export type PollOption = {
   id: number
   name: string
-  /** 식당 지도 링크(http/https). 없으면 null */
+  /** 식당 지도 링크(http/https, 네이버 장소면 정식 링크). 없으면 null */
   link: string | null
+  /** 식당 이름(링크가 있을 때만). 없으면 null */
+  placeName: string | null
   /** 추가한 사람. 강제 탈퇴로 삭제된 회원이면 null("탈퇴한 사용자") */
   createdBy: Person | null
   voters: Person[]

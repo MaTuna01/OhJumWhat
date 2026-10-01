@@ -3,10 +3,11 @@ import type { Person, PollDetail, PollOption } from '../queries/polls.ts'
 import { resultText } from './share.ts'
 
 const person = (userId: number, name: string): Person => ({ userId, name, profileImageUrl: null })
-const option = (id: number, name: string, voters: Person[], link: string | null = null): PollOption => ({
+const option = (id: number, name: string, voters: Person[], link: string | null = null, placeName: string | null = null): PollOption => ({
   id,
   name,
   link,
+  placeName,
   createdBy: null,
   voters,
   mine: false,

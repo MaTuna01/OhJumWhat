@@ -14,7 +14,16 @@ export type Organization = {
   name: string
   inviteToken: string
   memberCount: number
+  /** 검색 지역(예: 역삼동). 「네이버 지도에서 찾기」 검색어 앞에 붙인다. 없으면 null */
+  area: string | null
+  /** 회사 위치 이름. 없으면 null */
+  officeName: string | null
+  /** 회사 위치 지도 링크. 없으면 null */
+  officeLink: string | null
 }
+
+/** 조직 위치(통째로 바꾼다, 빈 값은 지운다) */
+export type OrgLocation = { area: string | null; officeLink: string | null; officeName: string | null }
 
 export type Member = {
   userId: number
@@ -90,6 +99,15 @@ export function useRenameOrganization(orgId: number) {
       queryClient.setQueryData(orgKeys.detail(org.id), org)
       queryClient.invalidateQueries({ queryKey: orgKeys.mine })
     },
+  })
+}
+
+/** 조직 위치 바꾸기(멤버 누구나). 회사 링크는 서버가 정리한다(네이버 공유 링크 → 장소 정식 링크). */
+export function useUpdateOrgLocation(orgId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (location: OrgLocation) => api<Organization>(`/api/orgs/${orgId}/location`, { method: 'PUT', body: location }),
+    onSuccess: (org) => queryClient.setQueryData(orgKeys.detail(org.id), org),
   })
 }
 
