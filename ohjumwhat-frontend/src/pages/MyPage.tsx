@@ -4,6 +4,7 @@ import Avatar from '../components/Avatar.tsx'
 import Button from '../components/Button.tsx'
 import CreateOrgModal from '../components/CreateOrgModal.tsx'
 import LeaveOrgDialog from '../components/LeaveOrgDialog.tsx'
+import NicknameModal from '../components/NicknameModal.tsx'
 import { PageLoader, Section } from '../components/PageState.tsx'
 import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { buttonClass, columnsClass } from '../lib/ui.ts'
@@ -16,6 +17,7 @@ export default function MyPage() {
   const logout = useLogout()
   const [creating, setCreating] = useState(false)
   const [leaving, setLeaving] = useState<MyOrganization | null>(null)
+  const [renaming, setRenaming] = useState(false)
   useDocumentTitle('마이페이지')
 
   if (!me) return null
@@ -26,12 +28,21 @@ export default function MyPage() {
 
       {/* 모바일은 내 정보 → 내 조직 → 로그아웃 순서로 쌓고, 데스크톱은 내 조직을 본문, 나머지를 오른쪽 사이드에 둔다. */}
       <div className={`flex flex-col gap-6 lg:grid-rows-[auto_1fr] lg:gap-y-4 ${columnsClass}`}>
-        <Section title="내 정보" className="lg:col-start-2 lg:row-start-1">
+        <Section
+          title="내 정보"
+          className="lg:col-start-2 lg:row-start-1"
+          action={
+            <Button variant="secondary" onClick={() => setRenaming(true)} className="py-1.5">
+              이름 바꾸기
+            </Button>
+          }
+        >
           <div className="flex items-center gap-3">
             <Avatar name={me.name} imageUrl={me.profileImageUrl} />
             <div className="min-w-0">
               <p className="truncate font-medium">{me.name}</p>
               <p className="truncate text-sm text-text-tertiary">{me.email}</p>
+              {me.nickname && <p className="truncate text-xs text-text-tertiary">구글 이름 {me.googleName}</p>}
             </div>
           </div>
         </Section>
@@ -89,6 +100,7 @@ export default function MyPage() {
 
       <CreateOrgModal open={creating} onClose={() => setCreating(false)} />
       <LeaveOrgDialog org={leaving} onClose={() => setLeaving(null)} />
+      <NicknameModal me={me} open={renaming} onClose={() => setRenaming(false)} />
     </div>
   )
 }

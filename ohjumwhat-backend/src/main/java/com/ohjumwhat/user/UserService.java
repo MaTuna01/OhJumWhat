@@ -102,12 +102,28 @@ public class UserService {
 	/** 강제 탈퇴 등으로 회원이 없어졌다면 401로 응답해 로그인 화면으로 보낸다. */
 	@Transactional(readOnly = true)
 	public MeResponse getMe(Long userId) {
-		User user = userRepository.findById(userId).orElseThrow(() -> ApiException.unauthorized("다시 로그인해 주세요."));
-		Long lastVisitedOrgId = membershipRepository.findFirstByUserIdOrderByLastVisitedAtDesc(userId)
+		return toMe(findMe(userId));
+	}
+
+	/** 별명 정하기·바꾸기. 비우면 별명을 지우고 구글 이름으로 돌아간다. */
+	@Transactional
+	public MeResponse changeNickname(Long userId, String rawNickname) {
+		User user = findMe(userId);
+		user.changeNickname(Nicknames.normalize(rawNickname));
+		log.info("별명 변경: userId={}, 별명 있음={}", userId, user.getNickname() != null);
+		return toMe(user);
+	}
+
+	private User findMe(Long userId) {
+		return userRepository.findById(userId).orElseThrow(() -> ApiException.unauthorized("다시 로그인해 주세요."));
+	}
+
+	private MeResponse toMe(User user) {
+		Long lastVisitedOrgId = membershipRepository.findFirstByUserIdOrderByLastVisitedAtDesc(user.getId())
 			.map(Membership::getOrganizationId)
 			.orElse(null);
-		return new MeResponse(user.getId(), user.getName(), user.getEmail(), user.getProfileImageUrl(),
-				lastVisitedOrgId, user.isAdmin());
+		return new MeResponse(user.getId(), user.getDisplayName(), user.getNickname(), user.getName(),
+				user.getEmail(), user.getProfileImageUrl(), lastVisitedOrgId, user.isAdmin());
 	}
 
 	private void requireNotBlocked(String googleSub) {
