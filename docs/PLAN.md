@@ -25,9 +25,9 @@
 | 8 | 투표 조기 마감·수정·삭제 (확장 기능 1번째) | 완료(v1.4.0) | [#23](https://github.com/MaTuna01/OhJumWhat/pull/23) |
 | 9 | 메뉴에 식당 지도 링크 (지도 연동 1단계) | 완료(v1.4.0) | [#24](https://github.com/MaTuna01/OhJumWhat/pull/24) |
 | 10 | 메뉴 통계 (자주 먹은 메뉴, 최근 먹은 메뉴 제외 추천) | 완료(v1.4.0) | [#24](https://github.com/MaTuna01/OhJumWhat/pull/24) |
-| - | 별명 (마이페이지 이름 바꾸기, 별명으로 활동) | 완료(`dev`, 다음 릴리스) | [#27](https://github.com/MaTuna01/OhJumWhat/pull/27) |
-| - | 지난 투표 기록 · 결과 복사(메신저 공유) | 완료(`dev`, 다음 릴리스) | [#28](https://github.com/MaTuna01/OhJumWhat/pull/28) |
-| 14 | 새 소식(공지사항): 업데이트(배포 때 자동 게시)·개발자 노트, 새 버전 안내 | 완료(`dev`, 다음 릴리스 v1.5.0) | `feature/notice` |
+| - | 별명 (마이페이지 이름 바꾸기, 별명으로 활동) | 완료(v1.5.0) | [#27](https://github.com/MaTuna01/OhJumWhat/pull/27) |
+| - | 지난 투표 기록 · 결과 복사(메신저 공유) | 완료(v1.5.0) | [#28](https://github.com/MaTuna01/OhJumWhat/pull/28) |
+| 14 | 새 소식(공지사항): 업데이트(배포 때 자동 게시)·개발자 노트, 새 버전 안내 | 완료(v1.5.0) | [#29](https://github.com/MaTuna01/OhJumWhat/pull/29) |
 
 확장 기능(8~13단계)의 순서와 체크리스트는 Notion Tasks에 있다. 기획서 「나중에」 목록을 구현 난이도 순으로 정렬했다: 8 투표 조기 마감·수정·삭제 → 9 메뉴에 식당 지도 링크 → 10 메뉴 통계 → 11 지도 API 연동 → 12 중복 투표 → 13 최소 인원 미달 자동 해산. 14 공지사항(새 소식)은 배포마다 바뀐 점을 알리려고 나중에 추가했다.
 
