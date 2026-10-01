@@ -8,6 +8,8 @@ export type Me = {
   email: string
   profileImageUrl: string | null
   lastVisitedOrgId: number | null
+  /** 관리자면 프로필 메뉴에 관리자 콘솔이 보인다 */
+  admin: boolean
 }
 
 export const meQueryKey = ['me'] as const

@@ -11,7 +11,8 @@ export type Person = { userId: number; name: string; profileImageUrl: string | n
 export type PollOption = {
   id: number
   name: string
-  createdBy: Person
+  /** 추가한 사람. 강제 탈퇴로 삭제된 회원이면 null("탈퇴한 사용자") */
+  createdBy: Person | null
   voters: Person[]
   mine: boolean
   deletable: boolean

@@ -35,6 +35,11 @@ export default function ProfileMenu() {
           <Link role="menuitem" to="/me" onClick={close} className="block px-4 py-2.5 text-sm hover:bg-bg-subtle">
             마이페이지
           </Link>
+          {me.admin && (
+            <Link role="menuitem" to="/admin" onClick={close} className="block px-4 py-2.5 text-sm hover:bg-bg-subtle">
+              관리자 콘솔
+            </Link>
+          )}
           <button
             role="menuitem"
             type="button"
