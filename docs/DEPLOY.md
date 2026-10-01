@@ -131,6 +131,18 @@ curl -I https://www.ohjumwhat.cloud               # 200, HTTP/2
 curl -I http://ohjumwhat.cloud                    # https://www.ohjumwhat.cloud 로 리디렉션
 ```
 
+## 릴리스와 버전
+
+`dev` → `main` 승격(사용자 결정) 한 번이 릴리스 하나다. 버전은 `vMAJOR.MINOR.PATCH`로 붙인다.
+
+1. 기능 브랜치에서 버전을 올린다: `ohjumwhat-backend/build.gradle.kts`의 `version`, 프론트는 `npm version X.Y.Z --no-git-tag-version`(package.json·package-lock.json). `CHANGELOG.md`에 바뀐 점을 적고 `dev`에 머지한다.
+2. `dev` → `main` 릴리스 PR을 만들어 머지한다. Deploy 워크플로가 배포한다.
+3. 배포가 끝나면 `main`의 머지 커밋에 태그와 GitHub Release를 만든다.
+```bash
+git tag -a vX.Y.Z -m "vX.Y.Z" origin/main && git push origin vX.Y.Z
+gh release create vX.Y.Z -R MaTuna01/OhJumWhat --title "vX.Y.Z" --notes "<CHANGELOG의 해당 절>"
+```
+
 ## 운영
 
 ```bash
