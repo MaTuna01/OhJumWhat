@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { naverSearchUrl, parseShareText } from './place.ts'
+import { naverSearchUrl, parseShareText, placeInput } from './place.ts'
 
 describe('parseShareText', () => {
   it('네이버 지도 공유 글에서 머리말·링크·주소를 빼고 식당 이름을 꺼낸다', () => {
@@ -30,5 +30,13 @@ describe('naverSearchUrl', () => {
   it('검색 지역이 없으면 검색어만, 빗금은 공백으로 바꾼다', () => {
     expect(naverSearchUrl(null, ' 짜장/짬뽕 ')).toBe(`https://map.naver.com/p/search/${encodeURIComponent('짜장 짬뽕')}`)
     expect(naverSearchUrl('  ', '국밥')).toBe(`https://map.naver.com/p/search/${encodeURIComponent('국밥')}`)
+  })
+})
+
+describe('placeInput', () => {
+  it('링크가 비면 식당 없음, 이름은 앞뒤 공백을 지운다', () => {
+    expect(placeInput({ link: ' https://naver.me/abcd1234 ', name: ' 할매집 ' })).toEqual({ link: 'https://naver.me/abcd1234', placeName: '할매집' })
+    expect(placeInput({ link: 'https://naver.me/abcd1234', name: '  ' })).toEqual({ link: 'https://naver.me/abcd1234', placeName: null })
+    expect(placeInput({ link: ' ', name: '할매집' })).toEqual({ link: null, placeName: null })
   })
 })

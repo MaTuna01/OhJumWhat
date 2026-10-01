@@ -1,5 +1,16 @@
 const NAME_MAX_LENGTH = 100
 
+/** 식당 입력값(링크·이름). 링크가 비면 식당 없음 */
+export type PlaceValue = { link: string; name: string }
+
+export const EMPTY_PLACE: PlaceValue = { link: '', name: '' }
+
+/** 서버에 보낼 값: 링크가 비면 식당 없음(이름도 보내지 않는다) */
+export function placeInput(value: PlaceValue): { link: string | null; placeName: string | null } {
+  const link = value.link.trim()
+  return link ? { link, placeName: value.name.trim() || null } : { link: null, placeName: null }
+}
+
 // 지도 앱 공유 글의 머리말: [네이버 지도], [네이버지도], [카카오맵], [NAVER Map] …
 const SHARE_HEADER = /^\s*\[[^\]\n]{1,20}\]\s*/
 // 링크로 보이는 토큰(스킴이 없어도): https://…, naver.me/…, map.naver.com/…, kko.to/…
