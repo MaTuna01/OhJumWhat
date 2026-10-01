@@ -15,18 +15,19 @@ import com.ohjumwhat.user.User;
 interface AdminRepository extends Repository<User, Long> {
 
 	@Query("""
-			select new com.ohjumwhat.admin.AdminResponses$UserRow(u.id, u.name, u.email, u.profileImageUrl, u.role,
-				u.createdAt, u.lastLoginAt,
+			select new com.ohjumwhat.admin.AdminResponses$UserRow(u.id, coalesce(u.nickname, u.name), u.name, u.email,
+				u.profileImageUrl, u.role, u.createdAt, u.lastLoginAt,
 				(select count(m) from com.ohjumwhat.organization.Membership m where m.userId = u.id))
 			from User u
 			where :q = '' or lower(u.name) like lower(concat('%', :q, '%'))
+			   or lower(u.nickname) like lower(concat('%', :q, '%'))
 			   or lower(u.email) like lower(concat('%', :q, '%'))
 			order by u.createdAt desc, u.id desc""")
 	List<AdminResponses.UserRow> findUsers(String q, Pageable pageable);
 
 	@Query("""
-			select new com.ohjumwhat.admin.AdminResponses$UserRow(u.id, u.name, u.email, u.profileImageUrl, u.role,
-				u.createdAt, u.lastLoginAt,
+			select new com.ohjumwhat.admin.AdminResponses$UserRow(u.id, coalesce(u.nickname, u.name), u.name, u.email,
+				u.profileImageUrl, u.role, u.createdAt, u.lastLoginAt,
 				(select count(m) from com.ohjumwhat.organization.Membership m where m.userId = u.id))
 			from User u where u.id = :id""")
 	Optional<AdminResponses.UserRow> findUser(Long id);
@@ -70,7 +71,8 @@ interface AdminRepository extends Repository<User, Long> {
 
 	/** 조직 멤버(가입 순). 맨 위가 가장 먼저 들어온 사람(대개 만든 사람)이다. */
 	@Query("""
-			select new com.ohjumwhat.admin.AdminResponses$Member(u.id, u.name, u.email, u.profileImageUrl, u.role,
+			select new com.ohjumwhat.admin.AdminResponses$Member(u.id, coalesce(u.nickname, u.name), u.email,
+				u.profileImageUrl, u.role,
 				m.joinedAt, m.lastVisitedAt)
 			from com.ohjumwhat.organization.Membership m join User u on u.id = m.userId
 			where m.organizationId = :organizationId
@@ -88,7 +90,8 @@ interface AdminRepository extends Repository<User, Long> {
 	List<Object[]> findRecentPolls(Long organizationId, Pageable pageable);
 
 	@Query("""
-			select new com.ohjumwhat.admin.AdminResponses$Block(b.id, b.email, b.name, b.blockedAt, u.name)
+			select new com.ohjumwhat.admin.AdminResponses$Block(b.id, b.email, b.name, b.blockedAt,
+				coalesce(u.nickname, u.name))
 			from com.ohjumwhat.user.BlockedAccount b left join User u on u.id = b.blockedBy
 			order by b.blockedAt desc, b.id desc""")
 	List<AdminResponses.Block> findBlocks();

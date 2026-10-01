@@ -19,8 +19,9 @@ final class AdminResponses {
 			long newUserCount, long blockedCount) {
 	}
 
-	record UserRow(Long id, String name, String email, String profileImageUrl, Role role, Instant createdAt,
-			Instant lastLoginAt, long organizationCount) {
+	/** name은 화면 이름(별명, 없으면 구글 이름), googleName은 구글 계정 이름 */
+	record UserRow(Long id, String name, String googleName, String email, String profileImageUrl, Role role,
+			Instant createdAt, Instant lastLoginAt, long organizationCount) {
 	}
 
 	/**

@@ -36,7 +36,7 @@ export default function AdminUsersPage() {
               person={{ name: u.name, imageUrl: u.profileImageUrl }}
               title={u.name}
               badge={u.role === 'ADMIN' && <Badge tone="brand">관리자</Badge>}
-              subtitle={u.email}
+              subtitle={u.googleName !== u.name ? `${u.email} · 구글 이름 ${u.googleName}` : u.email}
               meta={
                 <>
                   조직 {u.organizationCount}개
