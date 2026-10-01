@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { type ClipboardEvent, useId } from 'react'
 import { type PlaceValue, naverSearchUrl, parseShareText } from '../lib/place.ts'
 import { buttonClass, inputClass } from '../lib/ui.ts'
 
@@ -9,24 +9,36 @@ type Props = {
   searchQuery: string
   /** 조직 검색 지역(예: 역삼동). 검색어 앞에 붙인다. */
   area: string | null
-  /** 식당 이름 입력칸 이름(기본 "식당 이름") */
+  /** 이름 입력칸 이름(기본 "식당 이름") */
   nameLabel?: string
+  /** 링크 입력칸 이름(기본 "식당 지도 링크") */
+  linkLabel?: string
 }
 
 /**
  * 식당 붙이기 입력(Figma 05-L·05-M4·07-L): 「네이버 지도에서 찾기 ↗」, 공유 링크, 식당 이름(선택).
  * 공유 글을 붙이면 식당 이름을 미리 채운다. naver.me 링크는 서버가 장소 정식 링크로 바꾼다.
  */
-export default function PlaceFields({ value, onChange, searchQuery, area, nameLabel = '식당 이름' }: Props) {
+export default function PlaceFields({ value, onChange, searchQuery, area, nameLabel = '식당 이름', linkLabel = '식당 지도 링크' }: Props) {
   const id = useId()
   const query = searchQuery.trim()
   const searchLabel = [area?.trim(), query].filter(Boolean).join(' ')
 
-  const changeLink = (link: string) => {
-    // 이름을 직접 고치지 않았으면(비었거나 이전 공유 글에서 채운 그대로면) 새 공유 글의 이름으로 바꾼다.
+  // 이름을 직접 고치지 않았으면(비었거나 이전 공유 글에서 채운 그대로면) 새 공유 글의 이름으로 바꾼다.
+  const nameFor = (shareText: string) => {
     const previous = parseShareText(value.link).name ?? ''
-    const next = parseShareText(link).name ?? ''
-    onChange({ link, name: !value.name || value.name === previous ? next : value.name })
+    return !value.name || value.name === previous ? (parseShareText(shareText).name ?? '') : value.name
+  }
+
+  const changeLink = (link: string) => onChange({ link, name: nameFor(link) })
+
+  // 한 줄 입력칸은 붙여 넣은 글의 줄바꿈을 지워 "이름주소링크"가 붙어 버린다.
+  // 여러 줄 공유 글은 줄바꿈이 있는 원문으로 이름을 꺼내고, 칸에는 줄바꿈을 공백으로 바꿔 넣는다.
+  const onPaste = (e: ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData('text')
+    if (!/[\r\n]/.test(text)) return
+    e.preventDefault()
+    onChange({ link: text.replace(/\s*[\r\n]+\s*/g, ' ').trim(), name: nameFor(text) })
   }
 
   return (
@@ -43,9 +55,10 @@ export default function PlaceFields({ value, onChange, searchQuery, area, nameLa
       <input
         value={value.link}
         onChange={(e) => changeLink(e.target.value)}
+        onPaste={onPaste}
         maxLength={1000}
         placeholder="네이버 지도 공유 링크를 붙여 넣으세요"
-        aria-label="식당 지도 링크"
+        aria-label={linkLabel}
         className={inputClass}
       />
       {value.link.trim() && (
