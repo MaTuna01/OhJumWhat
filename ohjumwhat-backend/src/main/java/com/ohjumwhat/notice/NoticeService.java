@@ -2,6 +2,7 @@ package com.ohjumwhat.notice;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
@@ -68,6 +69,28 @@ public class NoticeService {
 	public void markSeen(Long userId) {
 		if (userRepository.markNoticesSeen(userId, Instant.now(clock)) == 0) {
 			throw ApiException.unauthorized("다시 로그인해 주세요.");
+		}
+	}
+
+	/**
+	 * 업데이트 글 파일을 DB와 맞춘다(서버 시작 때 {@link ReleaseNoteSync}가 부른다).
+	 * 새 버전은 지금 게시하고, 내용이 바뀐 글은 게시 시각을 그대로 두고 고친다(오타 수정이 새 소식이 되지 않게).
+	 * 파일이 없어진 버전은 지우지 않는다. 여러 버전이 한꺼번에 새로 들어오면 버전 순서대로 넣어, 같은 게시 시각이면
+	 * 새 버전이 목록 위에 온다(정렬: 게시 시각, id 내림차순).
+	 */
+	@Transactional
+	public void syncReleaseNotes(List<ReleaseNote> notes) {
+		Instant now = Instant.now(clock);
+		for (ReleaseNote note : notes.stream().sorted(ReleaseNote.BY_VERSION).toList()) {
+			noticeRepository.findByVersion(note.version()).ifPresentOrElse(notice -> {
+				if (!notice.getTitle().equals(note.title()) || !notice.getBody().equals(note.body())) {
+					notice.revise(note.title(), note.body());
+					log.info("업데이트 글 수정: version={}", note.version());
+				}
+			}, () -> {
+				noticeRepository.save(Notice.release(note.version(), note.title(), note.body(), now));
+				log.info("업데이트 글 게시: version={}", note.version());
+			});
 		}
 	}
 

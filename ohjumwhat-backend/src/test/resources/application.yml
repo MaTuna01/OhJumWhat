@@ -17,6 +17,10 @@ spring:
 ohjumwhat:
   scheduler:
     enabled: false
+  # 서버 시작 때의 업데이트 글 자동 게시도 끈다. 시작 때 넣은 행이 첫 테스트까지 남아 결과를 흔들기 때문이다.
+  # 테스트에서는 NoticeService.syncReleaseNotes를 직접 부른다.
+  release-notes:
+    enabled: false
   # 관리자 이메일(테스트용). 이 이메일로 인증된 구글 로그인을 하면 관리자가 된다.
   admin:
     emails: admin@example.com
