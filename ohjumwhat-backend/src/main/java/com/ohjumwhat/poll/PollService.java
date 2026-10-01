@@ -65,18 +65,69 @@ public class PollService {
 
 	/** 수동 투표: 만들면 바로 열리고, 오늘(한국 날짜) 지정한 시각에 마감된다. */
 	@Transactional
-	public PollDetailResponse create(Long organizationId, Long userId, CreatePollRequest request) {
+	public PollDetailResponse create(Long organizationId, Long userId, PollRequest request) {
 		membershipService.requireMember(organizationId, userId);
 		Instant now = Instant.now(clock);
 		LocalDate today = LocalDate.now(clock);
-		Instant closesAt = ZonedDateTime.of(today, LocalTime.parse(request.closesAt()), TimeConfig.KST).toInstant();
-		if (!closesAt.isAfter(now)) {
-			throw ApiException.badRequest("마감 시간은 지금보다 뒤여야 해요.");
-		}
+		Instant closesAt = closingTime(today, request.closesAt(), now);
 		Poll poll = pollRepository.save(Poll.manual(organizationId, userId, request.title().strip(), today, now,
 				closesAt));
 		log.info("투표 생성: pollId={}, organizationId={}, userId={}", poll.getId(), organizationId, userId);
 		return detail(poll, userId);
+	}
+
+	/**
+	 * 진행 중인 투표의 제목·마감 시간 수정. 조직 멤버 누구나 할 수 있다(정기 투표도 그 투표만 바뀐다).
+	 * 마감 시간은 지금보다 뒤여야 한다. 앞당겨 끝내려면 {@link #close}를 쓴다.
+	 */
+	@Transactional
+	public PollDetailResponse update(Long pollId, Long userId, PollRequest request) {
+		Poll poll = getForMember(pollId, userId);
+		requireOpen(poll);
+		Instant closesAt = closingTime(poll.getPollDate(), request.closesAt(), Instant.now(clock));
+		poll.update(request.title().strip(), closesAt);
+		log.info("투표 수정: pollId={}, userId={}", pollId, userId);
+		return detail(poll, userId);
+	}
+
+	/** 조기 마감: 조직 멤버 누구나 진행 중인 투표를 지금 마감할 수 있다. 되돌릴 수 없다. */
+	@Transactional
+	public PollDetailResponse close(Long pollId, Long userId) {
+		Poll poll = getForMember(pollId, userId);
+		requireOpen(poll);
+		Instant now = Instant.now(clock);
+		// polls CHECK(closes_at > opens_at): 열린 직후(1초 안)에는 마감 시각을 오픈 시각 뒤로 둘 수 없다.
+		if (now.isBefore(poll.getOpensAt().plusSeconds(1))) {
+			throw ApiException.conflict("방금 열린 투표예요. 잠시 후 다시 시도해 주세요.");
+		}
+		poll.closeAt(now);
+		log.info("투표 조기 마감: pollId={}, userId={}", pollId, userId);
+		return detail(poll, userId);
+	}
+
+	/**
+	 * 진행 중인 수동 투표 삭제. 메뉴와 응답은 DB CASCADE로 함께 지워진다.
+	 * 정기 투표로 열린 투표는 지워도 스케줄러가 1분 안에 다시 열기 때문에 삭제 대신 조기 마감을 쓴다.
+	 * 마감된 투표는 기록으로 남긴다.
+	 */
+	@Transactional
+	public void delete(Long pollId, Long userId) {
+		Poll poll = getForMember(pollId, userId);
+		requireOpen(poll);
+		if (poll.getScheduleId() != null) {
+			throw ApiException.conflict("정기 투표는 삭제할 수 없어요. 대신 지금 마감해 주세요.");
+		}
+		pollRepository.delete(poll);
+		log.info("투표 삭제: pollId={}, organizationId={}, userId={}", pollId, poll.getOrganizationId(), userId);
+	}
+
+	/** 투표 날짜(한국)의 "HH:mm"을 마감 시각으로 바꾼다. 지금보다 뒤여야 한다. */
+	private static Instant closingTime(LocalDate pollDate, String hhmm, Instant now) {
+		Instant closesAt = ZonedDateTime.of(pollDate, LocalTime.parse(hhmm), TimeConfig.KST).toInstant();
+		if (!closesAt.isAfter(now)) {
+			throw ApiException.badRequest("마감 시간은 지금보다 뒤여야 해요.");
+		}
+		return closesAt;
 	}
 
 	@Transactional(readOnly = true)
