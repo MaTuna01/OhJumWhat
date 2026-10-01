@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import Badge from '../components/Badge.tsx'
 import Button from '../components/Button.tsx'
-import MapLinkModal from '../components/MapLinkModal.tsx'
 import MenuInput from '../components/MenuInput.tsx'
 import OptionCard from '../components/OptionCard.tsx'
 import { PageLoader, PageMessage, Section } from '../components/PageState.tsx'
 import PersonChip from '../components/PersonChip.tsx'
+import PlaceModal from '../components/PlaceModal.tsx'
 import PollManageMenu from '../components/PollManageMenu.tsx'
 import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { useNow } from '../hooks/useNow.ts'
@@ -61,7 +61,9 @@ function OpenPoll({ orgId, poll }: { orgId: number; poll: PollDetail }) {
   const vote = useVote(orgId, poll.id, me)
   const addOption = useAddOption(orgId, poll.id)
   const deleteOption = useDeleteOption(orgId, poll.id)
-  const [linkOptionId, setLinkOptionId] = useState<number | null>(null)
+  const { data: org } = useOrganization(orgId)
+  const area = org?.area ?? null
+  const [placeOptionId, setPlaceOptionId] = useState<number | null>(null)
   const remaining = formatRemaining(poll.closesAt, now)
   const error = vote.error ?? addOption.error ?? deleteOption.error
   const passedMe = poll.myResponse === 'PASS'
@@ -87,9 +89,10 @@ function OpenPoll({ orgId, poll }: { orgId: number; poll: PollDetail }) {
 
         <MenuInput
           orgId={orgId}
+          area={area}
           existing={poll.options.map((o) => o.name)}
           pending={addOption.isPending}
-          onAdd={(name, link) => addOption.mutateAsync({ name, link })}
+          onAdd={(name, link, placeName) => addOption.mutateAsync({ name, link, placeName })}
         />
 
         {error && (
@@ -114,18 +117,19 @@ function OpenPoll({ orgId, poll }: { orgId: number; poll: PollDetail }) {
                   selected={poll.myOptionId === option.id}
                   onSelect={() => poll.myOptionId !== option.id && vote.mutate(option.id)}
                   onDelete={() => deleteOption.mutate(option.id)}
-                  onEditLink={() => setLinkOptionId(option.id)}
+                  onEditLink={() => setPlaceOptionId(option.id)}
                   disabled={deleteOption.isPending}
                 />
               ))}
             </>
           )}
         </section>
-        <MapLinkModal
+        <PlaceModal
           orgId={orgId}
           pollId={poll.id}
-          option={poll.options.find((o) => o.id === linkOptionId) ?? null}
-          onClose={() => setLinkOptionId(null)}
+          area={area}
+          option={poll.options.find((o) => o.id === placeOptionId) ?? null}
+          onClose={() => setPlaceOptionId(null)}
         />
       </div>
 

@@ -1,5 +1,5 @@
 import type { KeyboardEvent } from 'react'
-import { linkHost } from '../lib/link.ts'
+import { serviceLabel } from '../lib/link.ts'
 import type { PollOption } from '../queries/polls.ts'
 import Badge from './Badge.tsx'
 import PersonChip from './PersonChip.tsx'
@@ -12,7 +12,7 @@ type Props = {
   selected?: boolean
   onSelect?: () => void
   onDelete?: () => void
-  /** 내가 추가한 메뉴에서 「링크 고치기」·「＋ 지도 링크 달기」를 누르면(진행 중일 때만) */
+  /** 내가 추가한 메뉴에서 「식당 고치기」·「＋ 식당 달기」를 누르면(진행 중일 때만) */
   onEditLink?: () => void
   disabled?: boolean
 }
@@ -20,7 +20,7 @@ type Props = {
 /**
  * Figma OptionCard. 카드 전체를 누르면 그 메뉴에 참여한다(한 사람은 한 메뉴만).
  * 상태: 기본 / 내 선택(오렌지 테두리) / 혼자(배지) / 비어 있음(내가 추가했으면 삭제) / 결과
- * 식당 지도 링크가 있으면 「지도 · 도메인 ↗」(Figma OptionCard Link=true, 05-L)를 보여준다.
+ * 식당이 있으면 「식당 이름 · 네이버 지도 ↗」(이름이 없으면 「지도 · 서비스 ↗」, Figma OptionCard Link=true, 05-L)를 보여준다.
  */
 export default function OptionCard({ option, meId, result, selected, onSelect, onDelete, onEditLink, disabled }: Props) {
   const count = option.voters.length
@@ -69,10 +69,12 @@ export default function OptionCard({ option, meId, result, selected, onSelect, o
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
                   onKeyDown={(e) => e.stopPropagation()}
-                  aria-label={`${option.name} 식당 지도 열기 (${linkHost(option.link)})`}
+                  aria-label={`${option.placeName ?? option.name} 식당 지도 열기 (${serviceLabel(option.link)})`}
                   className="inline-flex max-w-full items-center rounded-full border border-border-default bg-bg-surface px-2 py-0.5 text-xs font-medium text-text-secondary hover:border-border-strong hover:text-text-primary focus-visible:outline-2 focus-visible:outline-border-brand"
                 >
-                  <span className="truncate">지도 · {linkHost(option.link)} ↗</span>
+                  <span className="truncate">
+                    {option.placeName ?? '지도'} · {serviceLabel(option.link)} ↗
+                  </span>
                 </a>
               )}
               {canEditLink && (
@@ -85,7 +87,7 @@ export default function OptionCard({ option, meId, result, selected, onSelect, o
                   onKeyDown={(e) => e.stopPropagation()}
                   className="text-xs font-medium text-text-brand hover:underline focus-visible:outline-2 focus-visible:outline-border-brand"
                 >
-                  {option.link ? '링크 고치기' : '＋ 지도 링크 달기'}
+                  {option.link ? '식당 고치기' : '＋ 식당 달기'}
                 </button>
               )}
             </div>

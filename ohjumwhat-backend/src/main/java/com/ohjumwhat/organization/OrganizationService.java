@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ohjumwhat.common.ApiException;
+import com.ohjumwhat.place.PlaceLink;
 import com.ohjumwhat.poll.PollRepository;
 import com.ohjumwhat.vote.VoteRepository;
 
@@ -72,6 +73,20 @@ public class OrganizationService {
 		Organization organization = organizationRepository.findById(organizationId).orElseThrow();
 		organization.rename(name.strip());
 		log.info("조직 이름 변경: organizationId={}, userId={}", organizationId, userId);
+		return toResponse(organization, membershipRepository.countByOrganizationId(organizationId));
+	}
+
+	/**
+	 * 조직 위치 바꾸기(멤버 누구나). area는 앞뒤 공백을 지우고 비면 지운다.
+	 * office는 컨트롤러가 트랜잭션 밖에서 PlaceLinkResolver로 정리한 값이다(없으면 null).
+	 */
+	@Transactional
+	public OrganizationResponse changeLocation(Long organizationId, Long userId, String area, PlaceLink office) {
+		membershipService.requireMember(organizationId, userId);
+		Organization organization = organizationRepository.findById(organizationId).orElseThrow();
+		organization.changeLocation(area == null || area.isBlank() ? null : area.strip(), office);
+		log.info("조직 위치 변경: organizationId={}, userId={}, 지역={}, 회사={}", organizationId, userId,
+				organization.getArea() != null, office != null);
 		return toResponse(organization, membershipRepository.countByOrganizationId(organizationId));
 	}
 
@@ -141,7 +156,7 @@ public class OrganizationService {
 
 	private static OrganizationResponse toResponse(Organization organization, long memberCount) {
 		return new OrganizationResponse(organization.getId(), organization.getName(), organization.getInviteToken(),
-				memberCount);
+				memberCount, organization.getArea(), organization.getOfficeName(), organization.getOfficeLinkUrl());
 	}
 
 	/** 초대 링크용 토큰: 32바이트 난수를 URL에 안전한 base64로 인코딩(43자) */
