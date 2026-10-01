@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.ResultActions;
 
+import com.ohjumwhat.FakeNaverShortLinksConfiguration;
 import com.ohjumwhat.IntegrationTest;
 import com.ohjumwhat.organization.InviteService;
 import com.ohjumwhat.organization.OrganizationService;
@@ -66,6 +67,19 @@ class MenuLinkIntegrationTest extends IntegrationTest {
 		addOption(kim, "국밥", "국밥집")
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.message").value("링크 주소가 올바르지 않아요. 지도 앱의 공유 링크를 붙여 주세요."));
+	}
+
+	@Test
+	void 네이버_지도_공유_링크는_장소의_정식_링크로_저장하고_확인하지_못하면_단축_링크를_둔다() throws Exception {
+		addOption(kim, "칼국수", "[네이버 지도]\\n할머니칼국수\\nnaver.me/" + FakeNaverShortLinksConfiguration.PLACE_CODE)
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.options[0].link").value("https://map.naver.com/p/entry/place/1868364770"));
+		addOption(kim, "냉면", "https://naver.me/" + FakeNaverShortLinksConfiguration.FAVORITE_CODE)
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.options[1].link").value("https://naver.me/" + FakeNaverShortLinksConfiguration.FAVORITE_CODE));
+		addOption(kim, "쌀국수", "https://map.naver.com/p/search/쌀국수/place/1868364770?c=15.00,0,0,0,dh")
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.options[2].link").value("https://map.naver.com/p/entry/place/1868364770"));
 	}
 
 	@Test

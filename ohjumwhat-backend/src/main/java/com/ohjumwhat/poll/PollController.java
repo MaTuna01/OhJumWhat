@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.ohjumwhat.auth.LoginUser;
 import com.ohjumwhat.menu.MenuService;
 import com.ohjumwhat.menu.MenuSuggestion;
+import com.ohjumwhat.place.PlaceLinkResolver;
 import com.ohjumwhat.vote.VoteService;
 
 @RestController
@@ -32,10 +33,14 @@ public class PollController {
 
 	private final VoteService voteService;
 
-	public PollController(PollService pollService, MenuService menuService, VoteService voteService) {
+	private final PlaceLinkResolver placeLinkResolver;
+
+	public PollController(PollService pollService, MenuService menuService, VoteService voteService,
+			PlaceLinkResolver placeLinkResolver) {
 		this.pollService = pollService;
 		this.menuService = menuService;
 		this.voteService = voteService;
+		this.placeLinkResolver = placeLinkResolver;
 	}
 
 	@GetMapping("/api/orgs/{orgId}/polls/today")
@@ -90,14 +95,17 @@ public class PollController {
 	@ResponseStatus(HttpStatus.CREATED)
 	PollDetailResponse addOption(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId,
 			@Valid @RequestBody AddOptionRequest request) {
-		return menuService.add(pollId, loginUser.getUserId(), request.name(), request.link());
+		// 식당 링크 확인(naver.me 요청)은 DB 트랜잭션 밖에서 한다.
+		return menuService.add(pollId, loginUser.getUserId(), request.name(),
+				placeLinkResolver.place(request.link(), null));
 	}
 
 	/** link가 비어 있으면 링크를 지운다. */
 	@PutMapping("/api/polls/{pollId}/options/{optionId}/link")
 	PollDetailResponse changeLink(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId,
 			@PathVariable Long optionId, @Valid @RequestBody LinkRequest request) {
-		return menuService.changeLink(pollId, optionId, loginUser.getUserId(), request.link());
+		return menuService.changePlace(pollId, optionId, loginUser.getUserId(),
+				placeLinkResolver.place(request.link(), null));
 	}
 
 	@DeleteMapping("/api/polls/{pollId}/options/{optionId}")

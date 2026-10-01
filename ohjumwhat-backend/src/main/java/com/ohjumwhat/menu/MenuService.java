@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.ohjumwhat.common.ApiException;
 import com.ohjumwhat.organization.MembershipService;
-import com.ohjumwhat.place.PlaceLinks;
+import com.ohjumwhat.place.PlaceLink;
 import com.ohjumwhat.poll.Poll;
 import com.ohjumwhat.poll.PollDetailResponse;
 import com.ohjumwhat.poll.PollService;
@@ -44,33 +44,35 @@ public class MenuService {
 		this.menuStatsService = menuStatsService;
 	}
 
-	/** 메뉴 추가(식당 지도 링크는 선택). 추가한 사람이 자동으로 참여하지는 않는다. */
+	/**
+	 * 메뉴 추가(식당은 선택). 추가한 사람이 자동으로 참여하지는 않는다.
+	 * place는 컨트롤러가 트랜잭션 밖에서 {@link com.ohjumwhat.place.PlaceLinkResolver}로 정리한 값이다(없으면 null).
+	 */
 	@Transactional
-	public PollDetailResponse add(Long pollId, Long userId, String rawName, String rawLink) {
+	public PollDetailResponse add(Long pollId, Long userId, String rawName, PlaceLink place) {
 		Poll poll = pollService.getForMember(pollId, userId);
 		pollService.requireOpen(poll);
 		String name = rawName.strip();
-		String link = PlaceLinks.normalize(rawLink);
 		if (menuOptionRepository.existsByPollIdAndName(pollId, name)) {
 			throw ApiException.conflict("이미 있는 메뉴예요.");
 		}
-		MenuOption option = menuOptionRepository.save(new MenuOption(pollId, userId, name, link));
-		log.info("메뉴 추가: pollId={}, optionId={}, userId={}, 링크={}", pollId, option.getId(), userId, link != null);
+		MenuOption option = menuOptionRepository
+			.save(new MenuOption(pollId, userId, name, place == null ? null : place.url()));
+		log.info("메뉴 추가: pollId={}, optionId={}, userId={}, 식당={}", pollId, option.getId(), userId, place != null);
 		return pollService.detail(poll, userId);
 	}
 
-	/** 식당 지도 링크 달기·고치기·지우기(rawLink가 비면 지운다). 추가한 사람만, 투표가 진행 중일 때 할 수 있다. */
+	/** 식당 달기·고치기·빼기(place가 null이면 뺀다). 추가한 사람만, 투표가 진행 중일 때 할 수 있다. */
 	@Transactional
-	public PollDetailResponse changeLink(Long pollId, Long optionId, Long userId, String rawLink) {
+	public PollDetailResponse changePlace(Long pollId, Long optionId, Long userId, PlaceLink place) {
 		Poll poll = pollService.getForMember(pollId, userId);
 		MenuOption option = findInPoll(pollId, optionId);
 		if (!userId.equals(option.getCreatedBy())) {
 			throw ApiException.forbidden("메뉴를 추가한 사람만 링크를 고칠 수 있어요.");
 		}
 		pollService.requireOpen(poll);
-		option.changeLink(PlaceLinks.normalize(rawLink));
-		log.info("메뉴 링크 변경: pollId={}, optionId={}, userId={}, 링크={}", pollId, optionId, userId,
-				option.getLinkUrl() != null);
+		option.changeLink(place == null ? null : place.url());
+		log.info("메뉴 식당 변경: pollId={}, optionId={}, userId={}, 식당={}", pollId, optionId, userId, place != null);
 		return pollService.detail(poll, userId);
 	}
 
