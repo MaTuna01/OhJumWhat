@@ -1,6 +1,9 @@
 package com.ohjumwhat.menu;
 
+import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -29,25 +32,44 @@ public class MenuService {
 
 	private final MembershipService membershipService;
 
+	private final MenuStatsService menuStatsService;
+
 	public MenuService(MenuOptionRepository menuOptionRepository, VoteRepository voteRepository,
-			PollService pollService, MembershipService membershipService) {
+			PollService pollService, MembershipService membershipService, MenuStatsService menuStatsService) {
 		this.menuOptionRepository = menuOptionRepository;
 		this.voteRepository = voteRepository;
 		this.pollService = pollService;
 		this.membershipService = membershipService;
+		this.menuStatsService = menuStatsService;
 	}
 
-	/** 메뉴 추가. 추가한 사람이 자동으로 참여하지는 않는다. */
+	/** 메뉴 추가(식당 지도 링크는 선택). 추가한 사람이 자동으로 참여하지는 않는다. */
 	@Transactional
-	public PollDetailResponse add(Long pollId, Long userId, String rawName) {
+	public PollDetailResponse add(Long pollId, Long userId, String rawName, String rawLink) {
 		Poll poll = pollService.getForMember(pollId, userId);
 		pollService.requireOpen(poll);
 		String name = rawName.strip();
+		String link = MenuLinks.normalize(rawLink);
 		if (menuOptionRepository.existsByPollIdAndName(pollId, name)) {
 			throw ApiException.conflict("이미 있는 메뉴예요.");
 		}
-		MenuOption option = menuOptionRepository.save(new MenuOption(pollId, userId, name));
-		log.info("메뉴 추가: pollId={}, optionId={}, userId={}", pollId, option.getId(), userId);
+		MenuOption option = menuOptionRepository.save(new MenuOption(pollId, userId, name, link));
+		log.info("메뉴 추가: pollId={}, optionId={}, userId={}, 링크={}", pollId, option.getId(), userId, link != null);
+		return pollService.detail(poll, userId);
+	}
+
+	/** 식당 지도 링크 달기·고치기·지우기(rawLink가 비면 지운다). 추가한 사람만, 투표가 진행 중일 때 할 수 있다. */
+	@Transactional
+	public PollDetailResponse changeLink(Long pollId, Long optionId, Long userId, String rawLink) {
+		Poll poll = pollService.getForMember(pollId, userId);
+		MenuOption option = findInPoll(pollId, optionId);
+		if (!userId.equals(option.getCreatedBy())) {
+			throw ApiException.forbidden("메뉴를 추가한 사람만 링크를 고칠 수 있어요.");
+		}
+		pollService.requireOpen(poll);
+		option.changeLink(MenuLinks.normalize(rawLink));
+		log.info("메뉴 링크 변경: pollId={}, optionId={}, userId={}, 링크={}", pollId, optionId, userId,
+				option.getLinkUrl() != null);
 		return pollService.detail(poll, userId);
 	}
 
@@ -55,9 +77,7 @@ public class MenuService {
 	@Transactional
 	public PollDetailResponse delete(Long pollId, Long optionId, Long userId) {
 		Poll poll = pollService.getForMember(pollId, userId);
-		MenuOption option = menuOptionRepository.findById(optionId)
-			.filter(o -> o.getPollId().equals(pollId))
-			.orElseThrow(() -> ApiException.notFound("메뉴를 찾을 수 없어요."));
+		MenuOption option = findInPoll(pollId, optionId);
 		if (!userId.equals(option.getCreatedBy())) {
 			throw ApiException.forbidden("메뉴를 추가한 사람만 삭제할 수 있어요.");
 		}
@@ -70,11 +90,31 @@ public class MenuService {
 		return pollService.detail(poll, userId);
 	}
 
-	/** 자동완성: 같은 조직에서 전에 나온 메뉴 이름(최근 순, 최대 8개) */
+	/**
+	 * 자동완성: 같은 조직에서 전에 나온 메뉴 이름(최근 순, 최대 8개)과 마지막으로 먹은 날.
+	 * 최근 7일 안에 먹은 메뉴는 뒤로 보낸다.
+	 */
 	@Transactional(readOnly = true)
-	public List<String> suggestions(Long organizationId, Long userId, String query) {
+	public List<MenuSuggestion> suggestions(Long organizationId, Long userId, String query) {
 		membershipService.requireMember(organizationId, userId);
 		String keyword = query == null ? "" : query.strip().replace("%", "").replace("_", "");
-		return menuOptionRepository.findRecentNames(organizationId, keyword, PageRequest.of(0, SUGGESTION_LIMIT));
+		List<String> names = menuOptionRepository.findRecentNames(organizationId, keyword,
+				PageRequest.of(0, SUGGESTION_LIMIT));
+		if (names.isEmpty()) {
+			return List.of();
+		}
+		Map<String, LocalDate> lastEaten = menuStatsService.lastEatenByKey(organizationId);
+		LocalDate recentFrom = menuStatsService.recentFrom();
+		return names.stream()
+			.map(name -> new MenuSuggestion(name, lastEaten.get(MenuStatsService.key(name))))
+			.sorted(Comparator.comparing((MenuSuggestion s) -> s.lastEatenOn() != null
+					&& !s.lastEatenOn().isBefore(recentFrom)))
+			.toList();
+	}
+
+	private MenuOption findInPoll(Long pollId, Long optionId) {
+		return menuOptionRepository.findById(optionId)
+			.filter(o -> o.getPollId().equals(pollId))
+			.orElseThrow(() -> ApiException.notFound("메뉴를 찾을 수 없어요."));
 	}
 }

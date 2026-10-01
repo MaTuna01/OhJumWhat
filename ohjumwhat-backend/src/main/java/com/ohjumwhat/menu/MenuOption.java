@@ -27,6 +27,9 @@ public class MenuOption {
 	@Column(nullable = false)
 	private String name;
 
+	/** 식당 지도 링크(선택, http/https). 추가한 사람이 투표 진행 중에 달거나 고친다. */
+	private String linkUrl;
+
 	@Column(nullable = false)
 	private Instant createdAt;
 
@@ -34,9 +37,19 @@ public class MenuOption {
 	}
 
 	public MenuOption(Long pollId, Long createdBy, String name) {
+		this(pollId, createdBy, name, null);
+	}
+
+	public MenuOption(Long pollId, Long createdBy, String name, String linkUrl) {
 		this.pollId = pollId;
 		this.createdBy = createdBy;
 		this.name = name;
+		this.linkUrl = linkUrl;
+	}
+
+	/** null이면 링크를 지운다. */
+	public void changeLink(String linkUrl) {
+		this.linkUrl = linkUrl;
 	}
 
 	@PrePersist
@@ -58,6 +71,10 @@ public class MenuOption {
 
 	public String getName() {
 		return name;
+	}
+
+	public String getLinkUrl() {
+		return linkUrl;
 	}
 
 	public Instant getCreatedAt() {

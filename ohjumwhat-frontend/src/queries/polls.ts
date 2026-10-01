@@ -12,6 +12,8 @@ export type Person = { userId: number; name: string; profileImageUrl: string | n
 export type PollOption = {
   id: number
   name: string
+  /** 식당 지도 링크(http/https). 없으면 null */
+  link: string | null
   /** 추가한 사람. 강제 탈퇴로 삭제된 회원이면 null("탈퇴한 사용자") */
   createdBy: Person | null
   voters: Person[]
@@ -50,10 +52,17 @@ export type PollSummary = {
   myOptionName: string | null
 }
 
+/** 메뉴 자동완성. lastEatenOn은 마지막으로 먹은 날(한국 날짜), 먹은 적이 없으면 null */
+export type MenuSuggestion = { name: string; lastEatenOn: string | null }
+
+/** 먹은 메뉴(통계·추천). times = 먹은 투표 수, people = 참여 인원 합계 */
+export type MenuStat = { name: string; times: number; people: number; lastEatenOn: string }
+
 export const pollKeys = {
   today: (orgId: number) => ['orgs', orgId, 'polls', 'today'] as const,
   detail: (pollId: number) => ['polls', pollId] as const,
   menuNames: (orgId: number, q: string) => ['orgs', orgId, 'menu-names', q] as const,
+  recommendations: (orgId: number) => ['orgs', orgId, 'menu-recommendations'] as const,
 }
 
 /** 진행 중인 투표는 3초마다 다시 불러온다(백그라운드 탭에서는 멈춘다). */
@@ -86,9 +95,19 @@ function isNotFound(error: unknown) {
 export function useMenuNames(orgId: number, q: string, enabled: boolean) {
   return useQuery({
     queryKey: pollKeys.menuNames(orgId, q),
-    queryFn: () => api<string[]>(`/api/orgs/${orgId}/menu-names?q=${encodeURIComponent(q)}`),
+    queryFn: () => api<MenuSuggestion[]>(`/api/orgs/${orgId}/menu-names?q=${encodeURIComponent(q)}`),
     enabled,
     staleTime: 30_000,
+  })
+}
+
+/** 오늘은 이거 어때요? 자주 먹었지만 최근 7일 안에는 먹지 않은 메뉴 */
+export function useMenuRecommendations(orgId: number, enabled: boolean) {
+  return useQuery({
+    queryKey: pollKeys.recommendations(orgId),
+    queryFn: () => api<MenuStat[]>(`/api/orgs/${orgId}/menu-recommendations`),
+    enabled,
+    staleTime: 60_000,
   })
 }
 
@@ -144,8 +163,15 @@ export function useDeletePoll(orgId: number, pollId: number) {
 }
 
 export function useAddOption(orgId: number, pollId: number) {
-  return usePollMutation(pollId, orgId, (name: string) =>
-    api<PollDetail>(`/api/polls/${pollId}/options`, { method: 'POST', body: { name } }),
+  return usePollMutation(pollId, orgId, (body: { name: string; link: string | null }) =>
+    api<PollDetail>(`/api/polls/${pollId}/options`, { method: 'POST', body }),
+  )
+}
+
+/** 식당 지도 링크 달기·고치기. link가 null이면 지운다. */
+export function useChangeLink(orgId: number, pollId: number) {
+  return usePollMutation(pollId, orgId, ({ optionId, link }: { optionId: number; link: string | null }) =>
+    api<PollDetail>(`/api/polls/${pollId}/options/${optionId}/link`, { method: 'PUT', body: { link } }),
   )
 }
 

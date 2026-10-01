@@ -15,8 +15,8 @@ const base: PollDetail = {
   scheduled: false,
   memberCount: 2,
   options: [
-    { id: 100, name: '김치찌개', createdBy: lee, voters: [lee], mine: false, deletable: false },
-    { id: 101, name: '쌀국수', createdBy: { userId: 1, name: '김철수', profileImageUrl: null }, voters: [], mine: true, deletable: true },
+    { id: 100, name: '김치찌개', link: null, createdBy: lee, voters: [lee], mine: false, deletable: false },
+    { id: 101, name: '쌀국수', link: 'https://naver.me/x', createdBy: { userId: 1, name: '김철수', profileImageUrl: null }, voters: [], mine: true, deletable: true },
   ],
   myResponse: 'NONE',
   myOptionId: null,

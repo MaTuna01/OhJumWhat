@@ -82,3 +82,18 @@ export function formatAgo(iso: string, now: number): string {
   if (minutes < 24 * 60) return `${Math.floor(minutes / 60)}시간 전`
   return formatDayTime(iso, now)
 }
+
+/** 한국 날짜("YYYY-MM-DD")가 오늘(한국)로부터 며칠 전인지. 오늘이면 0 */
+export function daysAgo(day: string, now: number): number {
+  const utc = (key: string) => Date.UTC(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1, Number(key.slice(8, 10)))
+  return Math.round((utc(kstDayKey(now)) - utc(day)) / 86_400_000)
+}
+
+/** 먹은 날 표시: "오늘", "어제", 30일 안이면 "3일 전", 그보다 오래면 formatDay("9월 8일") */
+export function formatEatenDay(day: string, now: number): string {
+  const days = daysAgo(day, now)
+  if (days <= 0) return '오늘'
+  if (days === 1) return '어제'
+  if (days <= 30) return `${days}일 전`
+  return formatDay(day, now)
+}

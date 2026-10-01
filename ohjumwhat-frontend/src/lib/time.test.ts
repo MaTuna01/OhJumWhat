@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { defaultCloseTime, formatAgo, formatClock, formatDate, formatDay, formatDayTime, formatHhmm, formatRemaining, formatTimeRange, toKstHhmm } from './time.ts'
+import { daysAgo, defaultCloseTime, formatAgo, formatClock, formatDate, formatDay, formatDayTime, formatEatenDay, formatHhmm, formatRemaining, formatTimeRange, toKstHhmm } from './time.ts'
 
 // 2026-09-30 11:00 (한국 시간) = 02:00Z
 const at = (kst: string) => new Date(`2026-09-30T${kst}:00+09:00`).getTime()
@@ -69,5 +69,16 @@ describe('formatDate / formatDayTime / formatAgo', () => {
     expect(formatAgo('2026-09-30T01:55:00Z', now)).toBe('5분 전')
     expect(formatAgo('2026-09-29T23:00:00Z', now)).toBe('3시간 전')
     expect(formatAgo('2026-09-28T06:00:00Z', now)).toBe('9월 28일 오후 3:00')
+  })
+})
+
+describe('formatEatenDay', () => {
+  it('오늘·어제·N일 전, 30일이 넘으면 날짜', () => {
+    expect(daysAgo('2026-09-30', at('00:10'))).toBe(0)
+    expect(formatEatenDay('2026-09-30', at('23:50'))).toBe('오늘')
+    expect(formatEatenDay('2026-09-29', at('11:00'))).toBe('어제')
+    expect(formatEatenDay('2026-09-18', at('11:00'))).toBe('12일 전')
+    expect(formatEatenDay('2026-08-01', at('11:00'))).toBe('8월 1일')
+    expect(formatEatenDay('2025-12-24', at('11:00'))).toBe('2025년 12월 24일')
   })
 })
