@@ -5,6 +5,7 @@ import { PageLoader } from '../components/PageState.tsx'
 import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { formatMonthDay } from '../lib/time.ts'
 import { buttonClass, columnsClass } from '../lib/ui.ts'
+import { useDeployedVersion } from '../queries/build.ts'
 import { type Notice, useMarkNoticesSeen, useNotices } from '../queries/notices.ts'
 
 /**
@@ -14,6 +15,7 @@ import { type Notice, useMarkNoticesSeen, useNotices } from '../queries/notices.
 export default function NoticesPage() {
   useDocumentTitle('새 소식')
   const notices = useNotices()
+  const version = useDeployedVersion()
   const { mutate: markSeen } = useMarkNoticesSeen()
   const marked = useRef(false)
   const loaded = notices.isSuccess
@@ -64,15 +66,15 @@ export default function NoticesPage() {
           )}
         </div>
 
-        {/* 데스크톱 사이드: 현재 버전. 모바일은 목록 아래 한 줄로 보여준다. */}
+        {/* 데스크톱 사이드: 서버에 배포된 현재 버전. 모바일은 목록 아래 한 줄로 보여준다. */}
         <aside>
           <section className="hidden space-y-2 rounded-2xl border border-border-default bg-bg-surface p-5 lg:block">
-            <h2 className="font-bold">현재 버전 v{__APP_VERSION__}</h2>
+            <h2 className="font-bold">현재 버전 v{version}</h2>
             <p className="text-sm text-text-tertiary">
               업데이트 소식은 배포할 때마다 자동으로 올라와요. 개발자 노트는 점검처럼 알릴 일이 있을 때 써요.
             </p>
           </section>
-          <p className="text-center text-xs text-text-placeholder lg:hidden">현재 버전 v{__APP_VERSION__}</p>
+          <p className="text-center text-xs text-text-placeholder lg:hidden">현재 버전 v{version}</p>
         </aside>
       </div>
     </div>
