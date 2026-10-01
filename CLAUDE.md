@@ -109,6 +109,11 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 
 **프론트엔드.** 라우트는 `src/router.tsx` 한 곳에 모여 있다(기획서의 화면 7개 + `/` 진입 분기). `/login`을 뺀 모든 화면은 `RequireAuth`(내 정보 조회가 401이면 경로를 기억하고 로그인 화면으로 보냄) 아래에 있다. API 호출은 `lib/api.ts`의 `api()`로만 하고, 서버 상태 훅과 query key는 `src/queries/`에 둔다. `/orgs/:orgId` 아래 화면은 `OrgLayout`이 조직 조회(방문 기록 갱신), 404 처리, 탭을 맡고, 하위 화면은 `useOrganization(orgId)` 캐시를 그대로 쓴다. 버튼·입력창 스타일은 `lib/ui.ts`(`buttonClass`, `inputClass`)에 있고, 모달은 네이티브 `<dialog>` 기반 `Modal`/`ConfirmDialog`를 쓴다. 다른 쿼리나 뮤테이션이 401을 받으면 `main.tsx`의 캐시 핸들러가 내 정보를 다시 불러오고, 그 결과로 로그인 화면으로 이동한다. 서버 상태는 TanStack Query로 관리한다. 투표 상세 화면은 WebSocket을 쓰지 않고 진행 중일 때 몇 초 간격으로 폴링한다(10~20명 규모). 스타일은 Tailwind v4(`@import 'tailwindcss'`, `@tailwindcss/vite` 플러그인)다.
 
+**반응형.** 1024px(`lg`) 미만은 모바일 레이아웃을 가운데 768px로 보여주고, `lg` 이상은 Figma 「와이어프레임 · 데스크톱」대로 콘텐츠 폭 1024px에 본문 + 오른쪽 사이드(320px) 2단이다(`AppLayout`, `lib/ui.ts`의 `columnsClass`).
+- DOM 순서는 모바일 순서로 둔다. 사이드로 보낼 카드가 모바일 순서 중간에 있으면 grid 위치 클래스(`lg:col-start-2` 등)로 옮긴다(예: `MyPage`, `OrgSettingsPage`).
+- 데스크톱에서만 보이는 요소는 `hidden lg:block`, 모바일에서만 보이는 요소는 `lg:hidden`으로 둔다(예: 조직 홈의 정기 투표 요약, 투표 상세의 응답 현황).
+- 로그인 화면은 데스크톱에서 좌우로 나뉜다(왼쪽 소개·투표 미리보기, 오른쪽 로그인).
+
 ## 배포
 
 - `main`에 push하면 `.github/workflows/deploy.yml`이 다음 순서로 실행된다.
@@ -158,6 +163,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - TopBar → `components/AppLayout.tsx`
   - Badge → `components/Badge.tsx`
   - OptionCard → `components/OptionCard.tsx`(투표 상세의 메뉴 카드, 결과 모드 포함)
+  - 멤버 카드(Figma 「멤버 N명」) → `components/MemberList.tsx`(조직 설정, 데스크톱 조직 홈 사이드)
 
 ## 코드 스타일
 

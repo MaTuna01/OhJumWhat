@@ -17,9 +17,9 @@ export function PageMessage({ title, children }: { title: string; children?: Rea
   )
 }
 
-export function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
+export function Section({ title, action, className = '', children }: { title: string; action?: ReactNode; className?: string; children: ReactNode }) {
   return (
-    <section className="rounded-2xl border border-border-default bg-bg-surface p-5">
+    <section className={`rounded-2xl border border-border-default bg-bg-surface p-5 ${className}`}>
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="font-bold">{title}</h2>
         {action}
