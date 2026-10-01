@@ -22,9 +22,9 @@
 | 6 | 배포·CI/CD | 완료 — https://www.ohjumwhat.cloud 운영 중 | [#7](https://github.com/MaTuna01/OhJumWhat/pull/7), 릴리스 [#8](https://github.com/MaTuna01/OhJumWhat/pull/8) |
 | 7 | 마무리·QA | 완료 — 404·오류 화면, 링크 미리보기, 탭 제목, CSP 등(v1.1.0~v1.1.1), 데스크톱 레이아웃(v1.2.0) | [#10](https://github.com/MaTuna01/OhJumWhat/pull/10), [#14](https://github.com/MaTuna01/OhJumWhat/pull/14), [#16](https://github.com/MaTuna01/OhJumWhat/pull/16) |
 | - | 관리자 콘솔 (superadmin: 회원·조직·투표 관리, 강제 탈퇴·차단) | 완료(v1.3.0) | [#20](https://github.com/MaTuna01/OhJumWhat/pull/20) |
-| 8 | 투표 조기 마감·수정·삭제 (확장 기능 1번째) | 완료(`dev`, 다음 릴리스) | [#23](https://github.com/MaTuna01/OhJumWhat/pull/23) |
-| 9 | 메뉴에 식당 지도 링크 (지도 연동 1단계) | 완료(`dev`, 다음 릴리스) | `feature/map-link-stats` |
-| 10 | 메뉴 통계 (자주 먹은 메뉴, 최근 먹은 메뉴 제외 추천) | 완료(`dev`, 다음 릴리스) | `feature/map-link-stats` |
+| 8 | 투표 조기 마감·수정·삭제 (확장 기능 1번째) | 완료(v1.4.0) | [#23](https://github.com/MaTuna01/OhJumWhat/pull/23) |
+| 9 | 메뉴에 식당 지도 링크 (지도 연동 1단계) | 완료(v1.4.0) | [#24](https://github.com/MaTuna01/OhJumWhat/pull/24) |
+| 10 | 메뉴 통계 (자주 먹은 메뉴, 최근 먹은 메뉴 제외 추천) | 완료(v1.4.0) | [#24](https://github.com/MaTuna01/OhJumWhat/pull/24) |
 
 확장 기능(8~13단계)의 순서와 체크리스트는 Notion Tasks에 있다. 기획서 「나중에」 목록을 구현 난이도 순으로 정렬했다: 8 투표 조기 마감·수정·삭제 → 9 메뉴에 식당 지도 링크 → 10 메뉴 통계 → 11 지도 API 연동 → 12 중복 투표 → 13 최소 인원 미달 자동 해산.
 
