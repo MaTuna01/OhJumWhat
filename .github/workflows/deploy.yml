@@ -82,6 +82,15 @@ jobs:
             docker compose pull app
             docker compose up -d --remove-orphans
             docker logout ghcr.io
+            # Caddyfile은 파일 하나를 바인드 마운트하므로, 파일이 바뀌어도 up -d만으로는 실행 중인 Caddy에 반영되지 않는다.
+            # 바뀌었으면 새 파일을 먼저 검증하고(실패하면 기존 Caddy 유지) 컨테이너를 다시 만든다.
+            caddy_hash=$(sha256sum Caddyfile | cut -d' ' -f1)
+            if [ "$(cat .caddyfile.sha256 2>/dev/null || true)" != "$caddy_hash" ]; then
+              docker compose run --rm --no-deps -T caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+              docker compose up -d --force-recreate --no-deps caddy
+              echo "$caddy_hash" > .caddyfile.sha256
+              echo "Caddyfile 변경을 반영했습니다."
+            fi
             # 앱이 뜰 때까지 최대 2분 기다린다(Caddy 컨테이너에서 내부 주소로 확인).
             for i in $(seq 1 40); do
               if docker compose exec -T caddy wget -qO- http://app:8080/actuator/health 2>/dev/null | grep -q '"UP"'; then
