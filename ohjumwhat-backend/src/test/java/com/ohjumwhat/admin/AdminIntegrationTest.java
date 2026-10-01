@@ -26,10 +26,10 @@ import com.ohjumwhat.menu.MenuService;
 import com.ohjumwhat.organization.InviteService;
 import com.ohjumwhat.organization.OrganizationResponse;
 import com.ohjumwhat.organization.OrganizationService;
-import com.ohjumwhat.poll.CreatePollRequest;
 import com.ohjumwhat.poll.Poll;
 import com.ohjumwhat.poll.PollDetailResponse;
 import com.ohjumwhat.poll.PollRepository;
+import com.ohjumwhat.poll.PollRequest;
 import com.ohjumwhat.poll.PollService;
 import com.ohjumwhat.schedule.PollSchedule;
 import com.ohjumwhat.schedule.PollScheduleRepository;
@@ -106,7 +106,7 @@ class AdminIntegrationTest extends IntegrationTest {
 		inviteService.join(dev.inviteToken(), lee.getId());
 		soloOrgId = organizationService.create(lee.getId(), "혼자팀").id();
 
-		pollId = pollService.create(devOrgId, kim.getId(), new CreatePollRequest("점심", "11:50")).id();
+		pollId = pollService.create(devOrgId, kim.getId(), new PollRequest("점심", "11:50")).id();
 		menuService.add(pollId, kim.getId(), "김치찌개");
 		PollDetailResponse detail = menuService.add(pollId, lee.getId(), "마라탕");
 		leeMenuId = detail.options().get(1).id();

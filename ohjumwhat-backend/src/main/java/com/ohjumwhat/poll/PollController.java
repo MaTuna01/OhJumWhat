@@ -45,7 +45,7 @@ public class PollController {
 	@PostMapping("/api/orgs/{orgId}/polls")
 	@ResponseStatus(HttpStatus.CREATED)
 	PollDetailResponse create(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long orgId,
-			@Valid @RequestBody CreatePollRequest request) {
+			@Valid @RequestBody PollRequest request) {
 		return pollService.create(orgId, loginUser.getUserId(), request);
 	}
 
@@ -53,6 +53,23 @@ public class PollController {
 	PollDetailResponse get(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long orgId,
 			@PathVariable Long pollId) {
 		return pollService.get(orgId, pollId, loginUser.getUserId());
+	}
+
+	@PutMapping("/api/polls/{pollId}")
+	PollDetailResponse update(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId,
+			@Valid @RequestBody PollRequest request) {
+		return pollService.update(pollId, loginUser.getUserId(), request);
+	}
+
+	@PostMapping("/api/polls/{pollId}/close")
+	PollDetailResponse close(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId) {
+		return pollService.close(pollId, loginUser.getUserId());
+	}
+
+	@DeleteMapping("/api/polls/{pollId}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	void delete(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId) {
+		pollService.delete(pollId, loginUser.getUserId());
 	}
 
 	@GetMapping("/api/orgs/{orgId}/menu-names")
