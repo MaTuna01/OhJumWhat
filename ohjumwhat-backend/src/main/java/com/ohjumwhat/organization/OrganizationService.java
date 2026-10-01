@@ -106,7 +106,26 @@ public class OrganizationService {
 			.orElseThrow(() -> ApiException.notFound(MembershipService.ORGANIZATION_NOT_FOUND));
 		Membership membership = membershipRepository.findByOrganizationIdAndUserId(organizationId, userId)
 			.orElseThrow(() -> ApiException.notFound(MembershipService.ORGANIZATION_NOT_FOUND));
+		return new LeaveResponse(remove(organization, membership));
+	}
 
+	/**
+	 * 관리자가 멤버를 내보내거나 회원을 강제 탈퇴시킬 때 쓰는 탈퇴 처리. 규칙은 {@link #leave}와 같다.
+	 * 이미 조직이나 멤버가 없으면 예외 대신 아무것도 하지 않는다(호출한 쪽의 트랜잭션을 되돌리지 않기 위해).
+	 * @return 마지막 멤버라서 조직을 삭제했으면 true
+	 */
+	@Transactional
+	public boolean removeMember(Long organizationId, Long userId) {
+		return organizationRepository.findByIdForUpdate(organizationId)
+			.flatMap(organization -> membershipRepository.findByOrganizationIdAndUserId(organizationId, userId)
+				.map(membership -> remove(organization, membership)))
+			.orElse(false);
+	}
+
+	/** 조직 행을 잠근 상태에서 호출한다. */
+	private boolean remove(Organization organization, Membership membership) {
+		Long organizationId = organization.getId();
+		Long userId = membership.getUserId();
 		int deletedVotes = voteRepository.deleteInOpenPolls(organizationId, userId, Instant.now(clock));
 		membershipRepository.delete(membership);
 		membershipRepository.flush();
@@ -115,9 +134,9 @@ public class OrganizationService {
 		if (membershipRepository.countByOrganizationId(organizationId) == 0) {
 			organizationRepository.delete(organization);
 			log.info("마지막 멤버 탈퇴로 조직 삭제: organizationId={}", organizationId);
-			return new LeaveResponse(true);
+			return true;
 		}
-		return new LeaveResponse(false);
+		return false;
 	}
 
 	private static OrganizationResponse toResponse(Organization organization, long memberCount) {

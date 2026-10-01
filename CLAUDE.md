@@ -46,7 +46,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 
 ## 아키텍처
 
-현재 6단계까지 구현되어 있고, https://www.ohjumwhat.cloud 에서 운영 중이다(`main` push 시 자동 배포). 구현된 범위는 골격·스키마, 구글 로그인·세션, 조직, 투표·메뉴·참여·결과, 정기 투표, 배포다.
+7단계(마무리·QA)까지 모두 마쳤고, https://www.ohjumwhat.cloud 에서 운영 중이다(`main` push 시 자동 배포, 버전은 `CHANGELOG.md`). 구현된 범위는 골격·스키마, 구글 로그인·세션, 조직, 투표·메뉴·참여·결과, 정기 투표, 배포, 마무리·QA(오류 화면, 링크 미리보기, 보안 헤더, 데스크톱 레이아웃)이고, 그 뒤에 서비스 관리자 콘솔(`/admin`)을 추가했다.
 
 **동일 출처 구조.** 운영에서는 React 빌드 결과를 Spring Boot jar의 static 리소스로 넣어 이미지 하나로 배포한다(Caddy가 앞단). 개발에서는 Vite가 백엔드 경로를 프록시하는데, `changeOrigin: false`로 Host 헤더를 유지하고 백엔드는 `server.forward-headers-strategy: framework`로 설정한다. 그래서 CORS 설정이 없고, 인증은 JWT 없이 **세션 쿠키**로 한다. 프론트의 `/login`은 SPA 화면이고, Spring의 기본 로그인 페이지는 쓰지 않는다. 운영에서 파일이 없는 화면 경로는 `common/SpaWebConfig`가 `index.html`로 돌려준다.
 
@@ -97,9 +97,22 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - `votes`는 (poll, user)당 한 행이다. 메뉴를 바꾸면 `option_id`만 갱신한다. `option_id`가 NULL이면 "오늘은 패스"다.
 - `votes.option_id` FK는 의도적으로 `NO ACTION`이다(RESTRICT 아님). 투표를 CASCADE로 삭제할 때 검사가 문장 끝으로 미뤄지게 하기 위해서다. 참여자가 있는 메뉴를 삭제하지 못하게 막는 검사는 서비스에서 먼저 한다.
 - 메뉴를 추가해도 추가한 사람이 자동으로 참여하지 않는다. 메뉴는 추가한 사람만, 참여자가 0명이고 투표가 진행 중일 때만 삭제할 수 있다. 메뉴 이름은 trim해서 저장하고, (poll, name)은 UNIQUE다.
-- 조직에는 관리자가 없고 모든 멤버의 권한이 같다. 마지막 멤버가 탈퇴하면 조직을 삭제하고, 하위 데이터는 DB `ON DELETE CASCADE`로 함께 지운다. 정기 규칙을 삭제하면 `polls.schedule_id`만 NULL이 된다.
+- 조직 안에는 관리자가 없고 모든 멤버의 권한이 같다(서비스 전체를 관리하는 관리자 콘솔은 아래 별도). 마지막 멤버가 탈퇴하면 조직을 삭제하고, 하위 데이터는 DB `ON DELETE CASCADE`로 함께 지운다. 정기 규칙을 삭제하면 `polls.schedule_id`만 NULL이 된다.
 - 멤버가 탈퇴하면 그 조직의 **진행 중인** 투표에서 그 사람의 votes만 지운다. 마감된 투표 기록은 남긴다.
 - 메뉴 자동완성은 별도 테이블 없이 같은 조직 과거 투표의 `menu_options.name`을 중복 없이 조회해서 만든다.
+
+**관리자 콘솔**(`admin` 패키지, 프론트 `/admin`, 요구사항: Notion 「superadmin 정의」)
+- 관리자는 `users.role = ADMIN`이고, 서버 설정 `ohjumwhat.admin.emails`(환경변수 `ADMIN_EMAILS`, 쉼표로 여러 개)로만 지정한다. 저장소가 공개라 이메일을 코드·마이그레이션에 넣지 않는다.
+  - 서버가 뜰 때 `AdminBootstrap` → `UserService.syncAdmins()`가 목록과 맞춘다(목록에 없는 관리자는 해제, 설정이 비어 있으면 아무것도 바꾸지 않음).
+  - 구글 로그인 때도 이메일이 인증된 계정이면 관리자로 지정한다(`UserService.login`).
+- 권한은 `/api/admin/**`에서 `auth/AdminAuthorizationManager`가 **요청마다 DB의 role로** 확인한다(세션에 권한을 넣지 않아 지정·해제가 바로 반영된다). 아니면 403 `{"message"}`. 프론트 `AdminLayout`은 `me.admin`으로 화면만 가린다(관리자가 아니면 `NotFoundPage`).
+- 강제 탈퇴(`AdminService.withdraw`, 한 트랜잭션): 회원 행 잠금 → 소속 조직마다 `OrganizationService.removeMember`(탈퇴와 같은 규칙, 마지막 멤버면 조직 삭제) → `blocked_accounts`에 구글 계정 기록 → 회원 삭제 → `spring_session`에서 `principal_name = google sub`인 세션 삭제(`JdbcTemplate`, 세션 저장소 API는 별도 트랜잭션이라 쓰지 않는다).
+  - 회원을 지우면 응답(votes)은 CASCADE로 지워지고, 올린 메뉴는 `menu_options.created_by`만 NULL이 된다. 응답·화면에서는 `createdBy: null` → "탈퇴한 사용자"로 보여준다.
+  - 차단된 구글 계정의 로그인은 `GoogleOidcUserService`가 `OAuth2AuthenticationException("account_blocked")`로 거절하고, 실패 핸들러가 `/login?error=blocked`로 보낸다. 차단은 콘솔 「차단」 탭에서 풀 수 있다.
+  - 자기 자신과 다른 관리자는 강제 탈퇴할 수 없다(409). 회원 행이 없어진 세션의 `/api/me`는 401이고 세션을 끝낸다.
+- `OrganizationService.leave`(본인 탈퇴, 없으면 404)와 `removeMember`(관리자용, 없으면 아무것도 안 함)는 같은 내부 로직을 쓴다. 같은 트랜잭션 안에서 예외를 내면 트랜잭션 전체가 롤백되므로 관리자 작업은 `removeMember`를 쓴다.
+- 진행 중인 정기 투표를 지우면 스케줄러가 1분 안에 다시 열기 때문에, 투표 삭제는 `withSchedule`로 규칙도 함께 지울 수 있다.
+- 조회 쿼리는 `admin/AdminRepository`(JPQL `select new AdminResponses$...`)에 모아 둔다. 목록은 검색어 `q`, 최대 100건이다.
 
 **투표 화면.**
 - 투표 상세(`PollDetailPage`)는 진행 중일 때 3초마다 폴링하고, 마감 응답을 받으면 결과 모드로 바뀌며 폴링을 멈춘다.
@@ -140,6 +153,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
     - Components 프레임: Button, Badge, Avatar, OptionCard, Input, Logo, TopBar
   - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면 12개. 01 로그인부터 07 조직 설정까지와 `-M` 모달
   - 「와이어프레임 · 데스크톱」 페이지: 같은 화면 12개의 데스크톱(1440px) 버전(`D01`~`D07-M`)
+  - 「관리자 콘솔」 페이지: 관리자 화면(모바일 `A01`~`A07`, 데스크톱 `DA01`~`DA07`, 강제 탈퇴 모달 `-M`, 차단된 로그인 `L01`)과 로컬 컴포넌트 StatCard·ListRow
     - 콘텐츠 폭 1024px 가운데 정렬. 1024px 이상(`lg`)에서 본문 + 오른쪽 사이드(320px) 2단, 그보다 좁으면 모바일 레이아웃을 쓴다.
     - 로그인은 좌우 분할(왼쪽 브랜드 소개·투표 미리보기, 오른쪽 로그인), 모달은 폭 448px이다.
 - **새 화면이나 컴포넌트를 만들 때는 먼저 해당 Figma 프레임을 보고 그대로 구현한다.**
@@ -164,6 +178,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - Badge → `components/Badge.tsx`
   - OptionCard → `components/OptionCard.tsx`(투표 상세의 메뉴 카드, 결과 모드 포함)
   - 멤버 카드(Figma 「멤버 N명」) → `components/MemberList.tsx`(조직 설정, 데스크톱 조직 홈 사이드)
+  - StatCard·ListRow(관리자 콘솔) → `components/AdminParts.tsx`(`StatCard`, `ListRow`, `ActionRow`, `DangerZone`, `AdminSearch`)
 
 ## 코드 스타일
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { defaultCloseTime, formatClock, formatHhmm, formatRemaining, formatTimeRange, toKstHhmm } from './time.ts'
+import { defaultCloseTime, formatAgo, formatClock, formatDate, formatDay, formatDayTime, formatHhmm, formatRemaining, formatTimeRange, toKstHhmm } from './time.ts'
 
 // 2026-09-30 11:00 (한국 시간) = 02:00Z
 const at = (kst: string) => new Date(`2026-09-30T${kst}:00+09:00`).getTime()
@@ -46,5 +46,28 @@ describe('defaultCloseTime', () => {
   })
   it('자정을 넘기면 23:50', () => {
     expect(defaultCloseTime(new Date('2026-09-30T23:45:00+09:00').getTime())).toBe('23:50')
+  })
+})
+
+describe('formatDay', () => {
+  const now = at('11:00')
+  it('오늘·어제·올해·그 전을 구분한다(한국 날짜 기준)', () => {
+    expect(formatDay('2026-09-30T00:30:00+09:00', now)).toBe('오늘')
+    expect(formatDay('2026-09-29T15:30:00Z', now)).toBe('오늘') // 9/30 00:30 KST
+    expect(formatDay('2026-09-29', now)).toBe('어제')
+    expect(formatDay('2026-09-28T03:00:00Z', now)).toBe('9월 28일')
+    expect(formatDay('2025-12-31', now)).toBe('2025년 12월 31일')
+  })
+})
+
+describe('formatDate / formatDayTime / formatAgo', () => {
+  const now = at('11:00')
+  it('관리자 콘솔의 날짜·시각 표기', () => {
+    expect(formatDate('2026-09-28T03:00:00Z')).toBe('2026년 9월 28일')
+    expect(formatDayTime('2026-09-30T00:12:00Z', now)).toBe('오늘 오전 9:12')
+    expect(formatAgo('2026-09-30T01:59:40Z', now)).toBe('방금')
+    expect(formatAgo('2026-09-30T01:55:00Z', now)).toBe('5분 전')
+    expect(formatAgo('2026-09-29T23:00:00Z', now)).toBe('3시간 전')
+    expect(formatAgo('2026-09-28T06:00:00Z', now)).toBe('9월 28일 오후 3:00')
   })
 })

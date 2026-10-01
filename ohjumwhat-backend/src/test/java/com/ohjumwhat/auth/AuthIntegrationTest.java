@@ -2,6 +2,7 @@ package com.ohjumwhat.auth;
 
 import static com.ohjumwhat.TestAuth.loginAs;
 import static com.ohjumwhat.TestAuth.xsrf;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -13,6 +14,10 @@ import java.time.Instant;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
 
 import com.ohjumwhat.IntegrationTest;
 import com.ohjumwhat.organization.Membership;
@@ -47,7 +52,31 @@ class AuthIntegrationTest extends IntegrationTest {
 			.andExpect(jsonPath("$.id").value(user.getId()))
 			.andExpect(jsonPath("$.name").value("김철수"))
 			.andExpect(jsonPath("$.email").value("kim@example.com"))
-			.andExpect(jsonPath("$.lastVisitedOrgId").value(nullValue()));
+			.andExpect(jsonPath("$.lastVisitedOrgId").value(nullValue()))
+			.andExpect(jsonPath("$.admin").value(false));
+	}
+
+	@Test
+	void 회원이_삭제됐으면_내_정보는_401이다() throws Exception {
+		User user = userRepository.save(new User("sub-1", "kim@example.com", "김철수", null));
+		userRepository.delete(user);
+
+		mockMvc.perform(get("/api/me").with(loginAs(user)))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.message").value("다시 로그인해 주세요."));
+	}
+
+	@Test
+	void 차단된_계정의_로그인_실패는_차단_안내로_보낸다() throws Exception {
+		MockHttpServletResponse blocked = new MockHttpServletResponse();
+		SecurityConfig.loginFailure().onAuthenticationFailure(new MockHttpServletRequest(), blocked,
+				new OAuth2AuthenticationException(new OAuth2Error(GoogleOidcUserService.ACCOUNT_BLOCKED)));
+		MockHttpServletResponse other = new MockHttpServletResponse();
+		SecurityConfig.loginFailure().onAuthenticationFailure(new MockHttpServletRequest(), other,
+				new OAuth2AuthenticationException(new OAuth2Error("invalid_token")));
+
+		assertThat(blocked.getRedirectedUrl()).isEqualTo("/login?error=blocked");
+		assertThat(other.getRedirectedUrl()).isEqualTo("/login?error");
 	}
 
 	@Test

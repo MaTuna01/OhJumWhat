@@ -10,7 +10,7 @@ public record ScheduleResponse(Long id, String name, int daysOfWeek, String open
 
 	private static final DateTimeFormatter HH_MM = DateTimeFormatter.ofPattern("HH:mm");
 
-	static ScheduleResponse of(PollSchedule schedule) {
+	public static ScheduleResponse of(PollSchedule schedule) {
 		return new ScheduleResponse(schedule.getId(), schedule.getName(), schedule.getDaysOfWeek(),
 				schedule.getOpenTime().format(HH_MM), schedule.getCloseTime().format(HH_MM));
 	}

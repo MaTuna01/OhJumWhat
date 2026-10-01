@@ -20,7 +20,8 @@
 | 4 | 투표 핵심 (메뉴·참여·현황·결과) | 완료 | [#5](https://github.com/MaTuna01/OhJumWhat/pull/5) |
 | 5 | 정기 투표 | 완료 | [#6](https://github.com/MaTuna01/OhJumWhat/pull/6) |
 | 6 | 배포·CI/CD | 완료 — https://www.ohjumwhat.cloud 운영 중 | [#7](https://github.com/MaTuna01/OhJumWhat/pull/7), 릴리스 [#8](https://github.com/MaTuna01/OhJumWhat/pull/8) |
-| 7 | 마무리·QA | 진행 중 — 404·오류 화면, 링크 미리보기, 탭 제목, CSP 등(v1.1.0~v1.1.1), 데스크톱 레이아웃(v1.2.0) | [#10](https://github.com/MaTuna01/OhJumWhat/pull/10), [#14](https://github.com/MaTuna01/OhJumWhat/pull/14), [#16](https://github.com/MaTuna01/OhJumWhat/pull/16) |
+| 7 | 마무리·QA | 완료 — 404·오류 화면, 링크 미리보기, 탭 제목, CSP 등(v1.1.0~v1.1.1), 데스크톱 레이아웃(v1.2.0) | [#10](https://github.com/MaTuna01/OhJumWhat/pull/10), [#14](https://github.com/MaTuna01/OhJumWhat/pull/14), [#16](https://github.com/MaTuna01/OhJumWhat/pull/16) |
+| - | 관리자 콘솔 (superadmin: 회원·조직·투표 관리, 강제 탈퇴·차단) | 완료(v1.3.0) | [#20](https://github.com/MaTuna01/OhJumWhat/pull/20) |
 
 ## 계획을 세운 뒤 정한 것
 - 메뉴를 추가해도 추가한 사람이 **자동으로 참여하지 않는다**. 추가와 참여는 따로 한다.
@@ -137,7 +138,7 @@ ohjumwhat/
      - GitHub Secrets(호스트, SSH 키)
      - 서버 `.env`
      - Google Console의 운영 리디렉션 URI(`https://<도메인>/login/oauth2/code/google`)
-7. **마무리·QA**: 빈 상태·에러 메시지, 모바일 폭 레이아웃, 경계 케이스 점검
+7. **마무리·QA**: 빈 상태·에러 메시지, 모바일 폭 레이아웃, 경계 케이스 점검 — 완료(v1.2.0). 실제 사용 피드백은 별도 작업으로 이어간다.
 
 ## 테스트 전략
 - **백엔드**: 통합 테스트(`IntegrationTest` 상속, Testcontainers PostgreSQL, 테스트마다 TRUNCATE)

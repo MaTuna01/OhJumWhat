@@ -65,4 +65,8 @@ public class Organization {
 	public String getInviteToken() {
 		return inviteToken;
 	}
+
+	public Instant getCreatedAt() {
+		return createdAt;
+	}
 }
