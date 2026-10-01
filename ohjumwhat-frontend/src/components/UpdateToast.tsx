@@ -1,4 +1,4 @@
-import { useNewBuild } from '../hooks/useNewBuild.ts'
+import { useNewBuild } from '../queries/build.ts'
 import Button from './Button.tsx'
 
 /** 새 버전 안내(Figma 「디자인 시스템」 UpdateToast). 화면을 가리지 않게 아래 가운데에 띄운다. */

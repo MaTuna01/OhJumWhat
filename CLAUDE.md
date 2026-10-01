@@ -138,7 +138,8 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - `users.created_at`은 `Clock`이 아니라 실제 시각이다. 안 읽음 테스트의 게시 시각은 회원의 실제 가입 시각을 기준으로 정한다.
 - 화면: 상단 바 종 아이콘(`NoticeBell`, 안 읽으면 점), 조직 홈 맨 위 배너(`NoticeBanner`, 속한 조직이 없으면 마이페이지, 투표 상세에는 없음), `/notices`(`NoticesPage`, 연 시점 기준 NEW).
   - 본문은 일반 텍스트다(`lib/noticeBody.ts`): 빈 줄 = 문단, "- " = 목록, http(s) 주소 = 새 탭 링크. HTML·마크다운은 해석하지 않는다.
-- 새 버전 안내: Vite가 빌드 ID를 코드(`__BUILD_ID__`)와 `dist/version.json`에 넣는다. 운영 빌드에서 창이 다시 보일 때와 5분마다 비교해 다르면 `UpdateToast`를 띄운다. `__APP_VERSION__`은 `package.json` 버전이다.
+- 새 버전 안내: Vite가 빌드 ID와 버전을 코드(`__BUILD_ID__`, `__APP_VERSION__` = `package.json` 버전)와 `dist/version.json`에 넣는다. 운영 빌드에서 `/version.json`을 읽어(`queries/build.ts`, 창이 다시 보일 때와 5분마다) 빌드 ID가 다르면 `UpdateToast`를 띄운다.
+  - 「새 소식」의 현재 버전도 화면 코드의 값이 아니라 `/version.json`의 버전이다(`useDeployedVersion`). 배포 전부터 열려 있던 탭도 배포된 버전을 보여준다. 못 읽으면(개발 서버) `__APP_VERSION__`을 쓴다.
 
 **투표 화면.**
 - 투표 상세(`PollDetailPage`)는 진행 중일 때 3초마다 폴링하고, 마감 응답을 받으면 결과 모드로 바뀌며 폴링을 멈춘다.
