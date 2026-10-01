@@ -4,6 +4,7 @@ import Badge from '../components/Badge.tsx'
 import Button from '../components/Button.tsx'
 import CreatePollModal from '../components/CreatePollModal.tsx'
 import MemberList from '../components/MemberList.tsx'
+import NoticeBanner from '../components/NoticeBanner.tsx'
 import { PageLoader, Section } from '../components/PageState.tsx'
 import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { useNow } from '../hooks/useNow.ts'
@@ -15,7 +16,7 @@ import { type PollHistoryItem, type PollSummary, usePollHistory, useTodayPolls }
 import { useOrganization } from '../queries/orgs.ts'
 import { useSchedules } from '../queries/schedules.ts'
 
-/** Figma 04 조직 홈: 오늘 열린 투표 카드와 투표 만들기, 지난 투표(04-H) */
+/** Figma 04 조직 홈: 새 소식 배너(04-B), 오늘 열린 투표 카드와 투표 만들기, 지난 투표(04-H) */
 export default function OrgHomePage() {
   const orgId = useOrgId()
   const polls = useTodayPolls(orgId)
@@ -26,6 +27,7 @@ export default function OrgHomePage() {
   return (
     <div className={`flex flex-col gap-4 ${columnsClass}`}>
       <div className="min-w-0 space-y-4">
+        <NoticeBanner />
         <div className="flex items-center justify-between gap-3">
           <h2 className="font-bold">오늘 열린 투표</h2>
           <Button onClick={() => setCreating(true)}>+ 투표 만들기</Button>

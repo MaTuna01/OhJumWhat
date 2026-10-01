@@ -14,6 +14,7 @@ import InvitePage from './pages/InvitePage.tsx'
 import LoginPage from './pages/LoginPage.tsx'
 import MyPage from './pages/MyPage.tsx'
 import NotFoundPage from './pages/NotFoundPage.tsx'
+import NoticesPage from './pages/NoticesPage.tsx'
 import OrgHomePage from './pages/OrgHomePage.tsx'
 import OrgSettingsPage from './pages/OrgSettingsPage.tsx'
 import OrgStatsPage from './pages/OrgStatsPage.tsx'
@@ -37,6 +38,7 @@ export const router = createBrowserRouter([
             children: [
               { path: '/invite/:token', element: <InvitePage /> },
               { path: '/me', element: <MyPage /> },
+              { path: '/notices', element: <NoticesPage /> },
               {
                 // 조직 화면 공통: 조직 조회(방문 기록)·404 처리·탭
                 path: '/orgs/:orgId',

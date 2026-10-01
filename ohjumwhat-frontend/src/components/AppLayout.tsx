@@ -1,5 +1,6 @@
 import { Link, Outlet } from 'react-router'
 import Logo from './Logo.tsx'
+import NoticeBell from './NoticeBell.tsx'
 import OrgSwitcher from './OrgSwitcher.tsx'
 import ProfileMenu from './ProfileMenu.tsx'
 import UpdateToast from './UpdateToast.tsx'
@@ -17,6 +18,7 @@ export default function AppLayout() {
           </Link>
           <OrgSwitcher />
           <div className="flex-1" />
+          <NoticeBell />
           <ProfileMenu />
         </div>
       </header>
