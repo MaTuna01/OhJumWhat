@@ -27,8 +27,12 @@ public class User {
 	@Column(nullable = false)
 	private String email;
 
+	/** 구글 계정 이름. 로그인 때마다 갱신한다. 화면에는 {@link #getDisplayName()}을 쓴다. */
 	@Column(nullable = false)
 	private String name;
+
+	/** 마이페이지에서 정한 별명(없으면 null). 있으면 구글 이름 대신 보여준다. */
+	private String nickname;
 
 	private String profileImageUrl;
 
@@ -60,6 +64,11 @@ public class User {
 		this.email = email;
 		this.name = name;
 		this.profileImageUrl = profileImageUrl;
+	}
+
+	/** null이면 별명을 지우고 구글 이름으로 돌아간다. */
+	public void changeNickname(String nickname) {
+		this.nickname = nickname;
 	}
 
 	public void recordLogin(Instant now) {
@@ -103,6 +112,15 @@ public class User {
 
 	public String getName() {
 		return name;
+	}
+
+	public String getNickname() {
+		return nickname;
+	}
+
+	/** 화면에 보여줄 이름: 별명, 없으면 구글 이름. JPQL에서는 coalesce(u.nickname, u.name) */
+	public String getDisplayName() {
+		return nickname != null ? nickname : name;
 	}
 
 	public String getProfileImageUrl() {

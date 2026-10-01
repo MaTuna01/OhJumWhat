@@ -139,6 +139,19 @@ class AdminIntegrationTest extends IntegrationTest {
 	}
 
 	@Test
+	void 회원_목록은_별명과_구글_이름을_같이_보여주고_별명으로도_찾는다() throws Exception {
+		lee.changeNickname("점심요정");
+		userRepository.save(lee);
+
+		mockMvc.perform(get("/api/admin/users").param("q", "요정").with(loginAs(admin)))
+			.andExpect(jsonPath("$", hasSize(1)))
+			.andExpect(jsonPath("$[0].name").value("점심요정"))
+			.andExpect(jsonPath("$[0].googleName").value("이영희"));
+		mockMvc.perform(get("/api/admin/users").param("q", "이영").with(loginAs(admin)))
+			.andExpect(jsonPath("$", hasSize(1)));
+	}
+
+	@Test
 	void 회원을_검색하고_상세를_본다() throws Exception {
 		mockMvc.perform(get("/api/admin/users").param("q", "이영").with(loginAs(admin)))
 			.andExpect(jsonPath("$", hasSize(1)))
