@@ -97,15 +97,15 @@ public class PollController {
 			@Valid @RequestBody AddOptionRequest request) {
 		// 식당 링크 확인(naver.me 요청)은 DB 트랜잭션 밖에서 한다.
 		return menuService.add(pollId, loginUser.getUserId(), request.name(),
-				placeLinkResolver.place(request.link(), null));
+				placeLinkResolver.place(request.link(), request.placeName()));
 	}
 
-	/** link가 비어 있으면 링크를 지운다. */
+	/** link가 비어 있으면 식당(링크·이름)을 뺀다. */
 	@PutMapping("/api/polls/{pollId}/options/{optionId}/link")
 	PollDetailResponse changeLink(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId,
-			@PathVariable Long optionId, @Valid @RequestBody LinkRequest request) {
+			@PathVariable Long optionId, @Valid @RequestBody PlaceRequest request) {
 		return menuService.changePlace(pollId, optionId, loginUser.getUserId(),
-				placeLinkResolver.place(request.link(), null));
+				placeLinkResolver.place(request.link(), request.placeName()));
 	}
 
 	@DeleteMapping("/api/polls/{pollId}/options/{optionId}")
@@ -121,16 +121,26 @@ public class PollController {
 		return voteService.vote(pollId, loginUser.getUserId(), request.optionId());
 	}
 
-	/** link: 식당 지도 링크(선택). 지도 앱의 공유 문구를 통째로 붙여도 된다. */
+	/**
+	 * @param link 식당 지도 링크(선택). 지도 앱의 공유 문구를 통째로 붙여도 된다.
+	 * @param placeName 식당 이름(선택, 링크가 있을 때만 저장). 공백을 정리한 뒤 100자까지
+	 */
 	record AddOptionRequest(
 			@NotBlank(message = "메뉴 이름을 입력해 주세요.")
 			@Size(max = 50, message = "메뉴 이름은 50자 이하로 입력해 주세요.")
 			String name,
 			@Size(max = 1000, message = "링크가 너무 길어요.")
-			String link) {
+			String link,
+			@Size(max = 200, message = "식당 이름은 100자 이하로 입력해 주세요.")
+			String placeName) {
 	}
 
-	record LinkRequest(@Size(max = 1000, message = "링크가 너무 길어요.") String link) {
+	/** 식당 달기·고치기. link가 비면 식당(링크·이름)을 뺀다. */
+	record PlaceRequest(
+			@Size(max = 1000, message = "링크가 너무 길어요.")
+			String link,
+			@Size(max = 200, message = "식당 이름은 100자 이하로 입력해 주세요.")
+			String placeName) {
 	}
 
 	record VoteRequest(Long optionId) {

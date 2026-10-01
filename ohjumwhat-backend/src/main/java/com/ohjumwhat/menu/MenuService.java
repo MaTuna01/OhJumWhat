@@ -56,8 +56,7 @@ public class MenuService {
 		if (menuOptionRepository.existsByPollIdAndName(pollId, name)) {
 			throw ApiException.conflict("이미 있는 메뉴예요.");
 		}
-		MenuOption option = menuOptionRepository
-			.save(new MenuOption(pollId, userId, name, place == null ? null : place.url()));
+		MenuOption option = menuOptionRepository.save(new MenuOption(pollId, userId, name, place));
 		log.info("메뉴 추가: pollId={}, optionId={}, userId={}, 식당={}", pollId, option.getId(), userId, place != null);
 		return pollService.detail(poll, userId);
 	}
@@ -71,7 +70,7 @@ public class MenuService {
 			throw ApiException.forbidden("메뉴를 추가한 사람만 링크를 고칠 수 있어요.");
 		}
 		pollService.requireOpen(poll);
-		option.changeLink(place == null ? null : place.url());
+		option.changePlace(place);
 		log.info("메뉴 식당 변경: pollId={}, optionId={}, userId={}, 식당={}", pollId, optionId, userId, place != null);
 		return pollService.detail(poll, userId);
 	}
