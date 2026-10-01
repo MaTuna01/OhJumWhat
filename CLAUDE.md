@@ -120,6 +120,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 이미지를 만들 때 `application.example.yml`을 `application.yml`로 복사한다. 그래서 설정 키를 추가하면 예시 파일에도 반드시 넣어야 운영에 반영된다. 실제 값은 서버 `~/ohjumwhat/.env`(템플릿: `deploy/.env.example`)에 둔다.
 - Caddy가 HTTPS를 맡고, `X-Forwarded-*` 헤더로 원래 주소를 넘긴다. 그래서 앱은 https 리디렉션 URI를 만들고, `Secure` 쿠키를 쓴다.
 - 서버 설정, Secrets, 롤백, 백업·복원 방법은 `docs/DEPLOY.md`에 있다.
+- `dev` → `main` 승격 하나가 릴리스 하나다. 승격 전에 버전(`build.gradle.kts`, `package.json`)을 올리고 `CHANGELOG.md`를 적는다. 배포 뒤에는 `vX.Y.Z` 태그와 GitHub Release를 만든다(`docs/DEPLOY.md` 「릴리스와 버전」).
 - 보안 헤더
   - HSTS·nosniff·X-Frame-Options는 Spring Security가 붙인다.
   - Referrer-Policy·Permissions-Policy·**CSP**는 `deploy/Caddyfile`이 붙인다.
