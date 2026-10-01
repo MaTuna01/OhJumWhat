@@ -25,6 +25,7 @@
 | 8 | 투표 조기 마감·수정·삭제 (확장 기능 1번째) | 완료(v1.4.0) | [#23](https://github.com/MaTuna01/OhJumWhat/pull/23) |
 | 9 | 메뉴에 식당 지도 링크 (지도 연동 1단계) | 완료(v1.4.0) | [#24](https://github.com/MaTuna01/OhJumWhat/pull/24) |
 | 10 | 메뉴 통계 (자주 먹은 메뉴, 최근 먹은 메뉴 제외 추천) | 완료(v1.4.0) | [#24](https://github.com/MaTuna01/OhJumWhat/pull/24) |
+| - | 별명 (마이페이지 이름 바꾸기, 별명으로 활동) | 완료(`dev`, 다음 릴리스) | `feature/nickname` |
 
 확장 기능(8~13단계)의 순서와 체크리스트는 Notion Tasks에 있다. 기획서 「나중에」 목록을 구현 난이도 순으로 정렬했다: 8 투표 조기 마감·수정·삭제 → 9 메뉴에 식당 지도 링크 → 10 메뉴 통계 → 11 지도 API 연동 → 12 중복 투표 → 13 최소 인원 미달 자동 해산.
 
@@ -72,6 +73,7 @@ ohjumwhat/
 - V2: `spring_session` 테이블
 - V3: 관리자(회원 역할·최근 로그인, 차단 목록, 메뉴 작성자 NULL 허용)
 - V4: `menu_options.link_url`(식당 지도 링크)
+- V5: `users.nickname`(별명)
 - UNIQUE: memberships(org, user), votes(poll, user), polls(schedule_id, poll_date), menu_options(poll_id, name)
 - CHECK: close_time > open_time, closes_at > opens_at. 인덱스: polls(organization_id, poll_date)
 - FK
@@ -95,7 +97,7 @@ ohjumwhat/
 
 | 영역 | 엔드포인트 | 상태 |
 |---|---|---|
-| 나 | `GET /api/me` (프로필 + lastVisitedOrgId), `GET /api/me/orgs` (이름·멤버 수·오늘 진행 중인 투표 여부) | 완료 |
+| 나 | `GET /api/me` (프로필 + lastVisitedOrgId, name은 별명 또는 구글 이름), `PUT /api/me/nickname` (별명, 비우면 구글 이름), `GET /api/me/orgs` (이름·멤버 수·오늘 진행 중인 투표 여부) | 완료 |
 | 조직 | `POST /api/orgs`, `GET /api/orgs/{id}` (last_visited_at 갱신), `PATCH /api/orgs/{id}`, `GET /api/orgs/{id}/members`, `DELETE /api/orgs/{id}/membership` | 완료 |
 | 초대 | `GET /api/invites/{token}`, `POST /api/invites/{token}/join` | 완료 |
 | 투표 | `GET /api/orgs/{id}/polls/today`, `POST /api/orgs/{id}/polls` (title, closesAt "HH:mm"), `GET /api/orgs/{id}/polls/{pollId}` (상세 집계) | 완료 |

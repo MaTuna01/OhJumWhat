@@ -62,6 +62,7 @@ export default function AdminUserPage() {
               </div>
             </div>
             <dl className="space-y-2 text-sm">
+              {user.googleName !== user.name && <InfoRow label="구글 이름" value={user.googleName} />}
               <InfoRow label="가입" value={formatDate(user.createdAt)} />
               <InfoRow label="최근 로그인" value={user.lastLoginAt ? formatDayTime(user.lastLoginAt, now) : '기록 없음'} />
               <InfoRow label="최근 접속" value={lastAccessAt ? formatAgo(lastAccessAt, now) : '로그인 세션 없음'} />

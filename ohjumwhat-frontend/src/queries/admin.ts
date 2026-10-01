@@ -19,7 +19,10 @@ export type AdminStats = {
 
 export type AdminUser = {
   id: number
+  /** 화면 이름(별명, 없으면 구글 이름) */
   name: string
+  /** 구글 계정 이름 */
+  googleName: string
   email: string
   profileImageUrl: string | null
   role: Role

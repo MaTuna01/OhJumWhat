@@ -55,6 +55,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 로그인 버튼은 `/oauth2/authorization/google`로 이동한다. 로그인에 성공하면 서버는 항상 `/`로 보낸다.
 - 그다음 어디로 갈지는 프론트 `RootRedirect`가 정한다. `lib/entry.ts` 순서대로 sessionStorage에 기억해 둔 경로(초대 링크) → 최근 조직 → `/me`로 보낸다.
 - `GoogleOidcUserService`가 google_sub 기준으로 users를 upsert하고, 세션 principal로 `LoginUser`(users.id 포함)를 둔다. 컨트롤러에서는 `@AuthenticationPrincipal LoginUser`로 받는다.
+- 화면에 보이는 사람 이름은 **별명(`users.nickname`, V5), 없으면 구글 이름(`users.name`)**이다(`User.getDisplayName()`, JPQL은 `coalesce(u.nickname, u.name)`). 구글 이름은 로그인 때마다 갱신되고 별명은 그대로 둔다. 별명은 마이페이지 「이름 바꾸기」(`PUT /api/me/nickname`, 20자, 비우면 구글 이름)로 정한다. 사람 이름을 새로 내려주는 쿼리·응답을 만들 때도 이 규칙을 따른다(관리자 콘솔은 `googleName`도 함께 준다).
 - CSRF는 `csrf.spa()` 방식이다. `CsrfCookieFilter`가 매 응답에 `XSRF-TOKEN` 쿠키를 내리고, 프론트 `lib/api.ts`가 GET이 아닌 요청에 `X-XSRF-TOKEN` 헤더로 붙인다.
 - 로그아웃은 `POST /logout`이고 204를 준다.
 - 세션은 Spring Session JDBC로 DB(`spring_session` 테이블, Flyway V2)에 저장한다. 그래서 서버를 재시작·재배포해도 로그인이 유지된다. `SESSION` 쿠키의 유효기간은 30일이다.
@@ -157,8 +158,8 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 「디자인 시스템」 페이지
     - Foundations 프레임: 로고, 컨셉 컬러, 원색 팔레트, 의미 기반 토큰, 타이포그래피, 간격·둥글기·그림자
     - Components 프레임: Button, Badge, Avatar, OptionCard, Input, Logo, TopBar
-  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제), 식당 지도 링크(`05-L`, `05-M4` 링크 모달), 메뉴 추천(`05-R`), `08 통계`
-  - 「와이어프레임 · 데스크톱」 페이지: 같은 화면의 데스크톱(1440px) 버전(`D01`~`D07-M`, `D05-A`, `D08`). 모달은 모바일 `-M` 프레임과 같다.
+  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 별명(`03-N` 마이페이지, `03-M2` 이름 바꾸기), 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제), 식당 지도 링크(`05-L`, `05-M4` 링크 모달), 메뉴 추천(`05-R`), `08 통계`
+  - 「와이어프레임 · 데스크톱」 페이지: 같은 화면의 데스크톱(1440px) 버전(`D01`~`D07-M`, `D03-N`, `D05-A`, `D08`). 모달은 모바일 `-M` 프레임과 같다.
   - 「관리자 콘솔」 페이지: 관리자 화면(모바일 `A01`~`A07`, 데스크톱 `DA01`~`DA07`, 강제 탈퇴 모달 `-M`, 차단된 로그인 `L01`)과 로컬 컴포넌트 StatCard·ListRow
     - 콘텐츠 폭 1024px 가운데 정렬. 1024px 이상(`lg`)에서 본문 + 오른쪽 사이드(320px) 2단, 그보다 좁으면 모바일 레이아웃을 쓴다.
     - 로그인은 좌우 분할(왼쪽 브랜드 소개·투표 미리보기, 오른쪽 로그인), 모달은 폭 448px이다.
@@ -184,6 +185,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - Badge → `components/Badge.tsx`
   - OptionCard → `components/OptionCard.tsx`(투표 상세의 메뉴 카드, 결과 모드 포함). Figma `Link` 속성(지도 링크 줄)을 켜면 「지도 · 도메인 ↗」·「링크 고치기」가 보인다. 링크 모달(05-M4)은 `components/MapLinkModal.tsx`
   - 멤버 카드(Figma 「멤버 N명」) → `components/MemberList.tsx`(조직 설정, 데스크톱 조직 홈 사이드)
+  - 이름 바꾸기 모달(03-M2) → `components/NicknameModal.tsx`
   - 투표 관리 메뉴·모달(05-A, 05-M1~M3) → `components/PollManageMenu.tsx`. 제목·마감 시간 입력은 만들기(04-M)와 수정이 `components/PollForm.tsx`를 같이 쓴다.
   - StatCard·ListRow(관리자 콘솔) → `components/AdminParts.tsx`(`StatCard`, `ListRow`, `ActionRow`, `DangerZone`, `AdminSearch`)
 
