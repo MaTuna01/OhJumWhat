@@ -124,7 +124,7 @@ gh secret set DEPLOY_SSH_KEY -R MaTuna01/OhJumWhat < ohjumwhat.pem
 
 ### 5-1. 지도 키 (카카오 로컬 · 네이버 지도)
 
-회사·식당 주소를 좌표로 바꾸는 일은 카카오 로컬 REST(서버), 화면의 지도는 네이버 지도(NCP Maps, 브라우저)가 맡는다. 키가 없으면 지도·거리만 꺼지고 나머지는 그대로 동작한다.
+조직·식당 주소를 좌표로 바꾸는 일은 카카오 로컬 REST(서버), 화면의 지도는 네이버 지도(NCP Maps, 브라우저)가 맡는다. 키가 없으면 지도·거리만 꺼지고 나머지는 그대로 동작한다.
 
 - **카카오 디벨로퍼스**(https://developers.kakao.com): 애플리케이션 → 앱 설정에서 **「카카오맵」을 켠다**(안 켜면 로컬 API가 403). 「앱 키 → REST API 키」를 서버 `.env`의 `KAKAO_REST_KEY`에 넣는다. 무료량(키워드 검색 하루 10만 건) 안에서는 결제 수단이 필요 없다.
 - **NCP 콘솔**(https://console.ncloud.com): Maps → Application 등록에서 **Dynamic Map**을 고르고, Web 서비스 URL에 `https://www.ohjumwhat.cloud`, `http://localhost:5173`, `https://localhost`(로컬 Docker 확인용)를 넣는다. Client ID를 `NAVER_MAP_KEY_ID`에 넣는다(브라우저에 보이는 공개 값이라 등록한 도메인에서만 동작한다). 무료량을 넘지 않게 콘솔에서 사용 한도를 걸어 둔다.

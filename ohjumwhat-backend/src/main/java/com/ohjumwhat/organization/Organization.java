@@ -36,13 +36,13 @@ public class Organization {
 	/** 검색 지역(예: 역삼동). 「네이버 지도에서 찾기」 검색어 앞에 붙인다. 없으면 null */
 	private String area;
 
-	/** 회사 위치 이름(선택). 회사 지도 링크가 있을 때만 둔다. */
+	/** 장소 이름(선택). 장소 지도 링크가 있을 때만 둔다. */
 	private String officeName;
 
-	/** 회사 위치 지도 링크(선택). 네이버 장소면 정식 링크 */
+	/** 장소 지도 링크(선택). 네이버 장소면 정식 링크 */
 	private String officeLinkUrl;
 
-	/** 회사 주소(선택). 근처 식당 검색·지도의 기준점이다. 좌표는 저장하지 않고 쓸 때마다 바꾼다. */
+	/** 조직 주소(선택). 근처 식당 검색·지도의 기준점이다. 좌표는 저장하지 않고 쓸 때마다 바꾼다. */
 	private String officeAddress;
 
 	/** 근처 식당 검색 반경(m). 엔티티 기본값을 두어 INSERT가 DB 기본값을 null로 덮지 않게 한다. */
@@ -67,7 +67,7 @@ public class Organization {
 		this.name = name;
 	}
 
-	/** 조직 위치를 통째로 바꾼다. 빈 값은 지운다(office가 null이면 회사 지도 링크·이름을 지운다). */
+	/** 조직 위치를 통째로 바꾼다. 빈 값은 지운다(office가 null이면 장소 지도 링크·이름을 지운다). */
 	public void changeLocation(String area, PlaceLink office, String officeAddress, int searchRadius) {
 		this.area = area;
 		this.officeLinkUrl = office == null ? null : office.url();

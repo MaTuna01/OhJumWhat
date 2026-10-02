@@ -20,4 +20,12 @@ public record MenuStatsResponse(Integer days, LocalDate from, int pollCount, Lis
 	 */
 	public record MenuStat(String name, int times, int people, LocalDate lastEatenOn) {
 	}
+
+	/**
+	 * 「오늘은 이거 어때요?」 추천 항목.
+	 *
+	 * @param lastPlace 같은 이름의 메뉴에 지난번 붙인 식당. 없으면 null
+	 */
+	public record Recommendation(String name, int times, int people, LocalDate lastEatenOn, LastPlace lastPlace) {
+	}
 }

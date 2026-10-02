@@ -14,6 +14,7 @@ import { DESKTOP_QUERY, useMediaQuery } from '../hooks/useMediaQuery.ts'
 import { useNow } from '../hooks/useNow.ts'
 import { useOrgId } from '../hooks/useOrgId.ts'
 import { ApiError } from '../lib/api.ts'
+import { NO_PLACE, naverPlaceSearchUrl } from '../lib/place.ts'
 import { confirmedTeams } from '../lib/pollDetail.ts'
 import { copyText, resultText } from '../lib/share.ts'
 import { formatClock, formatRemaining } from '../lib/time.ts'
@@ -22,7 +23,16 @@ import { useClientConfig, useMapKey } from '../queries/config.ts'
 import { useMe } from '../queries/me.ts'
 import { useOrganization } from '../queries/orgs.ts'
 import { distancesByOption, placeOptionIds, usePlaces } from '../queries/places.ts'
-import { type PollDetail, type PollOption, type Person, useAddOption, useDeleteOption, usePollDetail, useVote } from '../queries/polls.ts'
+import {
+  type PollDetail,
+  type PollOption,
+  type Person,
+  useAddOption,
+  useChangePlace,
+  useDeleteOption,
+  usePollDetail,
+  useVote,
+} from '../queries/polls.ts'
 
 /**
  * Figma 05 투표 상세(진행 중) / 05b(마감 결과). 진행 중에는 3초마다 다시 불러온다.
@@ -83,11 +93,23 @@ function usePollMap(orgId: number, poll: PollDetail, options: PollOption[], coll
     setHighlighted(optionId)
   }
 
+  // 카카오 식당은 이름을 저장하지 않으므로, 다시 찾은 이름과 그 이름으로 만든 네이버 지도 링크를 쓴다.
+  const resolved = new Map<number, { name: string; link: string }>()
+  for (const spot of places.data?.places ?? []) {
+    if (spot.name) resolved.set(spot.optionId, { name: spot.name, link: naverPlaceSearchUrl(spot.name, spot.roadAddress) })
+  }
+
+  const distances = distancesByOption(places.data)
+
   const map =
     mapKey && places.data ? (
       <PollPlacesMap
         keyId={mapKey}
+        title={poll.title}
+        orgName={org?.name ?? '조직'}
         places={places.data}
+        distances={distances}
+        resolved={resolved}
         options={options}
         myOptionId={poll.myOptionId}
         collapsible={collapsible && !isDesktop}
@@ -97,7 +119,8 @@ function usePollMap(orgId: number, poll: PollDetail, options: PollOption[], coll
     ) : null
 
   return {
-    distances: distancesByOption(places.data),
+    distances,
+    resolved,
     highlighted,
     mobileMap: isDesktop ? null : map,
     desktopMap: isDesktop ? map : null,
@@ -110,13 +133,17 @@ function OpenPoll({ orgId, poll }: { orgId: number; poll: PollDetail }) {
   const vote = useVote(orgId, poll.id, me)
   const addOption = useAddOption(orgId, poll.id)
   const deleteOption = useDeleteOption(orgId, poll.id)
-  const { data: org } = useOrganization(orgId)
-  const area = org?.area ?? null
+  const changePlace = useChangePlace(orgId, poll.id)
   const [placeOptionId, setPlaceOptionId] = useState<number | null>(null)
+  const editing = poll.options.find((o) => o.id === placeOptionId) ?? null
+  const closeEdit = () => {
+    changePlace.reset()
+    setPlaceOptionId(null)
+  }
   const remaining = formatRemaining(poll.closesAt, now)
   const error = vote.error ?? addOption.error ?? deleteOption.error
   const passedMe = poll.myResponse === 'PASS'
-  const { distances, highlighted, mobileMap, desktopMap } = usePollMap(orgId, poll, poll.options, true)
+  const { distances, resolved, highlighted, mobileMap, desktopMap } = usePollMap(orgId, poll, poll.options, true)
 
   return (
     <div className={`flex flex-col gap-4 ${columnsClass}`}>
@@ -139,7 +166,6 @@ function OpenPoll({ orgId, poll }: { orgId: number; poll: PollDetail }) {
 
         <MenuInput
           orgId={orgId}
-          area={area}
           existing={poll.options.map((o) => o.name)}
           pending={addOption.isPending}
           onAdd={(name, place) => addOption.mutateAsync({ name, ...place })}
@@ -172,6 +198,7 @@ function OpenPoll({ orgId, poll }: { orgId: number; poll: PollDetail }) {
                   onEditLink={() => setPlaceOptionId(option.id)}
                   disabled={deleteOption.isPending}
                   distance={distances.get(option.id)}
+                  resolved={resolved.get(option.id)}
                   highlighted={highlighted === option.id}
                 />
               ))}
@@ -180,10 +207,24 @@ function OpenPoll({ orgId, poll }: { orgId: number; poll: PollDetail }) {
         </section>
         <PlaceModal
           orgId={orgId}
-          pollId={poll.id}
-          area={area}
-          option={poll.options.find((o) => o.id === placeOptionId) ?? null}
-          onClose={() => setPlaceOptionId(null)}
+          open={editing != null}
+          title={`${editing?.name ?? ''} 식당`}
+          menuName={editing?.name ?? ''}
+          current={
+            editing
+              ? {
+                  link: { link: editing.kakaoPlaceId ? '' : (editing.link ?? ''), name: editing.placeName ?? '', address: editing.placeAddress ?? '' },
+                  kakaoPlaceId: editing.kakaoPlaceId,
+                  placeQuery: editing.placeQuery,
+                }
+              : undefined
+          }
+          confirmLabel="저장"
+          pending={changePlace.isPending}
+          error={changePlace.error?.message}
+          onConfirm={(picked) => editing && changePlace.mutate({ optionId: editing.id, ...picked.input }, { onSuccess: closeEdit })}
+          onRemove={editing?.link ? () => changePlace.mutate({ optionId: editing.id, ...NO_PLACE }, { onSuccess: closeEdit }) : undefined}
+          onClose={closeEdit}
         />
       </div>
 
@@ -249,7 +290,7 @@ function ClosedPoll({ orgId, poll }: { orgId: number; poll: PollDetail }) {
   const { data: me } = useMe()
   const teams = confirmedTeams(poll)
   const myTeam = teams.find((t) => t.id === poll.myOptionId)
-  const { distances, highlighted, mobileMap, desktopMap } = usePollMap(orgId, poll, teams, false)
+  const { distances, resolved, highlighted, mobileMap, desktopMap } = usePollMap(orgId, poll, teams, false)
 
   return (
     <div className={`flex flex-col gap-4 ${columnsClass}`}>
@@ -260,7 +301,7 @@ function ClosedPoll({ orgId, poll }: { orgId: number; poll: PollDetail }) {
               <h1 className="min-w-0 text-2xl font-bold tracking-tight break-words">{poll.title}</h1>
               <Badge tone="neutral">마감</Badge>
             </div>
-            <CopyResultButton poll={poll} />
+            <CopyResultButton poll={poll} resolved={resolved} />
           </div>
           <p className="text-sm text-text-secondary">
             {formatClock(poll.closesAt)}에 마감됐어요 · {teams.length > 0 ? `${teams.length}팀으로 나뉘었어요` : '참여한 메뉴가 없어요'}
@@ -293,6 +334,7 @@ function ClosedPoll({ orgId, poll }: { orgId: number; poll: PollDetail }) {
                 meId={me?.id ?? -1}
                 result
                 distance={distances.get(option.id)}
+                resolved={resolved.get(option.id)}
                 highlighted={highlighted === option.id}
               />
             ))}
@@ -317,7 +359,7 @@ function ClosedPoll({ orgId, poll }: { orgId: number; poll: PollDetail }) {
 }
 
 /** 결과 복사(Figma 05b-S): 메신저에 붙일 결과 글을 복사하고 2초 동안 "✓ 복사했어요"를 보여준다. */
-function CopyResultButton({ poll }: { poll: PollDetail }) {
+function CopyResultButton({ poll, resolved }: { poll: PollDetail; resolved: Map<number, { name: string; link: string }> }) {
   const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
 
   useEffect(() => {
@@ -328,7 +370,7 @@ function CopyResultButton({ poll }: { poll: PollDetail }) {
 
   const copy = async () => {
     const url = `${window.location.origin}/orgs/${poll.organizationId}/polls/${poll.id}`
-    setState((await copyText(resultText(poll, url))) ? 'copied' : 'failed')
+    setState((await copyText(resultText(poll, url, resolved))) ? 'copied' : 'failed')
   }
 
   return (

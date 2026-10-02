@@ -2,6 +2,8 @@ package com.ohjumwhat.place;
 
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -26,6 +28,13 @@ import lombok.extern.slf4j.Slf4j;
 class RestKakaoLocal implements KakaoLocal {
 
 	static final String BASE_URL = "https://dapi.kakao.com";
+
+	/** 카카오 분류 코드: 음식점 */
+	private static final String RESTAURANT = "FD6";
+
+	private static final int PAGE_SIZE = 15;
+
+	private static final int MAX_RADIUS = 20_000;
 
 	/** null이면 꺼져 있다. */
 	private final RestClient client;
@@ -70,6 +79,64 @@ class RestKakaoLocal implements KakaoLocal {
 		PlaceResponse keyword = get("/v2/local/search/keyword.json", Map.of("query", query, "size", 1),
 				PlaceResponse.class);
 		return first(keyword == null ? null : keyword.documents()).flatMap(d -> coordinate(d.x(), d.y()));
+	}
+
+	@Override
+	public KakaoPlace.Page searchRestaurants(String query, Coordinate center, int radius, Sort sort, int page) {
+		Map<String, Object> params = new LinkedHashMap<>();
+		boolean keyword = query != null && !query.isBlank();
+		if (keyword) {
+			params.put("query", query);
+		}
+		params.put("category_group_code", RESTAURANT);
+		params.put("x", center.lng());
+		params.put("y", center.lat());
+		params.put("radius", Math.min(radius, MAX_RADIUS));
+		// 분류 검색(검색어 없음)은 정확도순이 없어 가까운 순만 쓴다.
+		params.put("sort", keyword && sort == Sort.ACCURACY ? "accuracy" : "distance");
+		params.put("page", page);
+		params.put("size", PAGE_SIZE);
+		PlaceResponse response = get(keyword ? "/v2/local/search/keyword.json" : "/v2/local/search/category.json",
+				params, PlaceResponse.class);
+		if (response == null || response.documents() == null) {
+			return new KakaoPlace.Page(List.of(), true);
+		}
+		List<KakaoPlace> places = response.documents()
+			.stream()
+			.map(RestKakaoLocal::place)
+			.flatMap(Optional::stream)
+			.toList();
+		boolean end = response.meta() == null || response.meta().isEnd();
+		return new KakaoPlace.Page(places, end);
+	}
+
+	private static Optional<KakaoPlace> place(PlaceDocument d) {
+		if (d.id() == null || d.placeName() == null) {
+			return Optional.empty();
+		}
+		String address = d.roadAddressName() == null || d.roadAddressName().isBlank() ? d.addressName()
+				: d.roadAddressName();
+		return coordinate(d.x(), d.y())
+			.map(at -> new KakaoPlace(d.id(), d.placeName(), categories(d.categoryName()), address, at,
+					distance(d.distance())));
+	}
+
+	/** "음식점 > 분식 > 떡볶이" → [분식, 떡볶이](맨 앞의 「음식점」은 뺀다) */
+	static List<String> categories(String categoryName) {
+		if (categoryName == null || categoryName.isBlank()) {
+			return List.of();
+		}
+		List<String> parts = Arrays.stream(categoryName.split(">")).map(String::strip).filter(s -> !s.isEmpty()).toList();
+		return !parts.isEmpty() && parts.getFirst().equals("음식점") ? parts.subList(1, parts.size()) : parts;
+	}
+
+	private static Integer distance(String value) {
+		try {
+			return value == null || value.isBlank() ? null : Integer.valueOf(value.strip());
+		}
+		catch (NumberFormatException e) {
+			return null;
+		}
 	}
 
 	/** params의 값은 모두 템플릿 변수로 넣어 인코딩한다(사용자가 { 같은 글자를 쳐도 그대로 검색어가 된다). */

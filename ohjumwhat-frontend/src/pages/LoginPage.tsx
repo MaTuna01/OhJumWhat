@@ -65,8 +65,8 @@ export default function LoginPage() {
 const previewMe: Person = { userId: 1, name: '김오점', profileImageUrl: null }
 const person = (userId: number, name: string): Person => ({ userId, name, profileImageUrl: null })
 const previewOptions: PollOption[] = [
-  { id: 1, name: '돈까스', link: null, placeName: null, placeAddress: null, createdBy: previewMe, voters: [previewMe, person(2, '김철수'), person(3, '정하늘')], mine: true, deletable: false },
-  { id: 2, name: '김치찌개', link: null, placeName: null, placeAddress: null, createdBy: person(4, '이영희'), voters: [person(5, '박민수'), person(6, '최지우')], mine: false, deletable: false },
+  { id: 1, name: '돈까스', link: null, placeName: null, placeAddress: null, kakaoPlaceId: null, placeQuery: null, createdBy: previewMe, voters: [previewMe, person(2, '김철수'), person(3, '정하늘')], mine: true, deletable: false },
+  { id: 2, name: '김치찌개', link: null, placeName: null, placeAddress: null, kakaoPlaceId: null, placeQuery: null, createdBy: person(4, '이영희'), voters: [person(5, '박민수'), person(6, '최지우')], mine: false, deletable: false },
 ]
 
 /** 데스크톱 왼쪽 소개(Figma D01): 서비스 설명과 투표 화면 미리보기. 미리보기는 눌리지 않는다(inert). */

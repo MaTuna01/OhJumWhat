@@ -93,7 +93,7 @@ public class MenuService {
 	}
 
 	/**
-	 * 자동완성: 같은 조직에서 전에 나온 메뉴 이름(최근 순, 최대 8개)과 마지막으로 먹은 날.
+	 * 자동완성: 같은 조직에서 전에 나온 메뉴 이름(최근 순, 최대 8개)과 마지막으로 먹은 날, 지난번 붙인 식당.
 	 * 최근 7일 안에 먹은 메뉴는 뒤로 보낸다.
 	 */
 	@Transactional(readOnly = true)
@@ -106,9 +106,10 @@ public class MenuService {
 			return List.of();
 		}
 		Map<String, LocalDate> lastEaten = menuStatsService.lastEatenByKey(organizationId);
+		Map<String, LastPlace> lastPlaces = menuStatsService.lastPlaces(organizationId, names);
 		LocalDate recentFrom = menuStatsService.recentFrom();
 		return names.stream()
-			.map(name -> new MenuSuggestion(name, lastEaten.get(MenuStatsService.key(name))))
+			.map(name -> new MenuSuggestion(name, lastEaten.get(MenuStatsService.key(name)), lastPlaces.get(name)))
 			.sorted(Comparator.comparing((MenuSuggestion s) -> s.lastEatenOn() != null
 					&& !s.lastEatenOn().isBefore(recentFrom)))
 			.toList();

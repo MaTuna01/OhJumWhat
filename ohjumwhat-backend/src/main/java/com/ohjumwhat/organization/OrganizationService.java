@@ -91,7 +91,7 @@ public class OrganizationService {
 		Organization organization = organizationRepository.findById(organizationId).orElseThrow();
 		organization.changeLocation(area == null || area.isBlank() ? null : area.strip(), office, officeAddress,
 				radius);
-		log.info("조직 위치 변경: organizationId={}, userId={}, 지역={}, 회사={}, 주소={}, 반경={}", organizationId, userId,
+		log.info("조직 위치 변경: organizationId={}, userId={}, 지역={}, 장소={}, 주소={}, 반경={}", organizationId, userId,
 				organization.getArea() != null, office != null, officeAddress != null, radius);
 		return toResponse(organization, membershipRepository.countByOrganizationId(organizationId));
 	}

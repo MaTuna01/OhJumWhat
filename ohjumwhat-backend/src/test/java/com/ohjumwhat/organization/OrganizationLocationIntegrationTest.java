@@ -61,7 +61,7 @@ class OrganizationLocationIntegrationTest extends IntegrationTest {
 	}
 
 	@Test
-	void 빈_값은_지우고_링크_없는_회사_이름은_버린다() throws Exception {
+	void 빈_값은_지우고_링크_없는_장소_이름은_버린다() throws Exception {
 		changeLocation(kim, "역삼동", "https://map.kakao.com/123", "회사").andExpect(status().isOk());
 
 		changeLocation(kim, "  ", "", "회사")
@@ -85,7 +85,7 @@ class OrganizationLocationIntegrationTest extends IntegrationTest {
 	}
 
 	@Test
-	void 회사_주소와_검색_반경을_저장하고_찾을_수_없는_주소는_거절한다() throws Exception {
+	void 조직_주소와_검색_반경을_저장하고_찾을_수_없는_주소는_거절한다() throws Exception {
 		putLocation(kim, "{\"officeAddress\": \"  서울 강남구\\n 테헤란로 152 \", \"searchRadius\": 500}")
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.officeAddress").value(FakeKakaoLocalConfiguration.OFFICE_ADDRESS))
