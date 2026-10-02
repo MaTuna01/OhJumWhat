@@ -8,9 +8,10 @@ import java.util.List;
  *
  * @param myOptionId myResponse가 OPTION일 때 내가 고른 메뉴
  * @param soloOptionIds 참여자가 한 명뿐인 메뉴
+ * @param chatClosesAt 채팅이 닫히는 시각(마감 1시간 뒤). 그 뒤에는 읽기만 한다
  */
 public record PollDetailResponse(Long id, Long organizationId, String title, PollStatus status, Instant opensAt,
-		Instant closesAt, boolean scheduled, int memberCount, List<Option> options, MyResponse myResponse,
+		Instant closesAt, Instant chatClosesAt, boolean scheduled, int memberCount, List<Option> options, MyResponse myResponse,
 		Long myOptionId, List<PersonResponse> passed, List<PersonResponse> nonRespondents, List<Long> soloOptionIds) {
 
 	/**

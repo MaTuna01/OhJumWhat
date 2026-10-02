@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
@@ -59,12 +60,14 @@ public class PollService {
 
 	private final UserRepository userRepository;
 
+	private final ApplicationEventPublisher events;
+
 	private final Clock clock;
 
 	public PollService(PollRepository pollRepository, MenuOptionRepository menuOptionRepository,
 			MenuCommentRepository menuCommentRepository, VoteRepository voteRepository,
 			MembershipRepository membershipRepository, MembershipService membershipService,
-			UserRepository userRepository, Clock clock) {
+			UserRepository userRepository, ApplicationEventPublisher events, Clock clock) {
 		this.pollRepository = pollRepository;
 		this.menuOptionRepository = menuOptionRepository;
 		this.menuCommentRepository = menuCommentRepository;
@@ -72,6 +75,7 @@ public class PollService {
 		this.membershipRepository = membershipRepository;
 		this.membershipService = membershipService;
 		this.userRepository = userRepository;
+		this.events = events;
 		this.clock = clock;
 	}
 
@@ -130,6 +134,7 @@ public class PollService {
 			throw ApiException.conflict("정기 투표는 삭제할 수 없어요. 대신 지금 마감해 주세요.");
 		}
 		pollRepository.delete(poll);
+		events.publishEvent(new PollDeletedEvent(pollId));
 		log.info("투표 삭제: pollId={}, organizationId={}, userId={}", pollId, poll.getOrganizationId(), userId);
 	}
 
@@ -258,7 +263,7 @@ public class PollService {
 
 		return new PollDetailResponse(poll.getId(), poll.getOrganizationId(), poll.getTitle(),
 				closed ? PollStatus.CLOSED : PollStatus.OPEN, poll.getOpensAt(), poll.getClosesAt(),
-				poll.getScheduleId() != null, members.size(), optionResponses, myResponse,
+				poll.getChatClosesAt(), poll.getScheduleId() != null, members.size(), optionResponses, myResponse,
 				myVote == null ? null : myVote.getOptionId(), passed, nonRespondents, soloOptionIds);
 	}
 

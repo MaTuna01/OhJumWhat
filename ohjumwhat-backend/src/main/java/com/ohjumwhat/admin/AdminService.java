@@ -8,6 +8,7 @@ import java.util.List;
 
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -19,9 +20,11 @@ import com.ohjumwhat.menu.MenuOptionRepository;
 import com.ohjumwhat.organization.LeaveResponse;
 import com.ohjumwhat.organization.MembershipRepository;
 import com.ohjumwhat.organization.Organization;
+import com.ohjumwhat.organization.OrganizationDeletedEvent;
 import com.ohjumwhat.organization.OrganizationRepository;
 import com.ohjumwhat.organization.OrganizationService;
 import com.ohjumwhat.poll.Poll;
+import com.ohjumwhat.poll.PollDeletedEvent;
 import com.ohjumwhat.poll.PollDetailResponse;
 import com.ohjumwhat.poll.PollRepository;
 import com.ohjumwhat.poll.PollService;
@@ -77,6 +80,8 @@ public class AdminService {
 
 	private final JdbcTemplate jdbcTemplate;
 
+	private final ApplicationEventPublisher events;
+
 	private final Clock clock;
 
 	public AdminService(AdminRepository adminRepository, UserRepository userRepository,
@@ -84,7 +89,7 @@ public class AdminService {
 			MembershipRepository membershipRepository, OrganizationService organizationService,
 			PollRepository pollRepository, PollService pollService, MenuOptionRepository menuOptionRepository,
 			VoteRepository voteRepository, PollScheduleRepository scheduleRepository, JdbcTemplate jdbcTemplate,
-			Clock clock) {
+			ApplicationEventPublisher events, Clock clock) {
 		this.adminRepository = adminRepository;
 		this.userRepository = userRepository;
 		this.blockedAccountRepository = blockedAccountRepository;
@@ -97,6 +102,7 @@ public class AdminService {
 		this.voteRepository = voteRepository;
 		this.scheduleRepository = scheduleRepository;
 		this.jdbcTemplate = jdbcTemplate;
+		this.events = events;
 		this.clock = clock;
 	}
 
@@ -205,6 +211,7 @@ public class AdminService {
 		Organization organization = organizationRepository.findByIdForUpdate(organizationId)
 			.orElseThrow(() -> ApiException.notFound(ORGANIZATION_NOT_FOUND));
 		organizationRepository.delete(organization);
+		events.publishEvent(new OrganizationDeletedEvent(organizationId));
 		log.info("관리자 조직 삭제: adminId={}, organizationId={}", adminId, organizationId);
 	}
 
@@ -239,6 +246,7 @@ public class AdminService {
 	public void deletePoll(Long adminId, Long pollId, boolean withSchedule) {
 		Poll poll = findPoll(pollId);
 		pollRepository.delete(poll);
+		events.publishEvent(new PollDeletedEvent(pollId));
 		if (withSchedule && poll.getScheduleId() != null) {
 			scheduleRepository.deleteById(poll.getScheduleId());
 		}

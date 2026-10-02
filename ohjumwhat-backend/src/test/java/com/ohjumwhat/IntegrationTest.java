@@ -8,6 +8,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.ohjumwhat.chat.ChatRateLimiter;
+
 /**
  * 통합 테스트 공통 설정. 모든 테스트가 같은 스프링 컨텍스트와 PostgreSQL 컨테이너를 공유하고,
  * 테스트가 끝날 때마다 테이블을 비우고 시계를 실제 시각으로 되돌린다.
@@ -27,12 +29,16 @@ public abstract class IntegrationTest {
 	@Autowired
 	protected TestClock clock;
 
+	@Autowired
+	private ChatRateLimiter chatRateLimiter;
+
 	@AfterEach
 	void cleanDatabase() {
 		clock.reset();
+		chatRateLimiter.clear();
 		jdbcTemplate.execute("""
 				TRUNCATE users, organizations, memberships, poll_schedules, polls, menu_options, menu_comments, votes,
-					spring_session, blocked_accounts, notices
+					chat_messages, spring_session, blocked_accounts, notices
 				RESTART IDENTITY CASCADE""");
 	}
 }
