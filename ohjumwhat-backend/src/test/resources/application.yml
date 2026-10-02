@@ -24,3 +24,7 @@ ohjumwhat:
   # 관리자 이메일(테스트용). 이 이메일로 인증된 구글 로그인을 하면 관리자가 된다.
   admin:
     emails: admin@example.com
+  # 지도 키(테스트용). 통합 테스트는 카카오 로컬을 가짜(FakeKakaoLocalConfiguration)로 바꾼다.
+  maps:
+    kakao-rest-key: test-kakao-key
+    naver-map-key-id: test-naver-key

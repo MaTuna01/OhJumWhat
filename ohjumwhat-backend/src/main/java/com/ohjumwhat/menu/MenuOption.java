@@ -35,6 +35,15 @@ public class MenuOption {
 	/** 식당 이름(선택). 링크가 있을 때만 둔다. */
 	private String placeName;
 
+	/** 식당 주소(선택, 공유 글의 주소 줄). 링크가 있을 때만 둔다. 지도에 올릴 때 볼 때마다 좌표로 바꾼다. */
+	private String placeAddress;
+
+	/** 근처 식당 찾기로 고른 카카오 장소 ID(선택). 이름·주소·위치는 저장하지 않고 볼 때 placeQuery로 다시 찾는다. */
+	private String kakaoPlaceId;
+
+	/** 카카오 식당을 찾을 때 사용자가 친 검색어. 비면 근처 둘러보기로 찾았다. */
+	private String placeQuery;
+
 	@Column(nullable = false)
 	private Instant createdAt;
 
@@ -52,10 +61,13 @@ public class MenuOption {
 		changePlace(place);
 	}
 
-	/** 식당 달기·고치기. null이면 링크와 이름을 함께 지운다. */
+	/** 식당 달기·고치기. null이면 링크와 이름·주소를 함께 지운다. */
 	public void changePlace(PlaceLink place) {
 		this.linkUrl = place == null ? null : place.url();
 		this.placeName = place == null ? null : place.name();
+		this.placeAddress = place == null ? null : place.address();
+		this.kakaoPlaceId = place == null ? null : place.kakaoPlaceId();
+		this.placeQuery = place == null ? null : place.query();
 	}
 
 	@PrePersist
@@ -85,6 +97,18 @@ public class MenuOption {
 
 	public String getPlaceName() {
 		return placeName;
+	}
+
+	public String getPlaceAddress() {
+		return placeAddress;
+	}
+
+	public String getKakaoPlaceId() {
+		return kakaoPlaceId;
+	}
+
+	public String getPlaceQuery() {
+		return placeQuery;
 	}
 
 	public Instant getCreatedAt() {

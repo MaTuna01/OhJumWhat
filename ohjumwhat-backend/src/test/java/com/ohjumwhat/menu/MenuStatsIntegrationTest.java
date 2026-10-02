@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.ohjumwhat.IntegrationTest;
 import com.ohjumwhat.organization.InviteService;
 import com.ohjumwhat.organization.OrganizationService;
+import com.ohjumwhat.place.PlaceLink;
 import com.ohjumwhat.poll.PollDetailResponse;
 import com.ohjumwhat.poll.PollRequest;
 import com.ohjumwhat.poll.PollService;
@@ -140,6 +141,32 @@ class MenuStatsIntegrationTest extends IntegrationTest {
 			.andExpect(jsonPath("$[0].lastEatenOn").value(nullValue()))
 			.andExpect(jsonPath("$[2].lastEatenOn").value("2026-09-21"))
 			.andExpect(jsonPath("$[3].lastEatenOn").value("2026-09-25"));
+	}
+
+	@Test
+	void 자동완성과_추천에_같은_메뉴에_지난번_붙인_식당을_알려준다() throws Exception {
+		Long today = createPoll(orgId, kim);
+		Long withKakao = optionId(menuService.add(today, kim.getId(), "돈까스", PlaceLink.kakao("1001", "돈까스"))
+			.options(), "돈까스");
+		menuService.add(today, kim.getId(), "냉면",
+				new PlaceLink("https://map.naver.com/p/entry/place/1", "평양면옥", "서울 강남구 테헤란로 1"));
+
+		mockMvc.perform(get("/api/orgs/" + orgId + "/menu-names").param("q", "돈").with(loginAs(lee)))
+			.andExpect(jsonPath("$[0].name").value("돈까스"))
+			.andExpect(jsonPath("$[0].lastPlace.optionId").value(withKakao))
+			.andExpect(jsonPath("$[0].lastPlace.link").value("https://place.map.kakao.com/1001"))
+			.andExpect(jsonPath("$[0].lastPlace.kakaoPlaceId").value("1001"))
+			.andExpect(jsonPath("$[0].lastPlace.placeQuery").value("돈까스"));
+		mockMvc.perform(get("/api/orgs/" + orgId + "/menu-names").param("q", "냉면").with(loginAs(lee)))
+			.andExpect(jsonPath("$[0].lastPlace.placeName").value("평양면옥"))
+			.andExpect(jsonPath("$[0].lastPlace.placeAddress").value("서울 강남구 테헤란로 1"))
+			.andExpect(jsonPath("$[0].lastPlace.kakaoPlaceId").value(nullValue()));
+		mockMvc.perform(get("/api/orgs/" + orgId + "/menu-names").param("q", "마라").with(loginAs(lee)))
+			.andExpect(jsonPath("$[0].lastPlace").value(nullValue()));
+
+		mockMvc.perform(get("/api/orgs/" + orgId + "/menu-recommendations").with(loginAs(kim)))
+			.andExpect(jsonPath("$[0].name").value("돈까스"))
+			.andExpect(jsonPath("$[0].lastPlace.kakaoPlaceId").value("1001"));
 	}
 
 	@Test

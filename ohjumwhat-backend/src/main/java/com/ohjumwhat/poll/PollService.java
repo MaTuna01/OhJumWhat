@@ -230,7 +230,8 @@ public class PollService {
 			boolean mine = userId.equals(option.getCreatedBy());
 			PersonResponse creator = option.getCreatedBy() == null ? null : people.get(option.getCreatedBy());
 			return new PollDetailResponse.Option(option.getId(), option.getName(), option.getLinkUrl(),
-					option.getPlaceName(), creator, voters, mine, mine && voters.isEmpty() && !closed);
+					option.getPlaceName(), option.getPlaceAddress(), option.getKakaoPlaceId(), option.getPlaceQuery(),
+					creator, voters, mine, mine && voters.isEmpty() && !closed);
 		}).toList();
 
 		Set<Long> responded = votes.stream().map(Vote::getUserId).collect(Collectors.toSet());

@@ -2,6 +2,7 @@ package com.ohjumwhat.organization;
 
 import static com.ohjumwhat.TestAuth.loginAs;
 import static com.ohjumwhat.TestAuth.xsrf;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -14,6 +15,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.ResultActions;
 
+import com.ohjumwhat.FakeKakaoLocalConfiguration;
+import com.ohjumwhat.FakeKakaoLocalConfiguration.FakeKakaoLocal;
 import com.ohjumwhat.FakeNaverShortLinksConfiguration;
 import com.ohjumwhat.IntegrationTest;
 import com.ohjumwhat.user.User;
@@ -26,6 +29,9 @@ class OrganizationLocationIntegrationTest extends IntegrationTest {
 
 	@Autowired
 	OrganizationService organizationService;
+
+	@Autowired
+	FakeKakaoLocal fakeKakaoLocal;
 
 	User kim;
 
@@ -55,7 +61,7 @@ class OrganizationLocationIntegrationTest extends IntegrationTest {
 	}
 
 	@Test
-	void 빈_값은_지우고_링크_없는_회사_이름은_버린다() throws Exception {
+	void 빈_값은_지우고_링크_없는_장소_이름은_버린다() throws Exception {
 		changeLocation(kim, "역삼동", "https://map.kakao.com/123", "회사").andExpect(status().isOk());
 
 		changeLocation(kim, "  ", "", "회사")
@@ -76,6 +82,51 @@ class OrganizationLocationIntegrationTest extends IntegrationTest {
 		changeLocation(kim, "역삼동", "회사", null)
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.message").value("링크 주소가 올바르지 않아요. 지도 앱의 공유 링크를 붙여 주세요."));
+	}
+
+	@Test
+	void 조직_주소와_검색_반경을_저장하고_찾을_수_없는_주소는_거절한다() throws Exception {
+		putLocation(kim, "{\"officeAddress\": \"  서울 강남구\\n 테헤란로 152 \", \"searchRadius\": 500}")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.officeAddress").value(FakeKakaoLocalConfiguration.OFFICE_ADDRESS))
+			.andExpect(jsonPath("$.searchRadius").value(500));
+		mockMvc.perform(get("/api/orgs/" + orgId).with(loginAs(kim)))
+			.andExpect(jsonPath("$.officeAddress").value(FakeKakaoLocalConfiguration.OFFICE_ADDRESS))
+			.andExpect(jsonPath("$.searchRadius").value(500));
+
+		putLocation(kim, "{\"officeAddress\": \"없는 주소 123\"}")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("주소를 찾지 못했어요. 도로명 주소로 적어 주세요."));
+		putLocation(kim, "{\"searchRadius\": 700}")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("검색 반경은 500m, 1km, 2km 중에서 골라 주세요."));
+
+		// 통째로 바꾸므로 빼면 지우고, 반경은 기본값(1km)으로 돌아간다.
+		putLocation(kim, "{}")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.officeAddress").value(nullValue()))
+			.andExpect(jsonPath("$.searchRadius").value(1000));
+	}
+
+	@Test
+	void 카카오를_쓸_수_없으면_주소를_확인하지_않고_저장한다() throws Exception {
+		putLocation(kim, "{\"officeAddress\": \"" + FakeKakaoLocalConfiguration.FAILING_ADDRESS + "\"}")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.officeAddress").value(FakeKakaoLocalConfiguration.FAILING_ADDRESS));
+	}
+
+	@Test
+	void 멤버가_아니면_주소를_확인하지_않는다() throws Exception {
+		fakeKakaoLocal.reset();
+		putLocation(outsider, "{\"officeAddress\": \"" + FakeKakaoLocalConfiguration.OFFICE_ADDRESS + "\"}")
+			.andExpect(status().isNotFound());
+		assertThat(fakeKakaoLocal.calls()).isZero();
+	}
+
+	private ResultActions putLocation(User user, String body) throws Exception {
+		return mockMvc.perform(put("/api/orgs/" + orgId + "/location").with(loginAs(user)).with(xsrf())
+			.contentType(MediaType.APPLICATION_JSON)
+			.content(body));
 	}
 
 	private ResultActions changeLocation(User user, String area, String officeLink, String officeName)

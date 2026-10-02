@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError, api } from '../lib/api.ts'
+import type { PlaceInput } from '../lib/place.ts'
 import { applyVote } from '../lib/pollDetail.ts'
 import type { Me } from './me.ts'
 import { orgKeys } from './orgs.ts'
@@ -16,6 +17,12 @@ export type PollOption = {
   link: string | null
   /** 식당 이름(링크가 있을 때만). 없으면 null */
   placeName: string | null
+  /** 식당 주소(링크가 있을 때만, 공유 글의 주소 줄). 지도 위치는 usePlaces로 따로 받는다. 없으면 null */
+  placeAddress: string | null
+  /** 근처 식당 찾기로 고른 카카오 장소 ID(이때 link는 카카오 장소 링크, 이름·위치는 usePlaces로 받는다). 없으면 null */
+  kakaoPlaceId: string | null
+  /** 카카오 식당을 찾을 때 친 검색어. 없으면 null(둘러보기) */
+  placeQuery: string | null
   /** 추가한 사람. 강제 탈퇴로 삭제된 회원이면 null("탈퇴한 사용자") */
   createdBy: Person | null
   voters: Person[]
@@ -69,11 +76,24 @@ export type PollHistoryItem = {
 
 export type PollHistoryPage = { polls: PollHistoryItem[]; hasMore: boolean }
 
+/** 같은 이름의 메뉴에 지난번 붙인 식당(카카오 식당의 이름은 optionId로 usePlaces에서 받는다) */
+export type LastPlace = {
+  optionId: number
+  link: string
+  placeName: string | null
+  placeAddress: string | null
+  kakaoPlaceId: string | null
+  placeQuery: string | null
+}
+
 /** 메뉴 자동완성. lastEatenOn은 마지막으로 먹은 날(한국 날짜), 먹은 적이 없으면 null */
-export type MenuSuggestion = { name: string; lastEatenOn: string | null }
+export type MenuSuggestion = { name: string; lastEatenOn: string | null; lastPlace: LastPlace | null }
 
 /** 먹은 메뉴(통계·추천). times = 먹은 투표 수, people = 참여 인원 합계 */
 export type MenuStat = { name: string; times: number; people: number; lastEatenOn: string }
+
+/** 「오늘은 이거 어때요?」 추천: 먹은 메뉴 + 지난번 붙인 식당 */
+export type MenuRecommendation = MenuStat & { lastPlace: LastPlace | null }
 
 export const pollKeys = {
   today: (orgId: number) => ['orgs', orgId, 'polls', 'today'] as const,
@@ -134,7 +154,7 @@ export function useMenuNames(orgId: number, q: string, enabled: boolean) {
 export function useMenuRecommendations(orgId: number, enabled: boolean) {
   return useQuery({
     queryKey: pollKeys.recommendations(orgId),
-    queryFn: () => api<MenuStat[]>(`/api/orgs/${orgId}/menu-recommendations`),
+    queryFn: () => api<MenuRecommendation[]>(`/api/orgs/${orgId}/menu-recommendations`),
     enabled,
     staleTime: 60_000,
   })
@@ -191,20 +211,17 @@ export function useDeletePoll(orgId: number, pollId: number) {
   })
 }
 
-/** 메뉴 추가. 식당(링크·이름)은 선택이고, naver.me 공유 링크는 서버가 장소 정식 링크로 바꾼다. */
+/** 메뉴 추가. 식당(링크·이름·주소 또는 카카오 식당)은 선택이고, naver.me 공유 링크는 서버가 장소 정식 링크로 바꾼다. */
 export function useAddOption(orgId: number, pollId: number) {
-  return usePollMutation(pollId, orgId, (body: { name: string; link: string | null; placeName: string | null }) =>
+  return usePollMutation(pollId, orgId, (body: { name: string } & PlaceInput) =>
     api<PollDetail>(`/api/polls/${pollId}/options`, { method: 'POST', body }),
   )
 }
 
-/** 식당 달기·고치기. link가 null이면 식당(링크·이름)을 뺀다. */
+/** 식당 달기·고치기. link와 kakaoPlaceId가 모두 null이면 식당을 뺀다. */
 export function useChangePlace(orgId: number, pollId: number) {
-  return usePollMutation(
-    pollId,
-    orgId,
-    ({ optionId, link, placeName }: { optionId: number; link: string | null; placeName: string | null }) =>
-      api<PollDetail>(`/api/polls/${pollId}/options/${optionId}/link`, { method: 'PUT', body: { link, placeName } }),
+  return usePollMutation(pollId, orgId, ({ optionId, ...place }: { optionId: number } & PlaceInput) =>
+    api<PollDetail>(`/api/polls/${pollId}/options/${optionId}/link`, { method: 'PUT', body: place }),
   )
 }
 

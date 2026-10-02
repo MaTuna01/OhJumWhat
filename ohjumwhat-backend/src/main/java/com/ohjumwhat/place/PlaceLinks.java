@@ -22,6 +22,12 @@ public final class PlaceLinks {
 
 	public static final int NAME_MAX_LENGTH = 100;
 
+	public static final int ADDRESS_MAX_LENGTH = 200;
+
+	public static final int QUERY_MAX_LENGTH = 100;
+
+	private static final Pattern KAKAO_PLACE_ID = Pattern.compile("\\d{1,20}");
+
 	private static final String NAVER_PLACE_URL = "https://map.naver.com/p/entry/place/";
 
 	private static final int CI = Pattern.CASE_INSENSITIVE;
@@ -123,6 +129,42 @@ public final class PlaceLinks {
 			throw ApiException.badRequest("식당 이름은 100자 이하로 입력해 주세요.");
 		}
 		return name;
+	}
+
+	/** 주소(식당·조직 위치): 앞뒤 공백을 지우고 공백·줄바꿈은 한 칸으로. 비면 null, 200자를 넘으면 400 */
+	public static String address(String raw) {
+		if (raw == null || raw.isBlank()) {
+			return null;
+		}
+		String address = raw.strip().replaceAll("\\s+", " ");
+		if (address.length() > ADDRESS_MAX_LENGTH) {
+			throw ApiException.badRequest("주소는 200자 이하로 입력해 주세요.");
+		}
+		return address;
+	}
+
+	/** 카카오 장소 ID(숫자만, 20자리까지). 비면 null, 숫자가 아니면 400 */
+	public static String kakaoPlaceId(String raw) {
+		if (raw == null || raw.isBlank()) {
+			return null;
+		}
+		String id = raw.strip();
+		if (!KAKAO_PLACE_ID.matcher(id).matches()) {
+			throw ApiException.badRequest("식당 정보가 올바르지 않아요. 다시 골라 주세요.");
+		}
+		return id;
+	}
+
+	/** 식당을 찾은 검색어: 앞뒤 공백을 지우고 공백은 한 칸으로. 비면 null, 100자를 넘으면 400 */
+	public static String query(String raw) {
+		if (raw == null || raw.isBlank()) {
+			return null;
+		}
+		String query = raw.strip().replaceAll("\\s+", " ");
+		if (query.length() > QUERY_MAX_LENGTH) {
+			throw ApiException.badRequest("검색어는 100자 이하로 입력해 주세요.");
+		}
+		return query;
 	}
 
 	private static String trimTrailing(String link) {

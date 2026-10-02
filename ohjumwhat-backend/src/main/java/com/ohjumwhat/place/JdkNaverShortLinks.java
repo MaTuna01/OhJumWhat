@@ -28,6 +28,9 @@ class JdkNaverShortLinks implements NaverShortLinks {
 
 	private static final Set<Integer> REDIRECTS = Set.of(301, 302, 303, 307, 308);
 
+	/** naver.me가 없는 코드에 주는 응답(잘못 붙인 링크) */
+	private static final Set<Integer> GONE = Set.of(404, 410);
+
 	private final HttpClient client = HttpClient.newBuilder()
 		.followRedirects(HttpClient.Redirect.NEVER)
 		.connectTimeout(Duration.ofSeconds(2))
@@ -45,6 +48,10 @@ class JdkNaverShortLinks implements NaverShortLinks {
 			.build();
 		try {
 			HttpResponse<Void> response = client.send(request, HttpResponse.BodyHandlers.discarding());
+			if (GONE.contains(response.statusCode())) {
+				log.info("naver.me 없는 코드: status={}", response.statusCode());
+				throw new NotFound();
+			}
 			if (!REDIRECTS.contains(response.statusCode())) {
 				log.warn("naver.me 확인 실패: status={}", response.statusCode());
 				return Optional.empty();

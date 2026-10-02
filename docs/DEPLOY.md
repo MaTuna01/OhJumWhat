@@ -89,6 +89,8 @@ DB_PASSWORD=<openssl rand -hex 24 로 만든 값>
 GOOGLE_CLIENT_ID=<구글 OAuth 클라이언트 ID>
 GOOGLE_CLIENT_SECRET=<구글 OAuth 클라이언트 시크릿>
 ADMIN_EMAILS=<관리자 콘솔을 쓸 구글 계정 이메일, 쉼표로 여러 개>
+KAKAO_REST_KEY=<카카오 로컬 REST API 키, 비우면 지도·거리 끔>
+NAVER_MAP_KEY_ID=<네이버 지도 NCP Maps Client ID, 비우면 지도 끔>
 APP_DOMAIN=www.ohjumwhat.cloud
 APP_APEX_DOMAIN=ohjumwhat.cloud
 APP_IMAGE=ghcr.io/matuna01/ohjumwhat:latest
@@ -119,6 +121,15 @@ gh secret set DEPLOY_SSH_KEY -R MaTuna01/OhJumWhat < ohjumwhat.pem
 - 승인된 자바스크립트 원본: `https://www.ohjumwhat.cloud`
 - 승인된 리디렉션 URI: `https://www.ohjumwhat.cloud/login/oauth2/code/google`
 - **OAuth 동의 화면의 게시 상태를 "프로덕션"으로 바꾼다.** "테스트" 상태에서는 등록한 테스트 사용자만 로그인할 수 있다. openid·profile·email 범위만 쓰므로 구글 검수는 필요 없다.
+
+### 5-1. 지도 키 (카카오 로컬 · 네이버 지도)
+
+조직·식당 주소를 좌표로 바꾸는 일은 카카오 로컬 REST(서버), 화면의 지도는 네이버 지도(NCP Maps, 브라우저)가 맡는다. 키가 없으면 지도·거리만 꺼지고 나머지는 그대로 동작한다.
+
+- **카카오 디벨로퍼스**(https://developers.kakao.com): 애플리케이션 → 앱 설정에서 **「카카오맵」을 켠다**(안 켜면 로컬 API가 403). 「앱 키 → REST API 키」를 서버 `.env`의 `KAKAO_REST_KEY`에 넣는다. 무료량(키워드 검색 하루 10만 건) 안에서는 결제 수단이 필요 없다.
+- **NCP 콘솔**(https://console.ncloud.com): Maps → Application 등록에서 **Dynamic Map**을 고르고, Web 서비스 URL에 `https://www.ohjumwhat.cloud`, `http://localhost:5173`, `https://localhost`(로컬 Docker 확인용)를 넣는다. Client ID를 `NAVER_MAP_KEY_ID`에 넣는다(브라우저에 보이는 공개 값이라 등록한 도메인에서만 동작한다). 무료량을 넘지 않게 콘솔에서 사용 한도를 걸어 둔다.
+- 약관상 좌표·검색 결과는 저장하지 않고 볼 때마다 받는다(저장하는 것은 사용자가 입력한 주소뿐).
+- 운영 CSP(`deploy/Caddyfile`)에 네이버 지도 출처(`oapi.map.naver.com`, `*.map.naver.net`, `static.naver.net`, `kr-col-ext.nelo.navercorp.com`)와 `style-src-attr 'unsafe-inline'`(지도 스크립트의 style 속성)이 들어 있다.
 
 ### 6. 첫 배포
 

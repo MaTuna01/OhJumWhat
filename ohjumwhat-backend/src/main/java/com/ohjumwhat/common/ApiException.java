@@ -35,4 +35,9 @@ public class ApiException extends RuntimeException {
 	public static ApiException conflict(String message) {
 		return new ApiException(HttpStatus.CONFLICT, message);
 	}
+
+	/** 바깥 서비스(지도 검색 등)를 잠시 쓸 수 없을 때(503) */
+	public static ApiException unavailable(String message) {
+		return new ApiException(HttpStatus.SERVICE_UNAVAILABLE, message);
+	}
 }

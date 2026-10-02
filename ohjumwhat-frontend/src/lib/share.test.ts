@@ -8,6 +8,9 @@ const option = (id: number, name: string, voters: Person[], link: string | null 
   name,
   link,
   placeName,
+  placeAddress: null,
+  kakaoPlaceId: null,
+  placeQuery: null,
   createdBy: null,
   voters,
   mine: false,
@@ -66,6 +69,16 @@ describe('resultText', () => {
       '· 김치찌개 1명: 박민수',
       '  할매집 https://map.naver.com/p/entry/place/1868364770',
     ])
+  })
+
+  it('카카오 식당은 다시 찾은 이름과 네이버 지도 링크를 쓴다', () => {
+    const poll: PollDetail = {
+      ...base,
+      options: [option(10, '김치찌개', [person(4, '박민수')], 'https://place.map.kakao.com/1001')],
+    }
+    const resolved = new Map([[10, { name: '할매집', link: 'https://map.naver.com/p/search/x' }]])
+    expect(resultText(poll, 'u', resolved).split('\n')[3]).toBe('  할매집 https://map.naver.com/p/search/x')
+    expect(resultText(poll, 'u').split('\n')[3]).toBe('  지도 https://place.map.kakao.com/1001')
   })
 
   it('참여한 메뉴가 없으면 그렇게 적는다', () => {

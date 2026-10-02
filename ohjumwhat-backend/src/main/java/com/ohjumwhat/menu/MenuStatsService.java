@@ -5,6 +5,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -36,11 +38,15 @@ public class MenuStatsService {
 
 	private final MembershipService membershipService;
 
+	private final MenuOptionRepository menuOptionRepository;
+
 	private final Clock clock;
 
-	public MenuStatsService(JdbcClient jdbcClient, MembershipService membershipService, Clock clock) {
+	public MenuStatsService(JdbcClient jdbcClient, MembershipService membershipService,
+			MenuOptionRepository menuOptionRepository, Clock clock) {
 		this.jdbcClient = jdbcClient;
 		this.membershipService = membershipService;
+		this.menuOptionRepository = menuOptionRepository;
 		this.clock = clock;
 	}
 
@@ -59,16 +65,31 @@ public class MenuStatsService {
 		return new MenuStatsResponse(days, from, closedPollCount(organizationId, from), menus);
 	}
 
-	/** 오늘은 이거 어때요? 자주 먹었지만 최근 7일 안에는 먹지 않은 메뉴(많이 먹은 순) */
+	/** 오늘은 이거 어때요? 자주 먹었지만 최근 7일 안에는 먹지 않은 메뉴(많이 먹은 순)와 지난번 붙인 식당 */
 	@Transactional(readOnly = true)
-	public List<MenuStatsResponse.MenuStat> recommendations(Long organizationId, Long userId) {
+	public List<MenuStatsResponse.Recommendation> recommendations(Long organizationId, Long userId) {
 		membershipService.requireMember(organizationId, userId);
 		LocalDate recentFrom = recentFrom();
-		return eaten(organizationId, null).stream()
+		List<EatenMenu> menus = eaten(organizationId, null).stream()
 			.filter(menu -> menu.lastEatenOn().isBefore(recentFrom))
 			.limit(RECOMMENDATION_LIMIT)
-			.map(EatenMenu::toStat)
 			.toList();
+		Map<String, LastPlace> places = lastPlaces(organizationId, menus.stream().map(EatenMenu::name).toList());
+		return menus.stream()
+			.map(m -> new MenuStatsResponse.Recommendation(m.name(), m.times(), m.people(), m.lastEatenOn(),
+					places.get(m.name())))
+			.toList();
+	}
+
+	/** 메뉴 이름 → 같은 이름의 메뉴에 지난번 붙인 식당(식당이 붙은 가장 최근 메뉴) */
+	Map<String, LastPlace> lastPlaces(Long organizationId, Collection<String> names) {
+		if (names.isEmpty()) {
+			return Map.of();
+		}
+		Map<String, LastPlace> places = new HashMap<>();
+		menuOptionRepository.findWithPlaceByNames(organizationId, names)
+			.forEach(option -> places.putIfAbsent(option.getName(), LastPlace.of(option)));
+		return places;
 	}
 
 	/** 메뉴 이름 키 → 마지막으로 먹은 날(전체 기간). 자동완성 표시용 */

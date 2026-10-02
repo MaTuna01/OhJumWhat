@@ -98,4 +98,14 @@ class PlaceLinksTest {
 			.isInstanceOf(ApiException.class)
 			.hasMessage("식당 이름은 100자 이하로 입력해 주세요.");
 	}
+
+	@Test
+	void 주소는_공백을_정리하고_200자까지다() {
+		assertThat(PlaceLinks.address("  서울 강남구\n 테헤란로 1 ")).isEqualTo("서울 강남구 테헤란로 1");
+		assertThat(PlaceLinks.address(" ")).isNull();
+		assertThat(PlaceLinks.address(null)).isNull();
+		assertThatThrownBy(() -> PlaceLinks.address("가".repeat(201)))
+			.isInstanceOf(ApiException.class)
+			.hasMessage("주소는 200자 이하로 입력해 주세요.");
+	}
 }

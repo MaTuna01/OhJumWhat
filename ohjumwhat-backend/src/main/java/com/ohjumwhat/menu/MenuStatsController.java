@@ -27,7 +27,7 @@ public class MenuStatsController {
 	}
 
 	@GetMapping("/api/orgs/{orgId}/menu-recommendations")
-	List<MenuStatsResponse.MenuStat> recommendations(@AuthenticationPrincipal LoginUser loginUser,
+	List<MenuStatsResponse.Recommendation> recommendations(@AuthenticationPrincipal LoginUser loginUser,
 			@PathVariable Long orgId) {
 		return menuStatsService.recommendations(orgId, loginUser.getUserId());
 	}

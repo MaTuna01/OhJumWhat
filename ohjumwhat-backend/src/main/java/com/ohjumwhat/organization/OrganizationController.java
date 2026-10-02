@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.ohjumwhat.auth.LoginUser;
 import com.ohjumwhat.place.PlaceLinkResolver;
+import com.ohjumwhat.place.PlaceLinks;
+import com.ohjumwhat.place.PlaceSearchService;
 
 @RestController
 public class OrganizationController {
@@ -26,9 +28,13 @@ public class OrganizationController {
 
 	private final PlaceLinkResolver placeLinkResolver;
 
-	public OrganizationController(OrganizationService organizationService, PlaceLinkResolver placeLinkResolver) {
+	private final PlaceSearchService placeSearchService;
+
+	public OrganizationController(OrganizationService organizationService, PlaceLinkResolver placeLinkResolver,
+			PlaceSearchService placeSearchService) {
 		this.organizationService = organizationService;
 		this.placeLinkResolver = placeLinkResolver;
+		this.placeSearchService = placeSearchService;
 	}
 
 	@GetMapping("/api/me/orgs")
@@ -54,12 +60,19 @@ public class OrganizationController {
 		return organizationService.rename(orgId, loginUser.getUserId(), request.name());
 	}
 
-	/** 조직 위치(검색 지역, 회사 위치)를 통째로 바꾼다. 회사 링크 확인(naver.me 요청)은 DB 트랜잭션 밖에서 한다. */
+	/**
+	 * 조직 위치(검색 지역, 장소 링크·이름, 조직 주소, 검색 반경)를 통째로 바꾼다.
+	 * 장소 링크 확인(naver.me 요청)과 조직 주소 확인(카카오 로컬)은 DB 트랜잭션 밖에서 한다.
+	 */
 	@PutMapping("/api/orgs/{orgId}/location")
 	OrganizationResponse changeLocation(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long orgId,
 			@Valid @RequestBody LocationRequest request) {
-		return organizationService.changeLocation(orgId, loginUser.getUserId(), request.area(),
-				placeLinkResolver.place(request.officeLink(), request.officeName()));
+		Long userId = loginUser.getUserId();
+		String officeAddress = PlaceLinks.address(request.officeAddress());
+		placeSearchService.verifyOfficeAddress(orgId, userId, officeAddress);
+		return organizationService.changeLocation(orgId, userId, request.area(),
+				placeLinkResolver.place(request.officeLink(), request.officeName()), officeAddress,
+				request.searchRadius());
 	}
 
 	@GetMapping("/api/orgs/{orgId}/members")
