@@ -106,6 +106,7 @@ function usePollMap(orgId: number, poll: PollDetail, options: PollOption[], coll
       <PollPlacesMap
         keyId={mapKey}
         title={poll.title}
+        orgName={org?.name ?? '조직'}
         places={places.data}
         distances={distances}
         resolved={resolved}

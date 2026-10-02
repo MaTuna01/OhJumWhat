@@ -8,7 +8,7 @@ import java.util.Locale;
  *
  * @param categories 분류 경로에서 「음식점」을 뺀 것(예: "음식점 > 분식 > 떡볶이 > 두끼떡볶이" → [분식, 떡볶이, 두끼떡볶이])
  * @param roadAddress 도로명 주소(없으면 지번 주소)
- * @param distance 검색 기준점(회사)에서의 직선거리(m). 모르면 null
+ * @param distance 검색 기준점(조직 위치)에서의 직선거리(m). 모르면 null
  */
 public record KakaoPlace(String id, String name, List<String> categories, String roadAddress, Coordinate at,
 		Integer distance) {

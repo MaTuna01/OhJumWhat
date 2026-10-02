@@ -74,7 +74,7 @@ public class PlaceSearchService {
 	}
 
 	/**
-	 * 근처 식당 찾기: 회사 주소 기준 검색 반경 안 음식점 45개까지(카카오 3페이지를 한 번에 받는다).
+	 * 근처 식당 찾기: 조직 주소 기준 검색 반경 안 음식점 45개까지(카카오 3페이지를 한 번에 받는다).
 	 * <ul>
 	 * <li>검색어가 있으면 정확도순으로 받아, 이름·분류에 검색어가 있는 곳(matched)을 앞에 가까운 순으로, 메뉴·태그로만 걸린 곳을 뒤에
 	 * 가까운 순으로 둔다.</li>
@@ -92,11 +92,11 @@ public class PlaceSearchService {
 			throw ApiException.unavailable("근처 식당 찾기를 쓸 수 없어요. 링크를 붙여 주세요.");
 		}
 		if (organization.getOfficeAddress() == null) {
-			throw ApiException.badRequest("조직 설정에서 회사 주소를 정하면 근처 식당을 찾을 수 있어요.");
+			throw ApiException.badRequest("조직 설정에서 조직 주소를 정하면 근처 식당을 찾을 수 있어요.");
 		}
 		try {
 			Coordinate center = kakaoLocal.geocode(organization.getOfficeAddress())
-				.orElseThrow(() -> ApiException.badRequest("회사 주소를 지도에서 찾지 못했어요. 조직 설정에서 주소를 확인해 주세요."));
+				.orElseThrow(() -> ApiException.badRequest("조직 주소를 지도에서 찾지 못했어요. 조직 설정에서 주소를 확인해 주세요."));
 			List<PlaceSearchResponse.Place> places = searchAll(query, center, organization.getSearchRadius(), sortFor(query))
 				.stream()
 				.map(p -> new PlaceSearchResponse.Place(p.id(), p.name(), p.category(), p.roadAddress(), p.at().lat(),
@@ -114,10 +114,10 @@ public class PlaceSearchService {
 	}
 
 	/**
-	 * 회사 위치와 메뉴(optionIds)별 식당 위치. 이 조직의 메뉴만 보고, 찾지 못한 메뉴는 뺀다. optionIds가 비면 회사 위치만 준다.
+	 * 조직 위치와 메뉴(optionIds)별 식당 위치. 이 조직의 메뉴만 보고, 찾지 못한 메뉴는 뺀다. optionIds가 비면 조직 위치만 준다.
 	 * <ul>
 	 * <li>링크로 붙인 식당: 저장한 주소(사용자 입력)를 좌표로 바꾼다.</li>
-	 * <li>근처 식당 찾기로 고른 카카오 식당: 회사 좌표를 기준으로 저장한 검색어로 다시 찾아 장소 ID가 같은 결과의 이름·주소·위치를 쓴다.</li>
+	 * <li>근처 식당 찾기로 고른 카카오 식당: 조직 좌표를 기준으로 저장한 검색어로 다시 찾아 장소 ID가 같은 결과의 이름·주소·위치를 쓴다.</li>
 	 * </ul>
 	 */
 	public PlacesResponse places(Long organizationId, Long userId, List<Long> optionIds) {
@@ -136,7 +136,7 @@ public class PlaceSearchService {
 					.filter(o -> o.getLinkUrl() != null)
 					.toList();
 
-		// 1단계: 주소 → 좌표(회사, 링크로 붙인 식당). 같은 주소는 한 번만 찾는다.
+		// 1단계: 주소 → 좌표(조직 주소, 링크로 붙인 식당). 같은 주소는 한 번만 찾는다.
 		Set<String> addresses = new LinkedHashSet<>();
 		String office = organization.getOfficeAddress();
 		if (office != null) {
@@ -150,7 +150,7 @@ public class PlaceSearchService {
 		Map<String, Coordinate> found = runAll(geocodes);
 		Coordinate officeAt = office == null ? null : found.get(office);
 
-		// 2단계: 카카오 식당 다시 찾기(회사 좌표가 있어야 한다). 같은 검색어끼리 한 번에 찾는다.
+		// 2단계: 카카오 식당 다시 찾기(조직 좌표가 있어야 한다). 같은 검색어끼리 한 번에 찾는다.
 		Map<String, KakaoPlace> kakaoPlaces = officeAt == null ? Map.of()
 				: resolveKakao(options, officeAt, organization.getSearchRadius());
 
@@ -176,7 +176,7 @@ public class PlaceSearchService {
 	}
 
 	/**
-	 * 회사 주소를 저장하기 전에 찾을 수 있는 주소인지 확인한다(트랜잭션 밖에서 부른다). 못 찾으면 400.
+	 * 조직 주소를 저장하기 전에 찾을 수 있는 주소인지 확인한다(트랜잭션 밖에서 부른다). 못 찾으면 400.
 	 * 카카오를 쓸 수 없으면(키 없음·장애) 확인하지 않고 넘어간다(저장은 막지 않는다).
 	 */
 	public void verifyOfficeAddress(Long organizationId, Long userId, String address) {
@@ -189,7 +189,7 @@ public class PlaceSearchService {
 			found = kakaoLocal.geocode(address);
 		}
 		catch (PlaceSearchUnavailableException e) {
-			log.warn("회사 주소 확인을 건너뜀(카카오 로컬 실패): organizationId={}", organizationId);
+			log.warn("조직 주소 확인을 건너뜀(카카오 로컬 실패): organizationId={}", organizationId);
 			return;
 		}
 		if (found.isEmpty()) {
@@ -203,9 +203,9 @@ public class PlaceSearchService {
 	}
 
 	/**
-	 * 카카오 식당(장소 ID → 결과). 검색어(없으면 둘러보기)별로, 고를 때와 같은 방법(검색어·회사 좌표·조직 반경·순서)으로 다시 찾는다.
+	 * 카카오 식당(장소 ID → 결과). 검색어(없으면 둘러보기)별로, 고를 때와 같은 방법(검색어·조직 좌표·조직 반경·순서)으로 다시 찾는다.
 	 * 고를 때 그 결과 45개 안에 있었으므로 대개 다시 찾는다. 조직 반경이 바뀌어 못 찾으면 넓은 반경(20km)을 가까운 순으로 한 번 더 본다.
-	 * 회사 위치가 바뀌었으면 못 찾을 수 있다(카드는 저장한 카카오 링크를 보여준다).
+	 * 조직 위치가 바뀌었으면 못 찾을 수 있다(카드는 저장한 카카오 링크를 보여준다).
 	 */
 	private Map<String, KakaoPlace> resolveKakao(List<MenuOption> options, Coordinate center, int radius) {
 		Map<Optional<String>, Set<String>> idsByQuery = new LinkedHashMap<>();

@@ -132,8 +132,8 @@ function RenameForm({ org, onRenamed }: { org: Organization; onRenamed: () => vo
 }
 
 /**
- * Figma 07-L·D07-L 조직 위치: 회사 위치(지도 링크·이름)와 회사 주소, 검색 반경, 검색 지역. 통째로 저장한다.
- * 회사 주소는 근처 식당 검색·지도의 기준점이라 서버가 찾을 수 있는 주소인지 확인한다. 공유 글을 붙이면 이름·주소를 채운다.
+ * Figma 07-L·D07-L 조직 위치: 조직 위치(지도 링크·이름)와 조직 주소, 검색 반경, 검색 지역. 통째로 저장한다.
+ * 조직 주소는 근처 식당 검색·지도의 기준점이라 서버가 찾을 수 있는 주소인지 확인한다. 공유 글을 붙이면 이름·주소를 채운다.
  */
 function LocationForm({ org, onSaved }: { org: Organization; onSaved: () => void }) {
   const [area, setArea] = useState(org.area ?? '')
@@ -146,7 +146,7 @@ function LocationForm({ org, onSaved }: { org: Organization; onSaved: () => void
   const update = useUpdateOrgLocation(org.id)
   const mapKey = useMapKey()
   const { link: officeLink, placeName: officeName } = placeInput(office)
-  // 회사 주소는 지도 링크가 없어도 저장한다.
+  // 조직 주소는 지도 링크가 없어도 저장한다.
   const officeAddress = office.address.trim() || null
   const nextArea = area.trim() || null
   const unchanged =
@@ -163,10 +163,10 @@ function LocationForm({ org, onSaved }: { org: Organization; onSaved: () => void
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <p className="text-sm text-text-tertiary">근처 식당 검색과 지도는 회사 주소를 기준으로 해요.</p>
+      <p className="text-sm text-text-tertiary">근처 식당 검색과 지도는 조직 주소를 기준으로 해요.</p>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <p className="text-sm font-medium">회사 위치</p>
+          <p className="text-sm font-medium">장소(선택)</p>
           {org.officeLink && (
             <a
               href={org.officeLink}
@@ -175,7 +175,7 @@ function LocationForm({ org, onSaved }: { org: Organization; onSaved: () => void
               className="inline-flex max-w-full items-center rounded-full border border-border-default bg-bg-surface px-2 py-0.5 text-xs font-medium text-text-secondary hover:border-border-strong hover:text-text-primary focus-visible:outline-2 focus-visible:outline-border-brand"
             >
               <span className="truncate">
-                {org.officeName ?? '회사'} · {serviceLabel(org.officeLink)} ↗
+                {org.officeName ?? '장소'} · {serviceLabel(org.officeLink)} ↗
               </span>
             </a>
           )}
@@ -184,13 +184,13 @@ function LocationForm({ org, onSaved }: { org: Organization; onSaved: () => void
             onChange={setOffice}
             searchQuery={office.name || org.name}
             area={nextArea}
-            nameLabel="회사 이름"
-            linkLabel="회사 지도 링크"
+            nameLabel="장소 이름"
+            linkLabel="장소 지도 링크"
             showAddress={false}
           />
           <div className="pt-2.5">
             <label htmlFor="org-office-address" className="text-sm font-medium">
-              회사 주소
+              조직 주소
             </label>
             <input
               id="org-office-address"
@@ -229,7 +229,7 @@ function LocationForm({ org, onSaved }: { org: Organization; onSaved: () => void
               ))}
             </div>
           </fieldset>
-          {mapKey && <OfficeMap orgId={org.id} keyId={mapKey} officeAddress={org.officeAddress} />}
+          {mapKey && <OfficeMap orgId={org.id} orgName={org.name} keyId={mapKey} officeAddress={org.officeAddress} />}
           <div>
             <label htmlFor="org-area" className="text-sm font-medium">
               검색 지역(선택)
@@ -260,14 +260,14 @@ function LocationForm({ org, onSaved }: { org: Organization; onSaved: () => void
   )
 }
 
-/** 저장한 회사 위치 미리보기(Figma 07-L Map Preview). 주소는 볼 때마다 좌표로 바꾼다. */
-function OfficeMap({ orgId, keyId, officeAddress }: { orgId: number; keyId: string; officeAddress: string | null }) {
+/** 저장한 조직 위치 미리보기(Figma 07-L Map Preview). 주소는 볼 때마다 좌표로 바꾼다. */
+function OfficeMap({ orgId, orgName, keyId, officeAddress }: { orgId: number; orgName: string; keyId: string; officeAddress: string | null }) {
   const places = usePlaces(orgId, officeAddress, [], officeAddress != null)
   const center = places.data?.center
   if (!officeAddress || (places.isSuccess && !center)) {
     return (
       <p className="flex h-40 items-center justify-center rounded-xl bg-bg-muted px-4 text-center text-sm text-text-tertiary">
-        {officeAddress ? '저장한 주소를 지도에서 찾지 못했어요' : '회사 주소를 저장하면 지도에 표시돼요'}
+        {officeAddress ? '저장한 주소를 지도에서 찾지 못했어요' : '조직 주소를 저장하면 지도에 표시돼요'}
       </p>
     )
   }
@@ -276,8 +276,8 @@ function OfficeMap({ orgId, keyId, officeAddress }: { orgId: number; keyId: stri
     <NaverMap
       keyId={keyId}
       className="h-40"
-      label="저장한 회사 위치 지도"
-      markers={[{ id: 'office', lat: center.lat, lng: center.lng, label: center.name ? `회사 · ${center.name}` : '회사', tone: 'office' }]}
+      label="저장한 조직 위치 지도"
+      markers={[{ id: 'office', lat: center.lat, lng: center.lng, label: center.name ?? orgName, tone: 'office' }]}
     />
   )
 }

@@ -131,7 +131,7 @@ public final class PlaceLinks {
 		return name;
 	}
 
-	/** 주소(식당·회사): 앞뒤 공백을 지우고 공백·줄바꿈은 한 칸으로. 비면 null, 200자를 넘으면 400 */
+	/** 주소(식당·조직 위치): 앞뒤 공백을 지우고 공백·줄바꿈은 한 칸으로. 비면 null, 200자를 넘으면 400 */
 	public static String address(String raw) {
 		if (raw == null || raw.isBlank()) {
 			return null;

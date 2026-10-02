@@ -32,7 +32,7 @@ type Props = {
 }
 
 /**
- * 식당 찾기 모달(Figma 05-F, 05-M4): 「근처에서 찾기」(카카오 로컬, 회사 주소 기준)와 「링크 붙이기」(공유 링크).
+ * 식당 찾기 모달(Figma 05-F, 05-M4): 「근처에서 찾기」(카카오 로컬, 조직 주소 기준)와 「링크 붙이기」(공유 링크).
  * 메뉴 입력의 「＋ 식당」·「근처 식당 둘러보기」, 메뉴 카드의 「식당 고치기·＋ 식당 달기」에서 연다.
  */
 export default function PlaceModal({ open, title, onClose, ...props }: Props) {
@@ -106,10 +106,10 @@ function PlaceModalBody({ orgId, menuName, current, confirmLabel, pending, error
           <PlaceFinder org={org} keyId={keyId} initialQuery={current?.placeQuery ?? menuName} selectedId={selectedId} onSelect={(place, query) => setFound({ place, query })} />
         ) : (
           <p className="rounded-xl bg-bg-muted px-4 py-6 text-center text-sm text-text-secondary">
-            조직 설정에서 회사 주소를 정하면 근처 식당을 찾을 수 있어요.
+            조직 설정에서 조직 주소를 정하면 근처 식당을 찾을 수 있어요.
             <br />
             <Link to={`/orgs/${orgId}/settings`} onClick={onClose} className="mt-2 inline-block font-medium text-text-brand hover:underline">
-              회사 주소 정하러 가기 →
+              조직 주소 정하러 가기 →
             </Link>
           </p>
         )

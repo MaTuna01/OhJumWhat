@@ -18,12 +18,12 @@ import com.ohjumwhat.place.PlaceSearchUnavailableException;
 @TestConfiguration(proxyBeanMethods = false)
 public class FakeKakaoLocalConfiguration {
 
-	/** 회사 주소(역삼역 근처) */
+	/** 조직 주소(역삼역 근처) */
 	public static final String OFFICE_ADDRESS = "서울 강남구 테헤란로 152";
 
 	public static final Coordinate OFFICE = new Coordinate(37.5000, 127.0364);
 
-	/** 식당 주소(회사에서 약 350m) */
+	/** 식당 주소(조직 위치에서 약 350m) */
 	public static final String PLACE_ADDRESS = "서울 강남구 테헤란로 1";
 
 	public static final Coordinate PLACE = new Coordinate(37.4980, 127.0330);

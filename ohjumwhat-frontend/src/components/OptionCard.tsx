@@ -17,7 +17,7 @@ type Props = {
   /** 내가 추가한 메뉴에서 「식당 고치기」·「＋ 식당 달기」를 누르면(진행 중일 때만) */
   onEditLink?: () => void
   disabled?: boolean
-  /** 회사에서 식당까지 직선거리(m). 회사·식당 위치를 찾았을 때만 */
+  /** 조직 위치에서 식당까지 직선거리(m). 조직·식당 위치를 찾았을 때만 */
   distance?: number
   /** 카카오 식당을 다시 찾은 이름과 그 이름으로 만든 「네이버 지도 ↗」 링크(저장하지 않는 값). 못 찾았으면 저장한 카카오 링크를 쓴다. */
   resolved?: { name: string; link: string }
@@ -29,7 +29,7 @@ type Props = {
  * Figma OptionCard. 카드 전체를 누르면 그 메뉴에 참여한다(한 사람은 한 메뉴만).
  * 상태: 기본 / 내 선택(오렌지 테두리) / 혼자(배지) / 비어 있음(내가 추가했으면 삭제) / 결과
  * 식당이 있으면 「식당 이름 · 네이버 지도 ↗」(이름이 없으면 「지도 · 서비스 ↗」, Figma OptionCard Link=true, 05-L)를 보여주고,
- * 위치를 찾았으면 회사에서의 거리·도보 시간(Figma Distance=true, 05-G)을 함께 보여준다.
+ * 위치를 찾았으면 조직 위치에서의 거리·도보 시간(Figma Distance=true, 05-G)을 함께 보여준다.
  * 지도 마커에서 찾아올 수 있게 id="option-{id}"를 둔다.
  */
 export default function OptionCard({ option, meId, result, selected, onSelect, onDelete, onEditLink, disabled, distance, resolved, highlighted }: Props) {

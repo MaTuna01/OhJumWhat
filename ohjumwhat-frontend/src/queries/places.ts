@@ -2,7 +2,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api.ts'
 import { type LatLng, distanceMeters } from '../lib/distance.ts'
 
-/** 회사 위치(조직 설정의 회사 주소를 볼 때마다 좌표로 바꾼 값) */
+/** 조직 위치(조직 설정의 조직 주소를 볼 때마다 좌표로 바꾼 값) */
 export type PlaceCenter = LatLng & { name: string | null }
 
 /**
@@ -34,7 +34,7 @@ export type FoundPlace = LatLng & {
   name: string
   category: string | null
   roadAddress: string | null
-  /** 회사에서의 직선거리(m). 모르면 null */
+  /** 조직 위치에서의 직선거리(m). 모르면 null */
   distance: number | null
   /** 검색어가 이름이나 분류에 들어 있는지(둘러보기는 모두 true). false면 메뉴·태그로만 걸린 곳이다 */
   matched: boolean
@@ -48,7 +48,7 @@ export function placeOptionIds(refs: PlaceRef[]): number[] {
   return refs.filter((r) => r.link && (r.placeAddress || r.kakaoPlaceId)).map((r) => r.id)
 }
 
-/** 메뉴별 회사에서의 거리(m). 회사 위치를 모르면 비어 있다. */
+/** 메뉴별 조직 위치에서의 거리(m). 조직 위치를 모르면 비어 있다. */
 export function distancesByOption(places: Places | undefined): Map<number, number> {
   const center = places?.center
   if (!center) return new Map()
@@ -56,9 +56,9 @@ export function distancesByOption(places: Places | undefined): Map<number, numbe
 }
 
 /**
- * 지도에 올릴 회사·식당 위치(GET /api/orgs/{orgId}/places).
- * 키에 회사 주소와 메뉴의 식당(링크·주소·카카오 ID·검색어)을 넣어, 3초 폴링으로 투표 객체가 새로 와도 식당이 그대로면 다시 부르지 않는다.
- * 위치를 찾을 메뉴가 없으면 회사 위치만 받는다(조직 설정 미리보기).
+ * 지도에 올릴 조직·식당 위치(GET /api/orgs/{orgId}/places).
+ * 키에 조직 주소와 메뉴의 식당(링크·주소·카카오 ID·검색어)을 넣어, 3초 폴링으로 투표 객체가 새로 와도 식당이 그대로면 다시 부르지 않는다.
+ * 위치를 찾을 메뉴가 없으면 조직 위치만 받는다(조직 설정 미리보기).
  */
 export function usePlaces(orgId: number, officeAddress: string | null, refs: PlaceRef[], enabled = true) {
   const ids = placeOptionIds(refs)
@@ -79,7 +79,7 @@ export function usePlaces(orgId: number, officeAddress: string | null, refs: Pla
 }
 
 /**
- * 근처 식당 찾기(GET /api/orgs/{orgId}/places/search): 회사 주소 기준 반경 안 음식점 45개까지.
+ * 근처 식당 찾기(GET /api/orgs/{orgId}/places/search): 조직 주소 기준 반경 안 음식점 45개까지.
  * 검색어가 있으면 이름·분류가 맞는 곳이 앞이고, 비면 근처 음식점을 가까운 순으로 둘러본다. 결과는 화면에 보여줄 때만 쓴다.
  */
 export function usePlaceSearch(orgId: number, officeAddress: string | null, searchRadius: number, q: string, enabled: boolean) {

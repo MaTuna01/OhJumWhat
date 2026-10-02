@@ -7,7 +7,7 @@ export type MapMarker = {
   lng: number
   /** 마커 글자(예: "김치찌개 · 4명"). textContent로만 넣는다(메뉴 이름은 사용자 입력이라 HTML로 넣지 않는다). */
   label: string
-  /** office: 회사(검정), brand: 내가 고른 메뉴·선택한 식당(주황), default: 그 밖 */
+  /** office: 조직 위치(검정), brand: 내가 고른 메뉴·선택한 식당(주황), default: 그 밖 */
   tone: 'office' | 'brand' | 'default'
   /** 핀 머리에 넣을 짧은 글자(식당 찾기 목록 번호). 없으면 흰 점 */
   badge?: string
@@ -163,7 +163,7 @@ export default function NaverMap({ keyId, markers, onSelect, className = 'h-56',
         map,
         position: new naver.maps.LatLng(marker.lat, marker.lng),
         icon: { content: markerElement(marker), anchor: new naver.maps.Point(0, 0) },
-        // 식당을 회사 위에 그린다(회사 바로 옆 식당 글자가 가리지 않게). 내 메뉴·고른 식당, 목록에서 고른 마커가 위
+        // 식당을 조직 위치 핀 위에 그린다(조직 위치 바로 옆 식당 글자가 가리지 않게). 내 메뉴·고른 식당, 목록에서 고른 마커가 위
         zIndex: marker.active ? 30 : marker.tone === 'office' ? 5 : marker.tone === 'brand' ? 20 : 10,
         title: marker.label,
       })

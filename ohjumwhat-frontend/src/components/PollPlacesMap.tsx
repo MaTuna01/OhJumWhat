@@ -10,11 +10,13 @@ type Props = {
   keyId: string
   /** 투표 제목(큰 지도 모달 제목) */
   title: string
+  /** 조직 이름: 조직 위치 핀 이름표(장소 이름이 없을 때) */
+  orgName: string
   places: Places
   /** 지도에 올릴 메뉴(진행 중: 모든 메뉴, 마감: 확정 팀) */
   options: PollOption[]
   myOptionId: number | null
-  /** 메뉴별 회사에서의 거리(m) */
+  /** 메뉴별 조직 위치에서의 거리(m) */
   distances: Map<number, number>
   /** 카카오 식당을 다시 찾은 이름과 네이버 지도 링크 */
   resolved: Map<number, { name: string; link: string }>
@@ -26,10 +28,10 @@ type Props = {
 }
 
 /**
- * 투표 상세의 지도(Figma 05-G·D05-G): 회사(검정 핀)와 메뉴별 식당 「메뉴 · N명」(내 메뉴는 주황 핀).
+ * 투표 상세의 지도(Figma 05-G·D05-G): 조직 위치(검정 핀, 장소 이름이나 조직 이름)와 메뉴별 식당 「메뉴 · N명」(내 메뉴는 주황 핀).
  * 「⤢ 크게 보기」는 큰 지도와 식당 목록을 모달로 연다(05-G2·D05-G2). 위치를 찾은 식당이 없으면 그리지 않는다.
  */
-export default function PollPlacesMap({ keyId, title, places, options, myOptionId, distances, resolved, collapsible, defaultOpen, onSelect }: Props) {
+export default function PollPlacesMap({ keyId, title, orgName, places, options, myOptionId, distances, resolved, collapsible, defaultOpen, onSelect }: Props) {
   const [open, setOpen] = useState(defaultOpen)
   const [expanded, setExpanded] = useState(false)
   const byId = new Map(options.map((o) => [o.id, o]))
@@ -48,7 +50,7 @@ export default function PollPlacesMap({ keyId, title, places, options, myOptionI
         active: option.id === activeId,
       }
     })
-    if (places.center) list.unshift({ id: 'office', lat: places.center.lat, lng: places.center.lng, label: '회사', tone: 'office' })
+    if (places.center) list.unshift({ id: 'office', lat: places.center.lat, lng: places.center.lng, label: places.center.name ?? orgName, tone: 'office' })
     return list
   }
 
@@ -95,7 +97,7 @@ export default function PollPlacesMap({ keyId, title, places, options, myOptionI
         markers={markers()}
         onSelect={(id) => id !== 'office' && onSelect(Number(id))}
         className="h-56 lg:h-60"
-        label="회사와 메뉴별 식당 위치"
+        label="조직 위치와 메뉴별 식당 위치"
       />
       <p className="text-xs text-text-tertiary">마커를 누르면 그 메뉴 카드로 이동해요</p>
 
@@ -139,7 +141,7 @@ function BigMap({ keyId, markers, options, myOptionId, distances, resolved }: Bi
         focusId={activeId == null ? null : String(activeId)}
         onSelect={(id) => id !== 'office' && select(Number(id))}
         className="h-[55vh] lg:h-[34rem] lg:flex-1"
-        label="회사와 메뉴별 식당 위치(크게)"
+        label="조직 위치와 메뉴별 식당 위치(크게)"
       />
       <ul className="max-h-[25vh] space-y-1.5 overflow-y-auto lg:max-h-[34rem] lg:w-72 lg:shrink-0" aria-label="메뉴별 식당">
         {options.map((option) => {

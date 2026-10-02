@@ -16,11 +16,11 @@ export type Organization = {
   memberCount: number
   /** 검색 지역(예: 역삼동). 「네이버 지도에서 찾기」 검색어 앞에 붙인다. 없으면 null */
   area: string | null
-  /** 회사 위치 이름. 없으면 null */
+  /** 장소 이름. 없으면 null */
   officeName: string | null
-  /** 회사 위치 지도 링크. 없으면 null */
+  /** 장소 지도 링크. 없으면 null */
   officeLink: string | null
-  /** 회사 주소. 근처 식당 검색·지도의 기준점. 없으면 null */
+  /** 조직 주소. 근처 식당 검색·지도의 기준점. 없으면 null */
   officeAddress: string | null
   /** 근처 식당 검색 반경(m): 500, 1000, 2000 */
   searchRadius: number
@@ -115,7 +115,7 @@ export function useRenameOrganization(orgId: number) {
   })
 }
 
-/** 조직 위치 바꾸기(멤버 누구나). 회사 링크는 서버가 정리하고(네이버 공유 링크 → 장소 정식 링크), 회사 주소는 찾을 수 있는지 확인한다. */
+/** 조직 위치 바꾸기(멤버 누구나). 장소 링크는 서버가 정리하고(네이버 공유 링크 → 장소 정식 링크), 조직 주소는 찾을 수 있는지 확인한다. */
 export function useUpdateOrgLocation(orgId: number) {
   const queryClient = useQueryClient()
   return useMutation({

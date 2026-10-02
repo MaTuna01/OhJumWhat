@@ -75,7 +75,7 @@ class PlaceIntegrationTest extends IntegrationTest {
 	}
 
 	@Test
-	void 회사와_메뉴별_식당_위치를_주고_찾지_못한_메뉴는_뺀다() throws Exception {
+	void 조직_위치와_메뉴별_식당_위치를_주고_찾지_못한_메뉴는_뺀다() throws Exception {
 		setOffice(FakeKakaoLocalConfiguration.OFFICE_ADDRESS);
 		Long withPlace = addMenu("칼국수", FakeKakaoLocalConfiguration.PLACE_ADDRESS);
 		Long unknown = addMenu("냉면", "찾을 수 없는 주소");
@@ -93,7 +93,7 @@ class PlaceIntegrationTest extends IntegrationTest {
 	}
 
 	@Test
-	void 메뉴_없이_부르면_회사_위치만_주고_회사_주소가_없으면_null이다() throws Exception {
+	void 메뉴_없이_부르면_조직_위치만_주고_조직_주소가_없으면_null이다() throws Exception {
 		mockMvc.perform(get("/api/orgs/" + orgId + "/places").with(loginAs(kim)))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.center").value(nullValue()))
@@ -177,10 +177,10 @@ class PlaceIntegrationTest extends IntegrationTest {
 	}
 
 	@Test
-	void 회사_주소가_없거나_값이_올바르지_않거나_카카오가_실패하면_알려준다() throws Exception {
+	void 조직_주소가_없거나_값이_올바르지_않거나_카카오가_실패하면_알려준다() throws Exception {
 		mockMvc.perform(get("/api/orgs/" + orgId + "/places/search").param("q", "김치찌개").with(loginAs(kim)))
 			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.message").value("조직 설정에서 회사 주소를 정하면 근처 식당을 찾을 수 있어요."));
+			.andExpect(jsonPath("$.message").value("조직 설정에서 조직 주소를 정하면 근처 식당을 찾을 수 있어요."));
 
 		setOffice(FakeKakaoLocalConfiguration.OFFICE_ADDRESS);
 		mockMvc.perform(get("/api/orgs/" + orgId + "/places/search").param("q", "가".repeat(51)).with(loginAs(kim)))
@@ -234,7 +234,7 @@ class PlaceIntegrationTest extends IntegrationTest {
 	}
 
 	@Test
-	void 회사_위치를_모르면_카카오_식당은_다시_찾지_못한다() throws Exception {
+	void 조직_위치를_모르면_카카오_식당은_다시_찾지_못한다() throws Exception {
 		Long near = addKakaoMenu("김치찌개", "1001", "김치찌개");
 
 		mockMvc.perform(get("/api/orgs/" + orgId + "/places").param("optionIds", ids(near)).with(loginAs(kim)))

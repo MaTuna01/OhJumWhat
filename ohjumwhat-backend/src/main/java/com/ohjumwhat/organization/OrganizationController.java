@@ -61,8 +61,8 @@ public class OrganizationController {
 	}
 
 	/**
-	 * 조직 위치(검색 지역, 회사 위치·주소, 검색 반경)를 통째로 바꾼다.
-	 * 회사 링크 확인(naver.me 요청)과 회사 주소 확인(카카오 로컬)은 DB 트랜잭션 밖에서 한다.
+	 * 조직 위치(검색 지역, 장소 링크·이름, 조직 주소, 검색 반경)를 통째로 바꾼다.
+	 * 장소 링크 확인(naver.me 요청)과 조직 주소 확인(카카오 로컬)은 DB 트랜잭션 밖에서 한다.
 	 */
 	@PutMapping("/api/orgs/{orgId}/location")
 	OrganizationResponse changeLocation(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long orgId,

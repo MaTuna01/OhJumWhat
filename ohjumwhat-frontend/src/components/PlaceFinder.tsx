@@ -25,7 +25,7 @@ type Props = {
 }
 
 /**
- * 근처에서 찾기(Figma 05-F): 회사 주소 기준 반경 안 음식점(카카오 로컬, 45개까지, 15개씩 더 보기).
+ * 근처에서 찾기(Figma 05-F): 조직 주소 기준 반경 안 음식점(카카오 로컬, 45개까지, 15개씩 더 보기).
  * 검색어가 있으면 이름·분류가 맞는 곳을 가까운 순으로 먼저 보여주고, 메뉴·태그로만 걸린 곳은 「그 밖에 관련된 곳」으로 뒤에 둔다
  * (가까운 순만 쓰면 떡볶이를 찾았는데 메뉴에 떡볶이가 있는 치킨집이 맨 앞에 온다).
  * 검색어가 비면 분류 칩으로 둘러본다(가까운 순). 목록과 지도 마커는 번호로 이어지고, 누르면 고른다.
@@ -72,7 +72,7 @@ export default function PlaceFinder({ org, keyId, initialQuery, selectedId, onSe
       // 번호로 목록과 이어지므로 이름표는 고른 식당에만 단다.
       hideLabel: place.kakaoPlaceId !== selectedId,
     }))
-  if (center) markers.unshift({ id: 'office', lat: center.lat, lng: center.lng, label: '회사', tone: 'office' })
+  if (center) markers.unshift({ id: 'office', lat: center.lat, lng: center.lng, label: center.name ?? org.name, tone: 'office' })
 
   return (
     <div className="space-y-3">
@@ -131,7 +131,7 @@ export default function PlaceFinder({ org, keyId, initialQuery, selectedId, onSe
         </p>
       ) : places.length === 0 ? (
         <p className="rounded-xl bg-bg-muted px-4 py-6 text-center text-sm text-text-tertiary">
-          {query ? `회사 근처에서 「${query}」 식당을 찾지 못했어요.` : '회사 근처에서 음식점을 찾지 못했어요.'}
+          {query ? `조직 근처에서 「${query}」 식당을 찾지 못했어요.` : '조직 근처에서 음식점을 찾지 못했어요.'}
         </p>
       ) : (
         <ul className="max-h-64 space-y-1.5 overflow-y-auto" aria-label="근처 식당">
@@ -197,7 +197,7 @@ export default function PlaceFinder({ org, keyId, initialQuery, selectedId, onSe
         </div>
       )}
 
-      <p className="text-xs text-text-placeholder">검색 결과 제공: 카카오 · 거리는 회사에서 직선거리예요</p>
+      <p className="text-xs text-text-placeholder">검색 결과 제공: 카카오 · 거리는 조직 위치에서 직선거리예요</p>
     </div>
   )
 }
