@@ -111,7 +111,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - **지도: 찾기는 카카오 로컬, 보여주기는 네이버 지도.** 카카오 로컬 REST(`place/KakaoLocal` → `RestKakaoLocal`, 키는 서버에만)로 주소를 좌표로 바꾸고, 화면의 지도는 네이버 지도 JS(`lib/naverMaps.ts`, `components/NaverMap.tsx`)로 그린다. 네이버 지역 검색 API는 5건·위치 검색 없음·저장 불가라 쓰지 않는다.
   - **약관상 좌표·검색 결과는 저장·캐시하지 않는다.** 저장하는 것은 사용자가 입력한 주소 문자열뿐이고, `GET /api/orgs/{orgId}/places?optionIds=`가 볼 때마다 회사·식당 주소를 좌표로 바꿔 준다(`place/PlaceSearchService`, 가상 스레드 병렬·4초 마감, 실패한 항목은 빼고 부분 결과). ref는 서버가 그 조직의 옵션에서 만든다(클라이언트가 임의 검색어로 쿼터를 쓰지 못하게). 멤버 확인을 카카오 호출보다 먼저 한다.
   - 카카오 호출은 네트워크를 쓰므로 트랜잭션 밖(컨트롤러·비트랜잭션 서비스)에서 한다. 로그에는 주소·검색어를 남기지 않는다. 테스트는 `FakeKakaoLocalConfiguration`(고정 표, 호출 횟수)이 대신하고, `RestKakaoLocalTest`는 `MockRestServiceServer`로 요청을 확인한다.
-  - 거리·도보 시간은 프론트가 좌표로 계산한다(`lib/distance.ts`: 직선거리, 도보 = 거리 × 1.3 ÷ 분당 67m). 투표 상세는 위치를 폴링과 따로 받는다(`queries/places.ts usePlaces`, 키 = 회사 주소 + 메뉴의 식당 서명). 지도는 `useMediaQuery`로 모바일(메뉴 목록 위, 진행 중에는 접힘)과 데스크톱(사이드 맨 위) 중 한 곳에만 그린다.
+  - 거리·도보 시간은 프론트가 좌표로 계산한다(`lib/distance.ts`: 직선거리, 도보 = 거리 × 1.3 ÷ 분당 67m, 60분이 넘으면 거리만). 투표 상세는 위치를 폴링과 따로 받는다(`queries/places.ts usePlaces`, 키 = 회사 주소 + 메뉴의 식당 서명). 지도는 `useMediaQuery`로 모바일(메뉴 목록 위, 진행 중에는 접힘)과 데스크톱(사이드 맨 위) 중 한 곳에만 그린다.
   - 지도 마커 글자는 사용자 입력(메뉴 이름)이라 DOM 노드의 `textContent`로만 넣는다. `NaverMap`은 `<dialog>`·접힌 영역에서 크기가 0일 수 있어 ResizeObserver로 크기가 생긴 뒤에 지도를 만든다.
 - 조직 안에는 관리자가 없고 모든 멤버의 권한이 같다(서비스 전체를 관리하는 관리자 콘솔은 아래 별도). 마지막 멤버가 탈퇴하면 조직을 삭제하고, 하위 데이터는 DB `ON DELETE CASCADE`로 함께 지운다. 정기 규칙을 삭제하면 `polls.schedule_id`만 NULL이 된다.
 - 멤버가 탈퇴하면 그 조직의 **진행 중인** 투표에서 그 사람의 votes만 지운다. 마감된 투표 기록은 남긴다.
@@ -177,7 +177,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 보안 헤더
   - HSTS·nosniff·X-Frame-Options는 Spring Security가 붙인다.
   - Referrer-Policy·Permissions-Policy·**CSP**는 `deploy/Caddyfile`이 붙인다. Caddyfile이 바뀌면 배포 스크립트가 검증 후 Caddy 컨테이너를 다시 만든다(단일 파일 마운트라 `up -d`만으로는 반영되지 않는다).
-  - CSP가 허용하는 외부 출처는 Google Fonts, `*.googleusercontent.com`(프로필 사진), 네이버 지도(`oapi.map.naver.com` 스크립트, `*.pstatic.net` 타일 스타일 JSONP·타일 이미지)뿐이다. 새 외부 리소스(스크립트, 폰트, 이미지 CDN, 분석 도구)를 추가하면 CSP도 함께 고친다. 안 고치면 운영에서만 막힌다(개발 서버에는 CSP가 없다).
+  - CSP가 허용하는 외부 출처는 Google Fonts, `*.googleusercontent.com`(프로필 사진), 네이버 지도(`oapi.map.naver.com` 스크립트·인증, `*.map.naver.net` 타일 스타일 JSONP·타일, `static.naver.net` 로고, `kr-col-ext.nelo.navercorp.com` 오류 수집, 스킴 없이 적어 운영은 https만)뿐이다. 지도 스크립트가 style 속성을 직접 넣어서 `style-src-attr`만 `'unsafe-inline'`이다(`<style>` 태그·스크립트는 막는다). 새 외부 리소스(스크립트, 폰트, 이미지 CDN, 분석 도구)를 추가하면 CSP도 함께 고친다. 안 고치면 운영에서만 막힌다(개발 서버에는 CSP가 없다).
 - `Dockerfile`이나 `deploy/`를 바꾸면, 합치기 전에 로컬에서 `docker build`와 `deploy/docker-compose.yml`로 스택을 띄워 확인한다(도메인은 `localhost`).
 
 ## 디자인 시스템 (Figma) — 프론트엔드는 이것을 기준으로 개발한다

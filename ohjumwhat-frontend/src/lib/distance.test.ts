@@ -30,7 +30,9 @@ describe('walkMinutes', () => {
 })
 
 describe('distanceLabel', () => {
-  it('거리와 도보 시간을 함께 보여준다', () => {
+  it('거리와 도보 시간을 함께 보여주고, 걸어가기 먼 곳(60분 넘게)은 거리만 보여준다', () => {
     expect(distanceLabel(250)).toBe('250m · 도보 약 5분')
+    expect(distanceLabel(3000)).toBe('3km · 도보 약 58분')
+    expect(distanceLabel(8300)).toBe('8.3km')
   })
 })

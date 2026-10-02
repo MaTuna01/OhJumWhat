@@ -22,7 +22,11 @@ export function walkMinutes(meters: number): number {
   return Math.max(1, Math.round((meters * 1.3) / 67))
 }
 
-/** 카드·목록의 거리 표시: "350m · 도보 약 5분" */
+/** 걸어갈 만한 거리의 도보 시간까지만 보여준다(그보다 멀면 거리만). */
+const MAX_WALK_MINUTES = 60
+
+/** 카드·목록의 거리 표시: "350m · 도보 약 7분", 걸어가기 먼 곳은 "8.3km" */
 export function distanceLabel(meters: number): string {
-  return `${formatDistance(meters)} · 도보 약 ${walkMinutes(meters)}분`
+  const minutes = walkMinutes(meters)
+  return minutes > MAX_WALK_MINUTES ? formatDistance(meters) : `${formatDistance(meters)} · 도보 약 ${minutes}분`
 }

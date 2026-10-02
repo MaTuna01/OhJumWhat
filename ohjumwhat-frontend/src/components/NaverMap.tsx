@@ -104,7 +104,8 @@ export default function NaverMap({ keyId, markers, onSelect, className = 'h-56',
         map,
         position: new naver.maps.LatLng(marker.lat, marker.lng),
         icon: { content: markerElement(marker), anchor: new naver.maps.Point(0, 0) },
-        zIndex: marker.tone === 'default' ? 10 : 20,
+        // 식당을 회사 위에 그린다(회사 바로 옆 식당 글자가 가리지 않게). 고른 식당이 가장 위
+        zIndex: marker.tone === 'office' ? 5 : marker.tone === 'brand' ? 20 : 10,
         title: marker.label,
       })
       naver.maps.Event.addListener(overlay, 'click', () => onSelectRef.current?.(marker.id))
