@@ -59,6 +59,12 @@ class AdminController {
 		adminService.withdraw(admin.getUserId(), userId);
 	}
 
+	@DeleteMapping("/users/{userId}/photo")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	void deleteUserPhoto(@AuthenticationPrincipal LoginUser admin, @PathVariable Long userId) {
+		adminService.deleteUserPhoto(admin.getUserId(), userId);
+	}
+
 	@GetMapping("/blocks")
 	List<AdminResponses.Block> blocks() {
 		return adminService.blocks();

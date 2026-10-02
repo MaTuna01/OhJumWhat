@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { DangerZone, EmptyRow, ListRow, StatCard } from '../../components/AdminParts.tsx'
 import Avatar from '../../components/Avatar.tsx'
@@ -11,18 +11,20 @@ import { useNow } from '../../hooks/useNow.ts'
 import { ApiError } from '../../lib/api.ts'
 import { formatAgo, formatDate, formatDay, formatDayTime } from '../../lib/time.ts'
 import { columnsClass } from '../../lib/ui.ts'
-import { useAdminUser, useWithdrawUser } from '../../queries/admin.ts'
+import { useAdminUser, useDeleteUserPhoto, useWithdrawUser } from '../../queries/admin.ts'
 import { useMe } from '../../queries/me.ts'
 
-/** Figma A03·DA03 회원 상세: 프로필, 활동, 소속 조직, 강제 탈퇴(A03-M) */
+/** Figma A03·DA03 회원 상세: 프로필(올린 사진 지우기 A03-M2), 활동, 소속 조직, 강제 탈퇴(A03-M) */
 export default function AdminUserPage() {
   const userId = Number(useParams().userId)
   const detail = useAdminUser(userId)
   const { data: me } = useMe()
   const withdraw = useWithdrawUser()
+  const deletePhoto = useDeleteUserPhoto()
   const navigate = useNavigate()
   const now = useNow(60_000)
   const [confirming, setConfirming] = useState(false)
+  const [clearingPhoto, setClearingPhoto] = useState(false)
   useDocumentTitle(detail.data?.user.name, '관리자 콘솔')
 
   const back = (
@@ -66,6 +68,25 @@ export default function AdminUserPage() {
               <InfoRow label="가입" value={formatDate(user.createdAt)} />
               <InfoRow label="최근 로그인" value={user.lastLoginAt ? formatDayTime(user.lastLoginAt, now) : '기록 없음'} />
               <InfoRow label="최근 접속" value={lastAccessAt ? formatAgo(lastAccessAt, now) : '로그인 세션 없음'} />
+              <InfoRow
+                label="프로필 사진"
+                value={
+                  user.customPhoto ? (
+                    <span className="inline-flex items-center gap-2">
+                      올린 사진
+                      <button
+                        type="button"
+                        onClick={() => setClearingPhoto(true)}
+                        className="font-medium text-text-danger underline underline-offset-2 hover:no-underline"
+                      >
+                        지우기
+                      </button>
+                    </span>
+                  ) : (
+                    '구글 사진'
+                  )
+                }
+              />
             </dl>
           </section>
 
@@ -107,6 +128,22 @@ export default function AdminUserPage() {
       </div>
 
       <ConfirmDialog
+        open={clearingPhoto}
+        onClose={() => {
+          deletePhoto.reset()
+          setClearingPhoto(false)
+        }}
+        onConfirm={() => deletePhoto.mutate(user.id, { onSuccess: () => setClearingPhoto(false) })}
+        title="올린 사진을 지울까요?"
+        confirmLabel="지우기"
+        danger
+        pending={deletePhoto.isPending}
+        error={deletePhoto.error?.message}
+      >
+        <p>{user.name} 님이 올린 프로필 사진을 지우고 구글 사진으로 되돌려요. 본인에게 따로 알리지 않아요.</p>
+      </ConfirmDialog>
+
+      <ConfirmDialog
         open={confirming}
         onClose={() => {
           withdraw.reset()
@@ -130,7 +167,7 @@ export default function AdminUserPage() {
   )
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoRow({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex justify-between gap-4">
       <dt className="text-text-tertiary">{label}</dt>

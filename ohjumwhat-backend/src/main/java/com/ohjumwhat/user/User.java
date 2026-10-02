@@ -17,6 +17,9 @@ import jakarta.persistence.Table;
 @Table(name = "users")
 public class User {
 
+	/** 올린 프로필 사진의 주소 앞부분 */
+	public static final String PHOTO_PATH = "/api/photos/";
+
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
@@ -34,7 +37,15 @@ public class User {
 	/** 마이페이지에서 정한 별명(없으면 null). 있으면 구글 이름 대신 보여준다. */
 	private String nickname;
 
+	/** 구글 프로필 사진 주소. 로그인 때마다 갱신한다. 화면에는 {@link #getPhotoUrl()}을 쓴다. */
 	private String profileImageUrl;
+
+	/**
+	 * 직접 올린 프로필 사진의 파일 키(없으면 null). UserRepository.updatePhotoKey로만 바꾼다.
+	 * 엔티티를 저장할 때 이 컬럼을 쓰지 않아, 같은 순간의 로그인(프로필 갱신)이 옛 키를 되써서 사진이 깨지는 일이 없다.
+	 */
+	@Column(insertable = false, updatable = false, length = 32)
+	private String photoKey;
 
 	// DB 기본값은 Hibernate가 INSERT에 컬럼을 넣으므로 쓰이지 않는다. 여기서 기본값을 둔다.
 	@Enumerated(EnumType.STRING)
@@ -128,6 +139,20 @@ public class User {
 
 	public String getProfileImageUrl() {
 		return profileImageUrl;
+	}
+
+	public String getPhotoKey() {
+		return photoKey;
+	}
+
+	/** 화면에 보여줄 사진: 올린 사진, 없으면 구글 사진. JPQL에서는 photoKey와 profileImageUrl을 함께 골라 {@link #photoUrl}로 만든다. */
+	public String getPhotoUrl() {
+		return photoUrl(photoKey, profileImageUrl);
+	}
+
+	/** 올린 사진은 {@code /api/photos/{key}.jpg}(ProfilePhotoController)로 보낸다. 없으면 구글 사진 주소(없으면 null). */
+	public static String photoUrl(String photoKey, String googleUrl) {
+		return photoKey == null ? googleUrl : PHOTO_PATH + photoKey + ".jpg";
 	}
 
 	public Role getRole() {

@@ -27,7 +27,10 @@ export type AdminUser = {
   /** 구글 계정 이름 */
   googleName: string
   email: string
+  /** 화면 사진(올린 사진, 없으면 구글 사진) */
   profileImageUrl: string | null
+  /** 직접 올린 사진이 있으면 true(관리자가 지울 수 있다) */
+  customPhoto: boolean
   role: Role
   createdAt: string
   lastLoginAt: string | null
@@ -163,6 +166,10 @@ function useAdminMutation<T, V>(mutationFn: (variables: V) => Promise<T>) {
 }
 
 export const useWithdrawUser = () => useAdminMutation((userId: number) => api<void>(`/api/admin/users/${userId}`, { method: 'DELETE' }))
+
+/** 올린 프로필 사진 지우기(구글 사진으로 돌아간다) */
+export const useDeleteUserPhoto = () =>
+  useAdminMutation((userId: number) => api<void>(`/api/admin/users/${userId}/photo`, { method: 'DELETE' }))
 
 export const useUnblock = () => useAdminMutation((blockId: number) => api<void>(`/api/admin/blocks/${blockId}`, { method: 'DELETE' }))
 

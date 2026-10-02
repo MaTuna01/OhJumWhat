@@ -56,4 +56,6 @@ dependencies {
 
 tasks.withType<Test> {
 	useJUnitPlatform()
+	// 프로필 사진 테스트가 Java2D로 그림을 그린다. macOS에서 창(Dock 아이콘)을 띄우지 않게 헤드리스로 돌린다.
+	systemProperty("java.awt.headless", "true")
 }

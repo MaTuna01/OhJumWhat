@@ -22,6 +22,7 @@ import org.springframework.session.FindByIndexNameSessionRepository;
 import org.springframework.session.Session;
 
 import com.ohjumwhat.IntegrationTest;
+import com.ohjumwhat.TestImages;
 import com.ohjumwhat.menu.MenuService;
 import com.ohjumwhat.organization.InviteService;
 import com.ohjumwhat.organization.OrganizationResponse;
@@ -35,6 +36,7 @@ import com.ohjumwhat.schedule.PollSchedule;
 import com.ohjumwhat.schedule.PollScheduleRepository;
 import com.ohjumwhat.user.BlockedAccountException;
 import com.ohjumwhat.user.BlockedAccountRepository;
+import com.ohjumwhat.user.ProfilePhotoService;
 import com.ohjumwhat.user.User;
 import com.ohjumwhat.user.UserRepository;
 import com.ohjumwhat.user.UserService;
@@ -74,6 +76,9 @@ class AdminIntegrationTest extends IntegrationTest {
 
 	@Autowired
 	FindByIndexNameSessionRepository<? extends Session> sessionRepository;
+
+	@Autowired
+	ProfilePhotoService profilePhotoService;
 
 	User admin;
 
@@ -173,12 +178,16 @@ class AdminIntegrationTest extends IntegrationTest {
 	void 강제_탈퇴하면_조직에서_빠지고_응답은_지워지고_메뉴는_남고_세션이_끝나고_재가입이_막힌다() throws Exception {
 		createSession(sessionRepository, "sub-lee");
 		assertThat(countSessions("sub-lee")).isEqualTo(1);
+		profilePhotoService.upload(lee.getId(), TestImages.jpeg(512, 512));
+		assertThat(photoFiles()).hasSize(1);
 
 		mockMvc.perform(delete("/api/admin/users/" + lee.getId()).with(loginAs(admin)).with(xsrf()))
 			.andExpect(status().isNoContent());
 
 		assertThat(userRepository.findById(lee.getId())).isEmpty();
 		assertThat(countSessions("sub-lee")).isZero();
+		// 올린 프로필 사진 파일도 지운다.
+		assertThat(photoFiles()).isEmpty();
 		// 다른 멤버가 있는 조직은 남고, 혼자였던 조직은 삭제된다.
 		assertThat(jdbcTemplate.queryForObject("select count(*) from organizations where id = ?", Long.class,
 				soloOrgId)).isZero();
@@ -198,6 +207,28 @@ class AdminIntegrationTest extends IntegrationTest {
 		assertThatThrownBy(() -> userService.login("sub-lee", "lee@example.com", true, "이영희", null))
 			.isInstanceOf(BlockedAccountException.class);
 		assertThat(userRepository.count()).isEqualTo(2);
+	}
+
+	@Test
+	void 올린_프로필_사진을_지우면_구글_사진으로_돌아가고_파일도_지워진다() throws Exception {
+		profilePhotoService.upload(lee.getId(), TestImages.jpeg(512, 512));
+		mockMvc.perform(get("/api/admin/users/" + lee.getId()).with(loginAs(admin)))
+			.andExpect(jsonPath("$.user.customPhoto").value(true));
+		mockMvc.perform(delete("/api/admin/users/" + lee.getId() + "/photo").with(loginAs(kim)).with(xsrf()))
+			.andExpect(status().isForbidden());
+
+		mockMvc.perform(delete("/api/admin/users/" + lee.getId() + "/photo").with(loginAs(admin)).with(xsrf()))
+			.andExpect(status().isNoContent());
+
+		assertThat(photoFiles()).isEmpty();
+		mockMvc.perform(get("/api/admin/users/" + lee.getId()).with(loginAs(admin)))
+			.andExpect(jsonPath("$.user.customPhoto").value(false))
+			.andExpect(jsonPath("$.user.profileImageUrl").value(nullValue()));
+		// 올린 사진이 없어도 그대로 성공하고, 없는 회원은 404
+		mockMvc.perform(delete("/api/admin/users/" + lee.getId() + "/photo").with(loginAs(admin)).with(xsrf()))
+			.andExpect(status().isNoContent());
+		mockMvc.perform(delete("/api/admin/users/999999/photo").with(loginAs(admin)).with(xsrf()))
+			.andExpect(status().isNotFound());
 	}
 
 	@Test

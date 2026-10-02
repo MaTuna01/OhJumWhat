@@ -31,6 +31,7 @@
 | 11 | 식당 정보·네이버 지도 연동 1차: 공유 링크로 식당 붙이기(장소 정식 링크·식당 이름), 조직 위치 | 완료(v1.6.0) | [#32](https://github.com/MaTuna01/OhJumWhat/pull/32) |
 | 15 | 식당 검색·네이버 지도 연동(지도 연동 3단계): 조직 주소·검색 반경, 투표 지도·거리(1차), 근처 식당 찾기·둘러보기·지난 식당(2차). 찾기는 카카오 로컬, 지도는 네이버 | 완료(v1.7.0) | [#41](https://github.com/MaTuna01/OhJumWhat/pull/41), [#42](https://github.com/MaTuna01/OhJumWhat/pull/42) |
 | - | 투표별 채팅·메뉴 댓글(Notion 「14. 투표별 채팅/댓글 기능 추가」): 1단계 메뉴 댓글(진행 중에만 쓰기, 마감 뒤 읽기 전용, 관리자 삭제) → 2단계 투표 채팅(WebSocket, 마감 후 1시간까지) | 1단계 완료([#55](https://github.com/MaTuna01/OhJumWhat/pull/55)), 2단계 진행 중 | 이슈 [#54](https://github.com/MaTuna01/OhJumWhat/issues/54), [#57](https://github.com/MaTuna01/OhJumWhat/issues/57) |
+| - | 프로필 사진: 직접 맞춰 올린 사진(서버 디스크 볼륨에 256px JPEG, DB와 함께 백업), 「프로필 수정」 모달(사진·이름 한 번에 저장), 관리자 「올린 사진 지우기」 | 완료(dev, 릴리스 전) | [#56](https://github.com/MaTuna01/OhJumWhat/pull/56) |
 
 확장 기능(8~13단계)의 순서와 체크리스트는 Notion Tasks에 있다. 기획서 「나중에」 목록을 구현 난이도 순으로 정렬했다: 8 투표 조기 마감·수정·삭제 → 9 메뉴에 식당 지도 링크 → 10 메뉴 통계 → 11 식당 정보·지도 연동(검색 API는 약관상 결과를 저장할 수 없어 네이버 공유 링크 방식으로, 결과 지도는 다음 단계) → 12 중복 투표 → 13 최소 인원 미달 자동 해산. 14 공지사항(새 소식)은 배포마다 바뀐 점을 알리려고 나중에 추가했다.
 
@@ -84,6 +85,7 @@ ohjumwhat/
 - V6: `notices`(새 소식: 업데이트·개발자 노트, 게시 시각), `users.notices_seen_at`(새 소식을 마지막으로 본 시각)
 - V8: `menu_options.place_address`(식당 주소), `organizations.office_address`·`search_radius`(조직 주소, 검색 반경 500·1000·2000m). 좌표는 약관상 저장하지 않는다
 - V9: `menu_options.kakao_place_id`·`place_query`(근처 식당 찾기로 고른 카카오 식당: 장소 ID와 검색어만, 이름·위치는 볼 때 다시 찾는다)
+- V10: `users.photo_key`(올린 프로필 사진의 파일 키. 파일은 서버 디스크 `ohjumwhat.photos.dir`의 `{key}.jpg`)
 - UNIQUE: memberships(org, user), votes(poll, user), polls(schedule_id, poll_date), menu_options(poll_id, name)
 - CHECK: close_time > open_time, closes_at > opens_at. 인덱스: polls(organization_id, poll_date)
 - FK
@@ -107,7 +109,7 @@ ohjumwhat/
 
 | 영역 | 엔드포인트 | 상태 |
 |---|---|---|
-| 나 | `GET /api/me` (프로필 + lastVisitedOrgId, name은 별명 또는 구글 이름), `PUT /api/me/nickname` (별명, 비우면 구글 이름), `GET /api/me/orgs` (이름·멤버 수·오늘 진행 중인 투표 여부) | 완료 |
+| 나 | `GET /api/me` (프로필 + lastVisitedOrgId, name은 별명 또는 구글 이름), `PUT /api/me/nickname` (별명, 비우면 구글 이름), `POST·DELETE /api/me/photo` (프로필 사진 올리기·구글 사진으로 되돌리기), `GET /api/photos/{key}.jpg` (올린 사진, 로그인 필요·긴 캐시), `GET /api/me/orgs` (이름·멤버 수·오늘 진행 중인 투표 여부) | 완료 |
 | 조직 | `POST /api/orgs`, `GET /api/orgs/{id}` (last_visited_at 갱신), `PATCH /api/orgs/{id}`, `PUT /api/orgs/{id}/location` (검색 지역·조직 위치·조직 주소·검색 반경), `GET /api/orgs/{id}/members`, `DELETE /api/orgs/{id}/membership` | 완료 |
 | 초대 | `GET /api/invites/{token}`, `POST /api/invites/{token}/join` | 완료 |
 | 투표 | `GET /api/orgs/{id}/polls/today`, `GET /api/orgs/{id}/polls/history?page=` (지난 투표, 10개씩), `POST /api/orgs/{id}/polls` (title, closesAt "HH:mm"), `GET /api/orgs/{id}/polls/{pollId}` (상세 집계) | 완료 |
@@ -118,6 +120,7 @@ ohjumwhat/
 | 참여 | `PUT /api/polls/{pollId}/vote` `{optionId: number \| null}` (null이면 "오늘은 패스") | 완료 |
 | 정기 | `GET/POST /api/orgs/{id}/schedules`, `PUT/DELETE /api/orgs/{id}/schedules/{sid}` | 완료 |
 | 새 소식 | `GET /api/notices?page=` (최신순 10개씩, 항목마다 unread), `GET /api/notices/unread` (안 읽은 수·가장 최근 것), `POST /api/notices/seen` | 완료 |
+| 관리자 사진 | `DELETE /api/admin/users/{id}/photo` (올린 프로필 사진 지우기, 구글 사진으로) | 완료 |
 | 관리자 공지 | `POST /api/admin/notices`, `PUT/DELETE /api/admin/notices/{id}` (개발자 노트만, 업데이트 글은 409) | 완료 |
 
 **핵심 규칙**
