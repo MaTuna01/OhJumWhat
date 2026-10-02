@@ -8,6 +8,9 @@ services:
     environment:
       DB_HOST: db
       DB_PORT: 5432
+    volumes:
+      # 올린 프로필 사진(이미지의 PHOTOS_DIR). backup.sh가 DB와 함께 백업한다.
+      - photos:/data/photos
     depends_on:
       db:
         condition: service_healthy
@@ -48,5 +51,6 @@ services:
 
 volumes:
   db-data:
+  photos:
   caddy-data:
   caddy-config:

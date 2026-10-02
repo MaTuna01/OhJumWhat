@@ -24,6 +24,8 @@ ohjumwhat-backend/.gradle/
 ohjumwhat-backend/bin/
 ohjumwhat-backend/out/
 ohjumwhat-backend/src/main/resources/static/
+# 로컬에서 올린 프로필 사진(ohjumwhat.photos.dir 기본값)
+ohjumwhat-backend/data/
 
 # Logs
 *.log

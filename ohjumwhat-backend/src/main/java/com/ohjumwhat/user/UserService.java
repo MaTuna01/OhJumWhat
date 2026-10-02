@@ -29,14 +29,18 @@ public class UserService {
 
 	private final AdminProperties adminProperties;
 
+	private final ProfilePhotoStorage photoStorage;
+
 	private final Clock clock;
 
 	public UserService(UserRepository userRepository, MembershipRepository membershipRepository,
-			BlockedAccountRepository blockedAccountRepository, AdminProperties adminProperties, Clock clock) {
+			BlockedAccountRepository blockedAccountRepository, AdminProperties adminProperties,
+			ProfilePhotoStorage photoStorage, Clock clock) {
 		this.userRepository = userRepository;
 		this.membershipRepository = membershipRepository;
 		this.blockedAccountRepository = blockedAccountRepository;
 		this.adminProperties = adminProperties;
+		this.photoStorage = photoStorage;
 		this.clock = clock;
 	}
 
@@ -114,6 +118,23 @@ public class UserService {
 		return toMe(user);
 	}
 
+	/**
+	 * 올린 프로필 사진의 키를 바꾼다(null이면 구글 사진으로 돌아간다). 새 파일은 ProfilePhotoService가 미리 써 두고,
+	 * 옛 파일은 커밋한 뒤에 지운다. 같은 회원의 강제 탈퇴·관리자 사진 지우기와 겹치지 않게 행을 잠근다.
+	 */
+	@Transactional
+	public MeResponse changePhoto(Long userId, String photoKey) {
+		User user = userRepository.findByIdForUpdate(userId)
+			.orElseThrow(() -> ApiException.unauthorized("다시 로그인해 주세요."));
+		String oldKey = user.getPhotoKey();
+		if (photoKey != null || oldKey != null) {
+			userRepository.updatePhotoKey(userId, photoKey);
+			photoStorage.deleteAfterCommit(oldKey);
+			log.info("프로필 사진 변경: userId={}, 올린 사진 있음={}", userId, photoKey != null);
+		}
+		return toMe(findMe(userId));
+	}
+
 	private User findMe(Long userId) {
 		return userRepository.findById(userId).orElseThrow(() -> ApiException.unauthorized("다시 로그인해 주세요."));
 	}
@@ -123,7 +144,8 @@ public class UserService {
 			.map(Membership::getOrganizationId)
 			.orElse(null);
 		return new MeResponse(user.getId(), user.getDisplayName(), user.getNickname(), user.getName(),
-				user.getEmail(), user.getProfileImageUrl(), lastVisitedOrgId, user.isAdmin());
+				user.getEmail(), user.getPhotoUrl(), user.getProfileImageUrl(), user.getPhotoKey() != null,
+				lastVisitedOrgId, user.isAdmin());
 	}
 
 	private void requireNotBlocked(String googleSub) {

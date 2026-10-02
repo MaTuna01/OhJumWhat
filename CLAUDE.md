@@ -68,6 +68,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - `application.yml`에는 `${DB_PASSWORD}` 같은 플레이스홀더만 둔다. `spring.config.import: optional:file:../.env[.properties]`로 로컬 `bootRun`이 루트 `.env`를 읽는다. 운영(Docker)에서는 compose의 `env_file`로 주입한다.
 - `ohjumwhat-backend/src/test/resources/application.yml`은 커밋된 테스트 전용 설정이다. 클래스패스에서 main의 `application.yml`보다 먼저 잡혀 이를 가린다. DB 연결은 `TestcontainersConfiguration`의 `@ServiceConnection`(postgres:18-alpine)으로 받는다.
 - 구글 OAuth 로컬 리디렉션 URI는 `http://localhost:5173/login/oauth2/code/google`이다(Vite 프록시 경유).
+- 프로필 사진 폴더는 `ohjumwhat.photos.dir`(`PHOTOS_DIR`)다. 로컬은 비어 있으면 `ohjumwhat-backend/data/photos`(gitignore), 운영은 이미지의 `/data/photos`(Docker 볼륨 `photos`), 테스트는 `build/test-photos`(`IntegrationTest`가 테스트마다 비운다)다.
 - 지도 키는 `ohjumwhat.maps`(`KAKAO_REST_KEY`, `NAVER_MAP_KEY_ID`)다. 비어 있으면 지도·거리를 끄고 링크 방식만 쓴다(테스트·로컬에서 키 없이도 뜬다). 네이버 지도 키는 프론트 빌드에 넣지 않고 `GET /api/config`로 받는다.
 
 ## 아키텍처
@@ -81,14 +82,19 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 로그인 버튼은 `/oauth2/authorization/google`로 이동한다. 로그인에 성공하면 서버는 항상 `/`로 보낸다.
 - 그다음 어디로 갈지는 프론트 `RootRedirect`가 정한다. `lib/entry.ts` 순서대로 sessionStorage에 기억해 둔 경로(초대 링크) → 최근 조직 → `/me`로 보낸다.
 - `GoogleOidcUserService`가 google_sub 기준으로 users를 upsert하고, 세션 principal로 `LoginUser`(users.id 포함)를 둔다. 컨트롤러에서는 `@AuthenticationPrincipal LoginUser`로 받는다.
-- 화면에 보이는 사람 이름은 **별명(`users.nickname`, V5), 없으면 구글 이름(`users.name`)**이다(`User.getDisplayName()`, JPQL은 `coalesce(u.nickname, u.name)`). 구글 이름은 로그인 때마다 갱신되고 별명은 그대로 둔다. 별명은 마이페이지 「이름 바꾸기」(`PUT /api/me/nickname`, 20자, 비우면 구글 이름)로 정한다. 사람 이름을 새로 내려주는 쿼리·응답을 만들 때도 이 규칙을 따른다(관리자 콘솔은 `googleName`도 함께 준다).
+- 화면에 보이는 사람 이름은 **별명(`users.nickname`, V5), 없으면 구글 이름(`users.name`)**이다(`User.getDisplayName()`, JPQL은 `coalesce(u.nickname, u.name)`). 구글 이름은 로그인 때마다 갱신되고 별명은 그대로 둔다. 별명은 마이페이지 「프로필 수정」(`PUT /api/me/nickname`, 20자, 비우면 구글 이름)으로 정한다. 사람 이름을 새로 내려주는 쿼리·응답을 만들 때도 이 규칙을 따른다(관리자 콘솔은 `googleName`도 함께 준다).
+- 사진도 같은 규칙이다: **올린 사진(`users.photo_key`, V10), 없으면 구글 사진(`users.profile_image_url`)**. 응답의 `profileImageUrl`은 보여줄 사진이고, `User.getPhotoUrl()`·`User.photoUrl(key, googleUrl)`이 만든다. JPQL은 `u.photoKey, u.profileImageUrl`을 함께 고르고 DTO의 보조 생성자가 주소를 만든다(예: `MemberResponse`, `AdminResponses.UserRow`). 사람 사진을 새로 내려주는 쿼리도 이렇게 한다.
+  - 사진 파일은 디스크(`ohjumwhat.photos.dir`)에 `{key}.jpg`(256px JPEG)로 두고, `GET /api/photos/{key}.jpg`(로그인 필요, `Cache-Control: private, immutable`)로 보낸다. 새로 올리면 키가 바뀐다.
+  - 올리기는 `POST /api/me/photo`(multipart `photo`), 되돌리기는 `DELETE /api/me/photo`다. 브라우저가 512px로 잘라 보내고, 서버(`ProfilePhotoImages`)가 2048px 이하 JPEG·PNG만 받아 256px JPEG로 다시 그린다(EXIF 제거).
+  - `photo_key`는 엔티티에서 `updatable=false`이고 `UserRepository.updatePhotoKey`로만 바꾼다. 로그인은 회원 행 전체를 다시 쓰므로, 그러지 않으면 같은 순간의 로그인이 옛 키를 되써서 사진이 깨진다.
+  - 새 파일은 DB를 바꾸기 전에 쓰고, 옛 파일은 커밋한 뒤에 지운다(`ProfilePhotoStorage.deleteAfterCommit`). DB가 없는 파일을 가리키는 일은 없고, 실패하면 아무도 가리키지 않는 파일만 남는다.
 - CSRF는 `csrf.spa()` 방식이다. `CsrfCookieFilter`가 매 응답에 `XSRF-TOKEN` 쿠키를 내리고, 프론트 `lib/api.ts`가 GET이 아닌 요청에 `X-XSRF-TOKEN` 헤더로 붙인다.
 - 로그아웃은 `POST /logout`이고 204를 준다.
 - 세션은 Spring Session JDBC로 DB(`spring_session` 테이블, Flyway V2)에 저장한다. 그래서 서버를 재시작·재배포해도 로그인이 유지된다. `SESSION` 쿠키의 유효기간은 30일이다.
 - request cache는 꺼 두었다(`NullRequestCache`). 로그인 후에는 항상 `/`로 가고, 로그인하지 않은 요청에는 세션을 만들지 않는다.
 
 **API 규칙**
-- 사용자에게 보여줄 오류는 `ApiException`(`notFound`/`badRequest`/`forbidden`/`conflict`)으로 던진다. `GlobalExceptionHandler`가 이를 `{"message": "..."}`로 응답하고, 요청 값 검증 실패(`@Valid`)도 같은 형식으로 준다. 프론트 `api()`는 이 `message`를 `ApiError.message`로 꺼낸다.
+- 사용자에게 보여줄 오류는 `ApiException`(`notFound`/`badRequest`/`forbidden`/`conflict`)으로 던진다. `GlobalExceptionHandler`가 이를 `{"message": "..."}`로 응답하고, 요청 값 검증 실패(`@Valid`)와 파일 올리기 오류(multipart 아님·파트 없음 400, 한도 초과 413)도 같은 형식으로 준다. 프론트 `api()`는 이 `message`를 `ApiError.message`로 꺼낸다.
 - 조직 하위 API는 먼저 `MembershipService.requireMember(orgId, userId)`를 호출한다. 멤버가 아니면 조직이 있는지도 알리지 않도록 404로 응답한다.
 - 조회용 DTO가 필요하면 JPQL `select new ...Record(...)`로 바로 만든다(예: `MembershipRepository.findMembers`).
 - 투표 관련 쓰기 API(메뉴 추가·삭제, 참여·패스)는 모두 최신 `PollDetailResponse`를 돌려준다. 프론트는 이 응답을 바로 쿼리 캐시에 넣는다. 메뉴 댓글 쓰기 API만 그 메뉴의 최신 댓글 목록을 돌려준다(아래 「메뉴 댓글」).
@@ -161,6 +167,8 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 회원을 지우면 응답(votes)은 CASCADE로 지워지고, 올린 메뉴는 `menu_options.created_by`만 NULL이 된다. 응답·화면에서는 `createdBy: null` → "탈퇴한 사용자"로 보여준다.
   - 차단된 구글 계정의 로그인은 `GoogleOidcUserService`가 `OAuth2AuthenticationException("account_blocked")`로 거절하고, 실패 핸들러가 `/login?error=blocked`로 보낸다. 차단은 콘솔 「차단」 탭에서 풀 수 있다.
   - 자기 자신과 다른 관리자는 강제 탈퇴할 수 없다(409). 회원 행이 없어진 세션의 `/api/me`는 401이고 세션을 끝낸다.
+  - 강제 탈퇴하면 올린 프로필 사진 파일도 커밋한 뒤에 지운다.
+- 회원 상세의 「올린 사진 지우기」(`DELETE /api/admin/users/{id}/photo`, 204)는 부적절한 사진 대응용이다. 구글 사진으로 돌아가고, 올린 사진이 없으면 아무것도 하지 않는다.
 - `OrganizationService.leave`(본인 탈퇴, 없으면 404)와 `removeMember`(관리자용, 없으면 아무것도 안 함)는 같은 내부 로직을 쓴다. 같은 트랜잭션 안에서 예외를 내면 트랜잭션 전체가 롤백되므로 관리자 작업은 `removeMember`를 쓴다.
 - 진행 중인 정기 투표를 지우면 스케줄러가 1분 안에 다시 열기 때문에, 투표 삭제는 `withSchedule`로 규칙도 함께 지울 수 있다.
 - 조회 쿼리는 `admin/AdminRepository`(JPQL `select new AdminResponses$...`)에 모아 둔다. 목록은 검색어 `q`, 최대 100건이다.
@@ -205,6 +213,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 이미지를 만들 때 `application.example.yml`을 `application.yml`로 복사한다. 그래서 설정 키를 추가하면 예시 파일에도 반드시 넣어야 운영에 반영된다. 실제 값은 서버 `~/ohjumwhat/.env`(템플릿: `deploy/.env.example`)에 둔다.
 - Caddy가 HTTPS를 맡고, `X-Forwarded-*` 헤더로 원래 주소를 넘긴다. 그래서 앱은 https 리디렉션 URI를 만들고, `Secure` 쿠키를 쓴다.
 - 서버 설정, Secrets, 롤백, 백업·복원 방법은 `docs/DEPLOY.md`에 있다.
+- 올린 프로필 사진은 Docker 볼륨 `photos`(앱 컨테이너 `/data/photos`, 소유자 `app`)에 있다. `deploy/backup.sh`가 매일 DB와 함께 tar.gz로 백업하고, 복원도 같은 시각의 DB와 사진을 함께 한다.
 - `dev` → `main` 승격 하나가 릴리스 하나다. 승격 전에 버전(`build.gradle.kts`, `package.json`)을 올리고 `CHANGELOG.md`를 적는다. 배포 뒤에는 `vX.Y.Z` 태그와 GitHub Release를 만든다(`docs/DEPLOY.md` 「릴리스와 버전」).
   - 사용자에게 보이는 변경이 있으면 업데이트 글 `ohjumwhat-backend/src/main/resources/release-notes/X.Y.Z.md`도 함께 적는다. 배포되면 새 소식에 자동으로 올라간다. CHANGELOG는 개발자용, 업데이트 글은 사용자용이다(사용자 말투 3~5줄, DB·마이그레이션 같은 개발 용어는 쓰지 않는다).
 - 보안 헤더
@@ -220,9 +229,9 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 「디자인 시스템」 페이지
     - Foundations 프레임: 로고, 컨셉 컬러, 원색 팔레트, 의미 기반 토큰, 타이포그래피, 간격·둥글기·그림자
     - Components 프레임: Button, Badge, Avatar, OptionCard, Input, Logo, TopBar(「새 소식 점」 속성), UpdateToast, MapPin(지도 핀)
-  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 별명(`03-N` 마이페이지, `03-M2` 이름 바꾸기), 지난 투표(`04-H`), 새 소식 배너(`04-B`), 결과 복사(`05b-S`), 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제), 식당 붙이기(`05-L`, `05-M4` 식당 모달), 식당 찾기 모달(`05-F`), 투표 지도(`05-G`, 크게 보기 `05-G2`), 메뉴 추천(`05-R`, 지난 식당·고른 식당 칩 `05-R2`), 메뉴 댓글(`05-K` 진행 중, `05b-K` 마감 결과 읽기 전용), 조직 위치(`07-L`, 조직 주소·반경·지도), `08 통계`, `09 새 소식`
+  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 별명·프로필 사진(`03-N` 마이페이지, `03-M2` 프로필 수정, `03-M3` 사진 맞추기), 지난 투표(`04-H`), 새 소식 배너(`04-B`), 결과 복사(`05b-S`), 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제), 식당 붙이기(`05-L`, `05-M4` 식당 모달), 식당 찾기 모달(`05-F`), 투표 지도(`05-G`, 크게 보기 `05-G2`), 메뉴 추천(`05-R`, 지난 식당·고른 식당 칩 `05-R2`), 메뉴 댓글(`05-K` 진행 중, `05b-K` 마감 결과 읽기 전용), 조직 위치(`07-L`, 조직 주소·반경·지도), `08 통계`, `09 새 소식`
   - 「와이어프레임 · 데스크톱」 페이지: 같은 화면의 데스크톱(1440px) 버전(`D01`~`D07-M`, `D03-N`, `D04-H`, `D05-A`, `D05-G`, `D05-G2`, `D05-K`, `D07-L`, `D08`, `D09`). 모달은 모바일 `-M` 프레임과 같다(큰 지도 모달 `D05-G2`만 넓다).
-  - 「관리자 콘솔」 페이지: 관리자 화면(모바일 `A01`~`A08`, 데스크톱 `DA01`~`DA08`, 강제 탈퇴 모달 `-M`, 공지 글쓰기 모달 `A08-M`, 메뉴 댓글 지우기 `A06-K`, 차단된 로그인 `L01`)과 로컬 컴포넌트 StatCard·ListRow
+  - 「관리자 콘솔」 페이지: 관리자 화면(모바일 `A01`~`A08`, 데스크톱 `DA01`~`DA08`, 강제 탈퇴 모달 `-M`, 올린 사진 지우기 `A03-M2`, 공지 글쓰기 모달 `A08-M`, 메뉴 댓글 지우기 `A06-K`, 차단된 로그인 `L01`)과 로컬 컴포넌트 StatCard·ListRow
     - 콘텐츠 폭 1024px 가운데 정렬. 1024px 이상(`lg`)에서 본문 + 오른쪽 사이드(320px) 2단, 그보다 좁으면 모바일 레이아웃을 쓴다.
     - 로그인은 좌우 분할(왼쪽 브랜드 소개·투표 미리보기, 오른쪽 로그인), 모달은 폭 448px이다.
 - **새 화면이나 컴포넌트를 만들 때는 먼저 해당 Figma 프레임을 보고 그대로 구현한다.**
@@ -241,7 +250,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - **컴포넌트 대응**
   - Button → `components/Button.tsx`, `lib/ui.ts`의 `buttonClass`
   - Input → `lib/ui.ts`의 `inputClass`
-  - Avatar → `components/Avatar.tsx`
+  - Avatar → `components/Avatar.tsx`(Sm·Md·Lg·Xl, 사진을 불러오지 못하면 첫 글자)
   - Logo → `components/Logo.tsx`(`Logo`, `LogoMark`)
   - TopBar → `components/AppLayout.tsx`
   - Badge → `components/Badge.tsx`
@@ -251,7 +260,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - MapPin(지도 핀) → `NaverMap`의 `markerElement`: 물방울 핀 끝이 정확한 위치, 이름표는 핀 오른쪽. Tone(조직 위치·내 메뉴·그 밖), Number(식당 찾기 번호, 핀 머리), Show Label(식당 찾기는 고른 식당만 이름표)
   - 모달 크기: `Modal`의 `size="lg"`(폭 1024px, 큰 지도)와 `closable`(제목 옆 ✕). 기본은 448px
   - 멤버 카드(Figma 「멤버 N명」) → `components/MemberList.tsx`(조직 설정, 데스크톱 조직 홈 사이드)
-  - 이름 바꾸기 모달(03-M2) → `components/NicknameModal.tsx`
+  - 프로필 수정 모달(03-M2) → `components/ProfileModal.tsx`(사진·이름을 「저장」 한 번에, 사진을 먼저 저장), 사진 맞추기(03-M3) → `components/PhotoCropper.tsx`(계산은 `lib/photoCrop.ts`, 미리보기는 `data:` 주소: CSP가 `blob:` 이미지를 막는다)
   - 투표 관리 메뉴·모달(05-A, 05-M1~M3) → `components/PollManageMenu.tsx`. 제목·마감 시간 입력은 만들기(04-M)와 수정이 `components/PollForm.tsx`를 같이 쓴다.
   - StatCard·ListRow(관리자 콘솔) → `components/AdminParts.tsx`(`StatCard`, `ListRow`, `ActionRow`, `DangerZone`, `AdminSearch`)
   - TopBar 종 아이콘(「새 소식 점」) → `components/NoticeBell.tsx`, 새 소식 배너(04-B) → `components/NoticeBanner.tsx`, 새 소식 카드의 배지·본문 → `components/NoticeBadge.tsx`·`components/NoticeBody.tsx`
