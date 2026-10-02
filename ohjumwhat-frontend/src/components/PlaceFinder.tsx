@@ -59,7 +59,7 @@ export default function PlaceFinder({ org, keyId, initialQuery, selectedId, onSe
           value={input}
           onChange={(e) => setInput(e.target.value)}
           maxLength={50}
-          placeholder="메뉴나 식당 이름(비우면 근처 음식점)"
+          placeholder="메뉴나 식당 이름"
           aria-label="식당 검색어"
           className={inputClass}
         />
@@ -91,7 +91,7 @@ export default function PlaceFinder({ org, keyId, initialQuery, selectedId, onSe
             const place = places.find((p) => p.kakaoPlaceId === id)
             if (place) onSelect(place, query)
           }}
-          className="h-44"
+          className="h-40"
           label="근처 식당 지도"
         />
       )}
@@ -111,7 +111,7 @@ export default function PlaceFinder({ org, keyId, initialQuery, selectedId, onSe
           {query ? `회사 근처에서 「${query}」 식당을 찾지 못했어요.` : '회사 근처에서 음식점을 찾지 못했어요.'}
         </p>
       ) : (
-        <ul className="max-h-72 space-y-1.5 overflow-y-auto" aria-label="근처 식당">
+        <ul className="max-h-64 space-y-1.5 overflow-y-auto" aria-label="근처 식당">
           {places.map((place, i) => {
             const selected = place.kakaoPlaceId === selectedId
             return (
