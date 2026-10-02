@@ -13,6 +13,9 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ohjumwhat.auth.LoginUser;
+import com.ohjumwhat.chat.ChatMessageResponse;
+import com.ohjumwhat.chat.ChatMessagesResponse;
+import com.ohjumwhat.chat.ChatService;
 import com.ohjumwhat.menu.MenuCommentResponse;
 import com.ohjumwhat.menu.MenuCommentService;
 import com.ohjumwhat.organization.LeaveResponse;
@@ -27,9 +30,12 @@ class AdminController {
 
 	private final MenuCommentService menuCommentService;
 
-	AdminController(AdminService adminService, MenuCommentService menuCommentService) {
+	private final ChatService chatService;
+
+	AdminController(AdminService adminService, MenuCommentService menuCommentService, ChatService chatService) {
 		this.adminService = adminService;
 		this.menuCommentService = menuCommentService;
+		this.chatService = chatService;
 	}
 
 	@GetMapping("/stats")
@@ -120,6 +126,18 @@ class AdminController {
 	List<MenuCommentResponse> deleteMenuComment(@AuthenticationPrincipal LoginUser admin,
 			@PathVariable Long commentId) {
 		return menuCommentService.deleteByAdmin(commentId, admin.getUserId());
+	}
+
+	/** 투표의 채팅(before = 메시지 ID보다 오래된 50개, 없으면 최신 50개) */
+	@GetMapping("/polls/{pollId}/messages")
+	ChatMessagesResponse pollMessages(@PathVariable Long pollId, @RequestParam(required = false) Long before) {
+		return chatService.listForAdmin(pollId, before);
+	}
+
+	/** 채팅 메시지 강제 삭제(채팅이 닫힌 뒤에도). 「삭제된 메시지예요」로 남고, 보고 있는 사람에게 바로 반영된다. */
+	@DeleteMapping("/chat-messages/{messageId}")
+	ChatMessageResponse deleteChatMessage(@AuthenticationPrincipal LoginUser admin, @PathVariable Long messageId) {
+		return chatService.deleteByAdmin(messageId, admin.getUserId());
 	}
 
 	@DeleteMapping("/schedules/{scheduleId}")

@@ -180,6 +180,8 @@ docker compose restart app           # 앱만 재시작
 ./backup.sh                          # 수동 백업 → backups/
 ```
 
+**투표 채팅 연결**: 채팅 받기(WebSocket)는 앱 메모리에 연결을 들고 있어서 배포·재시작 때 모두 끊긴다. 화면이 1초부터 두 배씩(최대 30초) 기다렸다 스스로 다시 연결하고 놓친 메시지를 다시 받으므로 따로 할 일은 없다. 앱을 두 대 이상 띄우면 메시지가 같은 앱에 연결된 사람에게만 가므로, 그때는 외부 브로커(Redis 등)가 필요하다.
+
 **롤백**: `.env`의 `APP_IMAGE`를 이전 커밋 태그로 바꾸고 다시 띄운다.
 ```bash
 sed -i 's|^APP_IMAGE=.*|APP_IMAGE=ghcr.io/matuna01/ohjumwhat:<이전 커밋 sha>|' .env

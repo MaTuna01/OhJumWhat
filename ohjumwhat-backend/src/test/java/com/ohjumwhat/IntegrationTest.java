@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.ohjumwhat.chat.ChatRateLimiter;
 import com.ohjumwhat.user.ProfilePhotoStorage;
 
 /**
@@ -38,12 +39,16 @@ public abstract class IntegrationTest {
 	@Autowired
 	protected ProfilePhotoStorage photoStorage;
 
+	@Autowired
+	private ChatRateLimiter chatRateLimiter;
+
 	@AfterEach
 	void cleanDatabase() throws IOException {
 		clock.reset();
+		chatRateLimiter.clear();
 		jdbcTemplate.execute("""
 				TRUNCATE users, organizations, memberships, poll_schedules, polls, menu_options, menu_comments, votes,
-					spring_session, blocked_accounts, notices
+					chat_messages, spring_session, blocked_accounts, notices
 				RESTART IDENTITY CASCADE""");
 		try (Stream<Path> files = Files.list(photoStorage.dir())) {
 			for (Path file : files.toList()) {

@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { ActionRow, DangerZone, EmptyRow } from '../../components/AdminParts.tsx'
 import Badge from '../../components/Badge.tsx'
 import Button from '../../components/Button.tsx'
+import { MessageBody } from '../../components/ChatPanel.tsx'
 import ConfirmDialog from '../../components/ConfirmDialog.tsx'
 import { CommentList, CommentRow } from '../../components/OptionComments.tsx'
 import { PageLoader, PageMessage, Section } from '../../components/PageState.tsx'
@@ -12,13 +13,24 @@ import { withJosa } from '../../lib/josa.ts'
 import { formatClock } from '../../lib/time.ts'
 import { columnsClass } from '../../lib/ui.ts'
 import { commentsPanelId } from '../../lib/comments.ts'
-import { useAdminOptionComments, useAdminOrg, useAdminPoll, useDeleteMenuComment, useDeleteMenuOption, useDeletePoll } from '../../queries/admin.ts'
+import {
+  useAdminChat,
+  useAdminOptionComments,
+  useAdminOrg,
+  useAdminPoll,
+  useDeleteChatMessage,
+  useDeleteMenuComment,
+  useDeleteMenuOption,
+  useDeletePoll,
+} from '../../queries/admin.ts'
+import type { ChatMessage } from '../../queries/chat.ts'
 import type { MenuComment } from '../../queries/comments.ts'
 import type { Person, PollOption } from '../../queries/polls.ts'
 
 /**
  * Figma A06·DA06 투표 관리: 메뉴(참여자가 있어도) 강제 삭제, 투표 삭제(정기 규칙 함께 삭제 선택).
  * 메뉴의 「💬 댓글 N」을 펼쳐 부적절한 댓글을 마감과 상관없이 지운다(A06-K).
+ * 투표 채팅도 보고 지운다(A06-C, 채팅이 닫힌 뒤에도). 지운 메시지는 「삭제된 메시지예요」로 남는다.
  */
 export default function AdminPollPage() {
   const pollId = Number(useParams().pollId)
@@ -67,7 +79,7 @@ export default function AdminPollPage() {
       </header>
 
       <div className={`flex flex-col gap-4 ${columnsClass}`}>
-        <div className="min-w-0">
+        <div className="min-w-0 space-y-4">
           <Section title={`메뉴 ${p.options.length}개`}>
             <ul className="divide-y divide-border-default">
               {p.options.length === 0 && <EmptyRow>올라온 메뉴가 없어요.</EmptyRow>}
@@ -109,6 +121,7 @@ export default function AdminPollPage() {
               </p>
             )}
           </Section>
+          <AdminChat pollId={p.id} />
         </div>
 
         <aside className="space-y-4">
@@ -166,6 +179,86 @@ export default function AdminPollPage() {
         </p>
       </ConfirmDialog>
     </div>
+  )
+}
+
+/** 투표 채팅(A06-C): 채팅이 닫힌 뒤에도 지운다. 실시간으로 받지는 않는다. */
+function AdminChat({ pollId }: { pollId: number }) {
+  const chat = useAdminChat(pollId)
+  const remove = useDeleteChatMessage()
+  const [removing, setRemoving] = useState<ChatMessage | null>(null)
+  const close = () => {
+    remove.reset()
+    setRemoving(null)
+  }
+  // 페이지는 최신 → 오래된 순으로 쌓이므로 뒤집어 오래된 → 최신으로 보여준다.
+  const messages = [...(chat.data?.pages ?? [])].reverse().flatMap((page) => page.messages)
+
+  return (
+    <Section title="채팅">
+      {chat.hasNextPage && (
+        <button
+          type="button"
+          disabled={chat.isFetchingNextPage}
+          onClick={() => chat.fetchNextPage()}
+          className="mb-3 text-xs font-medium text-text-brand hover:underline focus-visible:outline-2 focus-visible:outline-border-brand disabled:opacity-50"
+        >
+          이전 메시지 더 보기
+        </button>
+      )}
+      {chat.isPending ? (
+        <p className="text-sm text-text-tertiary">채팅을 불러오는 중이에요</p>
+      ) : chat.isError ? (
+        <p role="alert" className="text-sm text-text-danger">
+          {chat.error.message}
+        </p>
+      ) : messages.length === 0 ? (
+        <p className="text-sm text-text-tertiary">채팅이 없어요.</p>
+      ) : (
+        <ul className="space-y-3">
+          {messages.map((m) => (
+            <li key={m.id} className="flex items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs">
+                  <span className="font-medium">{m.author?.name ?? '탈퇴한 사용자'}</span>{' '}
+                  <span className="text-text-tertiary">
+                    {formatClock(m.createdAt)}
+                    {m.editedAt && !m.deleted && ' · 수정됨'}
+                  </span>
+                </p>
+                <p className={`text-sm break-words ${m.deleted ? 'text-text-placeholder' : 'text-text-secondary'}`}>
+                  {m.deleted || m.body == null ? '삭제된 메시지예요' : <MessageBody body={m.body} />}
+                </p>
+              </div>
+              {!m.deleted && (
+                <button
+                  type="button"
+                  onClick={() => setRemoving(m)}
+                  className="shrink-0 text-sm font-medium text-text-danger hover:underline focus-visible:outline-2 focus-visible:outline-border-brand"
+                >
+                  삭제
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-3 text-xs text-text-tertiary">채팅이 닫힌 뒤에도 지울 수 있어요. 지운 메시지는 「삭제된 메시지예요」로 남고, 보고 있는 사람에게 바로 반영돼요.</p>
+      <ConfirmDialog
+        open={removing != null}
+        onClose={close}
+        onConfirm={() => removing && remove.mutate(removing.id, { onSuccess: close })}
+        title="메시지를 삭제할까요?"
+        confirmLabel="삭제"
+        danger
+        pending={remove.isPending}
+        error={remove.error?.message}
+      >
+        <p className="break-words whitespace-pre-wrap">
+          {removing?.author?.name ?? '탈퇴한 사용자'}: 「{removing?.body}」
+        </p>
+      </ConfirmDialog>
+    </Section>
   )
 }
 

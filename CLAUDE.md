@@ -155,6 +155,15 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 메뉴를 지우면 댓글도 CASCADE로 지워진다(메뉴 삭제 조건은 그대로). 강제 탈퇴로 회원이 지워지면 `user_id`만 NULL → 「탈퇴한 사용자」, 조직 탈퇴는 글을 남긴다.
   - 투표 상세 응답의 메뉴에 `commentCount`가 있어 진행 중에는 3초 폴링으로 개수만 바뀐다. 목록은 펼칠 때·창이 다시 보일 때·내가 쓸 때 받는다(`queries/comments.ts`, 쓰면 상세 캐시의 개수도 맞춘다).
   - 관리자는 `GET /api/admin/menu-options/{optionId}/comments`, `DELETE /api/admin/menu-comments/{commentId}`로 마감과 상관없이 지운다.
+- 투표 채팅(`chat` 패키지, V12 `chat_messages`, Notion 「14. 투표별 채팅/댓글 기능 추가」 2단계): **보내기·고치기·지우기는 REST, 받기만 WebSocket**(STOMP 없음).
+  - 기간: 투표 오픈 ~ **마감 + 1시간**(`Poll.getChatClosesAt`, 투표 상세 응답의 `chatClosesAt`). 마감처럼 요청 시각으로 판정하고 「지금 마감」·마감 시간 수정을 따라 움직인다. 닫힌 채팅은 읽기만 한다(지난 투표에서도 보인다).
+  - REST: `GET /api/polls/{pollId}/messages?before=`(50개씩, 오래된 → 최신), `POST`, `PUT/DELETE …/{id}`. 멤버만(404), 쓰기는 채팅이 열려 있을 때만(409 「채팅이 닫혔어요.」), 고치기·지우기는 쓴 사람만(403). 300자(줄바꿈 허용, `UserText`), 한 사람 10초 10개(429, `ChatRateLimiter`, 서버 메모리). 지우면 행은 남기고 본문만 비운다(「삭제된 메시지예요」). 로그에 본문을 남기지 않는다.
+  - WebSocket `/api/polls/*/ws`(`ChatSocketConfig`): `/api/**` 아래라 세션 쿠키 인증(아니면 401)을 그대로 받고, `ChatHandshakeInterceptor`가 멤버(404)·채팅 기간(409)·사용자·투표당 연결 3개(429)를 확인한다. 허용 출처는 기본값(같은 출처만, 프록시 뒤에서는 `X-Forwarded-*` 기준). 받기 전용이라 화면이 보내는 글은 무시한다.
+  - `ChatHub`가 연결을 서버 메모리에 든다(앱이 하나라 브로커가 필요 없다). 쓰기 트랜잭션이 커밋된 뒤(`@TransactionalEventListener`) 같은 투표의 연결로만 `{"type":"created|updated|deleted","message":{…}}`를 보낸다. 메시지에 "내 글인지"는 없고 화면이 `author`로 판단한다.
+  - 연결 끊기: 투표 삭제(`PollDeletedEvent`)·조직 탈퇴·멤버 제거·강제 탈퇴(`MembershipEndedEvent`)·조직 삭제(`OrganizationDeletedEvent`)는 커밋 후 이벤트로 바로, 로그아웃은 `SecurityConfig`의 `LogoutHandler`가 그 로그인(HTTP 세션)의 연결만 끊는다(4003). 30초마다 `ChatSweeper`가 닫힌 채팅(4001)·없어진 투표·멤버가 아닌 연결을 끊고 연결 확인 신호 `{"type":"ping"}`을 보낸다(브라우저 JS는 ping 프레임을 못 봐서 글로 보낸다). 테스트에서는 `ohjumwhat.scheduler.enabled=false`로 끄고 `ChatSweeper.sweep()`을 직접 부른다.
+  - 화면(`lib/chatSocket.ts openChatSocket`, `hooks/usePollChatSocket.ts`): 채팅이 열려 있고 탭이 보일 때만 연결한다. 끊기면 1초부터 두 배씩(최대 30초) 다시 연결하고, 4001·4003이면 멈춘다. 75초 동안 아무것도 받지 못하면(반쯤 끊긴 연결) 버리고 다시 연결한다. 연결될 때마다 목록을 다시 받아 놓친 메시지를 채운다(`queries/chat.ts`, `structuralSharing`으로 그 순간의 캐시와 합쳐 WebSocket으로 받은 것을 잃지 않는다, 합치기 규칙은 `lib/chat.ts mergeMessages`).
+  - 관리자: `GET /api/admin/polls/{pollId}/messages`, `DELETE /api/admin/chat-messages/{id}`(기간과 무관, 소프트 삭제 + 보고 있는 사람에게 전송).
+  - Spring 7은 SockJS 스케줄러를 `TaskScheduler` 빈으로 내놓지 않아 정기 투표 `@Scheduled`를 가로채지 않는다(`ChatIntegrationTest`가 고정). 실제 핸드셰이크(세션 쿠키·출처·프록시 헤더)는 `ChatSocketTest`(실제 포트)가 확인한다.
 - 메뉴 자동완성은 별도 테이블 없이 같은 조직 과거 투표의 `menu_options.name`을 중복 없이 조회해서 만든다. 항목마다 마지막으로 먹은 날을 붙이고, 최근 7일 안에 먹은 메뉴는 뒤로 보낸다.
 - 메뉴 통계·추천(`menu/MenuStatsService`, 네이티브 SQL)도 별도 테이블 없이 계산한다. "먹은 메뉴"는 **마감된 투표에서 참여자가 한 명 이상인 메뉴**이고(조직 기준), 이름은 소문자·띄어쓰기 제거로 묶는다("김치찌개" = "김치 찌개", 표시는 가장 최근 이름). 추천은 먹은 적이 있지만 최근 7일(오늘 포함) 안에는 먹지 않은 메뉴를 많이 먹은 순으로 준다. 조직 「통계」 탭(`/orgs/:orgId/stats`)과 메뉴 입력창(비운 채 누르면 추천)에서 쓴다.
 
@@ -189,7 +198,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 「새 소식」의 현재 버전도 화면 코드의 값이 아니라 `/version.json`의 버전이다(`useDeployedVersion`). 배포 전부터 열려 있던 탭도 배포된 버전을 보여준다. 못 읽으면(개발 서버) `__APP_VERSION__`을 쓴다.
 
 **투표 화면.**
-- 투표 상세(`PollDetailPage`)는 진행 중일 때 3초마다 폴링하고, 마감 응답을 받으면 결과 모드로 바뀌며 폴링을 멈춘다.
+- 투표 상세(`PollDetailPage`)는 진행 중일 때 3초마다 폴링하고, 마감 응답을 받으면 결과 모드로 바뀌며 폴링을 멈춘다. 채팅만 WebSocket으로 받고(위 「투표 채팅」), 받기 연결은 결과 모드로 바뀌어도 끊기지 않게 이 화면이 든다.
 - 참여·패스는 `lib/pollDetail.ts`의 `applyVote`로 먼저 화면에 반영(낙관적 업데이트)하고, 실패하면 되돌린다. 이 함수는 서버 `PollService.detail`과 같은 규칙으로 다시 계산하므로, 규칙을 바꿀 때는 둘을 함께 고친다.
 - 화면마다 `useDocumentTitle(...)`로 탭 제목을 붙인다(예: "점심 · 개발팀 · 오점왓"). 없는 경로는 `NotFoundPage`가, 예상하지 못한 렌더링 오류는 `RouteErrorPage`(라우터 errorElement)가 처리한다.
 - 마감 결과의 「결과 복사」는 `lib/share.ts`의 `resultText`(메신저에 붙일 글)와 `copyText`(클립보드, 안 되면 숨긴 입력창)로 한다.
@@ -220,6 +229,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - HSTS·nosniff·X-Frame-Options는 Spring Security가 붙인다.
   - Referrer-Policy·Permissions-Policy·**CSP**는 `deploy/Caddyfile`이 붙인다. Caddyfile이 바뀌면 배포 스크립트가 검증 후 Caddy 컨테이너를 다시 만든다(단일 파일 마운트라 `up -d`만으로는 반영되지 않는다).
   - CSP가 허용하는 외부 출처는 Google Fonts, `*.googleusercontent.com`(프로필 사진), 네이버 지도뿐이다. 네이버 지도 스크립트(maps.js)는 **페이지 스킴에 따라 출처를 바꾼다**: https면 `*.pstatic.net`(타일 스타일 JSONP·타일·로고·커서), http면 `*.map.naver.net`·`static.naver.net`이고, 둘 다 `oapi.map.naver.com`(스크립트·인증)과 `kr-col-ext.nelo.navercorp.com`(오류 수집)을 쓴다. 네이버 출처는 스킴 없이 적어 운영은 https만 허용한다. 지도 스크립트가 style 속성을 직접 넣어서 `style-src-attr`만 `'unsafe-inline'`이다(`<style>` 태그·스크립트는 막는다). 새 외부 리소스(스크립트, 폰트, 이미지 CDN, 분석 도구)를 추가하면 CSP도 함께 고친다. 안 고치면 운영에서만 막힌다(개발 서버에는 CSP가 없다).
+  - 투표 채팅 받기(WebSocket)는 같은 출처의 `wss://`다. `'self'`가 wss를 포함하지 않는 브라우저(구형 Safari)가 있어 `connect-src`에 `wss://{$APP_DOMAIN}`을 따로 적었다. 배포(앱 재시작) 때 채팅 연결이 끊기고 화면이 스스로 다시 연결한다.
   - **CSP는 https로 확인한다.** http로만 확인했다가 v1.7.0 운영에서 지도 타일이 막혔다. 자체 서명 인증서로 https 서버를 띄워 Caddyfile의 CSP를 그대로 붙이고, 헤드리스 Chrome(`--ignore-certificate-errors`, CDP)에서 `securitypolicyviolation` 이벤트가 0건인지 본다(앱 내 브라우저는 자체 서명 https를 열지 않는다).
 - `Dockerfile`이나 `deploy/`를 바꾸면, 합치기 전에 로컬에서 `docker build`와 `deploy/docker-compose.yml`로 스택을 띄워 확인한다(도메인은 `localhost`).
 
@@ -229,9 +239,9 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 「디자인 시스템」 페이지
     - Foundations 프레임: 로고, 컨셉 컬러, 원색 팔레트, 의미 기반 토큰, 타이포그래피, 간격·둥글기·그림자
     - Components 프레임: Button, Badge, Avatar, OptionCard, Input, Logo, TopBar(「새 소식 점」 속성), UpdateToast, MapPin(지도 핀)
-  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 별명·프로필 사진(`03-N` 마이페이지, `03-M2` 프로필 수정, `03-M3` 사진 맞추기), 지난 투표(`04-H`), 새 소식 배너(`04-B`), 결과 복사(`05b-S`), 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제), 식당 붙이기(`05-L`, `05-M4` 식당 모달), 식당 찾기 모달(`05-F`), 투표 지도(`05-G`, 크게 보기 `05-G2`), 메뉴 추천(`05-R`, 지난 식당·고른 식당 칩 `05-R2`), 메뉴 댓글(`05-K` 진행 중, `05b-K` 마감 결과 읽기 전용), 조직 위치(`07-L`, 조직 주소·반경·지도), `08 통계`, `09 새 소식`
-  - 「와이어프레임 · 데스크톱」 페이지: 같은 화면의 데스크톱(1440px) 버전(`D01`~`D07-M`, `D03-N`, `D04-H`, `D05-A`, `D05-G`, `D05-G2`, `D05-K`, `D07-L`, `D08`, `D09`). 모달은 모바일 `-M` 프레임과 같다(큰 지도 모달 `D05-G2`만 넓다).
-  - 「관리자 콘솔」 페이지: 관리자 화면(모바일 `A01`~`A08`, 데스크톱 `DA01`~`DA08`, 강제 탈퇴 모달 `-M`, 올린 사진 지우기 `A03-M2`, 공지 글쓰기 모달 `A08-M`, 메뉴 댓글 지우기 `A06-K`, 차단된 로그인 `L01`)과 로컬 컴포넌트 StatCard·ListRow
+  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 별명·프로필 사진(`03-N` 마이페이지, `03-M2` 프로필 수정, `03-M3` 사진 맞추기), 지난 투표(`04-H`), 새 소식 배너(`04-B`), 결과 복사(`05b-S`), 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제), 식당 붙이기(`05-L`, `05-M4` 식당 모달), 식당 찾기 모달(`05-F`), 투표 지도(`05-G`, 크게 보기 `05-G2`), 메뉴 추천(`05-R`, 지난 식당·고른 식당 칩 `05-R2`), 메뉴 댓글(`05-K` 진행 중, `05b-K` 마감 결과 읽기 전용), 투표 채팅(`05-C` 하단 버튼, `05-C2` 채팅 시트, `05-C3` 닫힌 채팅), 조직 위치(`07-L`, 조직 주소·반경·지도), `08 통계`, `09 새 소식`
+  - 「와이어프레임 · 데스크톱」 페이지: 같은 화면의 데스크톱(1440px) 버전(`D01`~`D07-M`, `D03-N`, `D04-H`, `D05-A`, `D05-G`, `D05-G2`, `D05-K`, `D05-C`, `D07-L`, `D08`, `D09`). 모달은 모바일 `-M` 프레임과 같다(큰 지도 모달 `D05-G2`만 넓다).
+  - 「관리자 콘솔」 페이지: 관리자 화면(모바일 `A01`~`A08`, 데스크톱 `DA01`~`DA08`, 강제 탈퇴 모달 `-M`, 올린 사진 지우기 `A03-M2`, 공지 글쓰기 모달 `A08-M`, 메뉴 댓글 지우기 `A06-K`, 채팅 지우기 `A06-C`, 차단된 로그인 `L01`)과 로컬 컴포넌트 StatCard·ListRow
     - 콘텐츠 폭 1024px 가운데 정렬. 1024px 이상(`lg`)에서 본문 + 오른쪽 사이드(320px) 2단, 그보다 좁으면 모바일 레이아웃을 쓴다.
     - 로그인은 좌우 분할(왼쪽 브랜드 소개·투표 미리보기, 오른쪽 로그인), 모달은 폭 448px이다.
 - **새 화면이나 컴포넌트를 만들 때는 먼저 해당 Figma 프레임을 보고 그대로 구현한다.**
@@ -256,6 +266,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - Badge → `components/Badge.tsx`
   - OptionCard → `components/OptionCard.tsx`(투표 상세의 메뉴 카드, 결과 모드 포함). Figma `Link` 속성(식당 줄)을 켜면 「식당 이름 · 네이버 지도 ↗」(이름이 없으면 「지도 · 서비스 ↗」, `lib/link.ts serviceLabel`)·「식당 고치기」가 보이고, `Distance` 속성은 조직 위치에서의 거리·도보 시간(「350m · 도보 약 7분」)이다. 식당 찾기 모달(05-F, 「근처에서 찾기」·「링크 붙이기」 탭, 메뉴 입력과 카드의 고치기 공용)은 `components/PlaceModal.tsx`, 근처에서 찾기(검색·분류 칩·지도·목록·더 보기)는 `components/PlaceFinder.tsx`, 링크 붙이기 입력(찾기·공유 링크·이름·주소, 조직 위치도 공용)은 `components/PlaceFields.tsx`. `Comments` 속성은 카드 아래 「💬 댓글 N」 토글이다(댓글이 없으면 「댓글 달기」, 마감된 투표에서 댓글이 없으면 숨김, 카드 선택과 별개라 `stopPropagation`).
   - MenuComments(펼친 메뉴 댓글, Open·Readonly·Empty) → `components/OptionComments.tsx`. 카드(`role="button"`) 안에 입력창을 넣지 않도록 카드 밖 바로 아래에 그린다. 펼친 메뉴는 `PollDetailPage`가 들고 있어 마감돼도 펼친 채 읽기 전용으로 바뀐다. 관리자 콘솔도 `CommentList`·`CommentRow`를 쓴다
+  - ChatMessage(Other·Mine·Deleted)·ChatPanel(Open·Closed) → `components/ChatPanel.tsx`(데스크톱 사이드 열 카드, 모바일 시트 안), 하단 「💬 채팅」 버튼·채팅 시트(05-C·05-C2) → `components/ChatSheet.tsx`(시트가 닫혀 있는 동안 받은 남의 메시지 수 「새 메시지 N」). 시트 안의 삭제 확인처럼 `<dialog>` 안에 `<dialog>`를 두면 React가 안쪽 `close`를 바깥 `onClose`로 올려 보내므로 `e.target === e.currentTarget`일 때만 닫는다
   - 투표 지도(05-G·D05-G) → `components/PollPlacesMap.tsx`(조직 위치·메뉴별 식당 핀, 모바일 접힘, 「⤢ 크게 보기」 → 큰 지도 모달 05-G2·D05-G2: 지도 + 목록, 목록을 누르면 지도가 그 식당으로 옮겨 간다), 지도 공용 → `components/NaverMap.tsx`
   - MapPin(지도 핀) → `NaverMap`의 `markerElement`: 물방울 핀 끝이 정확한 위치, 이름표는 핀 오른쪽. Tone(조직 위치·내 메뉴·그 밖), Number(식당 찾기 번호, 핀 머리), Show Label(식당 찾기는 고른 식당만 이름표)
   - 모달 크기: `Modal`의 `size="lg"`(폭 1024px, 큰 지도)와 `closable`(제목 옆 ✕). 기본은 448px
