@@ -23,10 +23,12 @@ RUN ./gradlew bootJar --no-daemon -q
 # 3) 실행
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-RUN useradd --system --uid 1001 app
+# 프로필 사진 폴더. 운영은 이 경로에 Docker 볼륨(photos)을 붙이고, 새 볼륨은 이 폴더의 소유자(app)를 이어받는다.
+RUN useradd --system --uid 1001 app && mkdir -p /data/photos && chown app:app /data/photos
 COPY --from=backend /app/build/libs/*.jar app.jar
 USER app
 ENV TZ=Asia/Seoul \
+    PHOTOS_DIR=/data/photos \
     JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=50 -XX:+ExitOnOutOfMemoryError"
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

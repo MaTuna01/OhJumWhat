@@ -7,6 +7,7 @@ deploy
 **/dist
 **/build
 **/.gradle
+ohjumwhat-backend/data
 .env
 .env.*
 **/application.yml
