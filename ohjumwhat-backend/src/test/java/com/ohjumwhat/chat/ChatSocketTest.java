@@ -49,8 +49,10 @@ import com.ohjumwhat.user.UserRepository;
 /**
  * 실제 서버 포트로 채팅 WebSocket(/api/polls/{pollId}/ws)에 연결해 본다.
  * 로그인(세션 쿠키)·멤버·출처·채팅 기간을 핸드셰이크에서 확인하고, 커밋된 메시지를 받는지 본다.
+ * 운영처럼 X-Forwarded-*로 원래 주소를 보게 해서(Caddy 뒤) 같은 출처 검사도 확인한다.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+		properties = "server.forward-headers-strategy=framework")
 @Import({ TestcontainersConfiguration.class, TestClockConfiguration.class, FakeNaverShortLinksConfiguration.class,
 		FakeKakaoLocalConfiguration.class })
 class ChatSocketTest {
@@ -135,13 +137,30 @@ class ChatSocketTest {
 	}
 
 	@Test
+	void 프록시_뒤에서는_원래_주소를_기준으로_같은_출처인지_본다() throws Exception {
+		WebSocketHttpHeaders proxied = new WebSocketHttpHeaders();
+		proxied.add("X-Forwarded-Proto", "https");
+		proxied.add("X-Forwarded-Host", "www.ohjumwhat.example");
+		connectWith(proxied, sessionCookie(kim), "https://www.ohjumwhat.example").close();
+
+		WebSocketHttpHeaders spoofed = new WebSocketHttpHeaders();
+		spoofed.add("X-Forwarded-Proto", "https");
+		spoofed.add("X-Forwarded-Host", "www.ohjumwhat.example");
+		assertThatThrownBy(() -> connectWith(spoofed, sessionCookie(kim), "https://evil.example"))
+			.isInstanceOf(ExecutionException.class);
+	}
+
+	@Test
 	void 채팅이_닫힌_투표에는_연결할_수_없다() {
 		clock.set(Instant.parse("2026-09-30T03:50:00Z")); // 마감 1시간 뒤
 		assertThatThrownBy(() -> connect(sessionCookie(kim), origin())).isInstanceOf(ExecutionException.class);
 	}
 
 	private WebSocketSession connect(String cookie, String origin) throws Exception {
-		WebSocketHttpHeaders headers = new WebSocketHttpHeaders();
+		return connectWith(new WebSocketHttpHeaders(), cookie, origin);
+	}
+
+	private WebSocketSession connectWith(WebSocketHttpHeaders headers, String cookie, String origin) throws Exception {
 		if (cookie != null) {
 			headers.add("Cookie", cookie);
 		}

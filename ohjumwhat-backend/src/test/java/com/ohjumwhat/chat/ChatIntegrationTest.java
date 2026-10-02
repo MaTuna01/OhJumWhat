@@ -28,7 +28,6 @@ import org.springframework.scheduling.TaskScheduler;
 import org.springframework.session.FindByIndexNameSessionRepository;
 import org.springframework.session.Session;
 import org.springframework.test.web.servlet.ResultActions;
-import org.springframework.web.socket.PingMessage;
 
 import com.jayway.jsonpath.JsonPath;
 import com.ohjumwhat.IntegrationTest;
@@ -338,7 +337,7 @@ class ChatIntegrationTest extends IntegrationTest {
 	}
 
 	@Test
-	void 점검은_멤버가_아닌_연결과_닫힌_채팅을_끊고_나머지에_ping을_보낸다() {
+	void 점검은_멤버가_아닌_연결과_닫힌_채팅을_끊고_나머지에_연결_확인_신호를_보낸다() {
 		FakeWebSocketSession kimTab = connect(pollId, kim);
 		FakeWebSocketSession leeTab = connect(pollId, lee);
 		// 이벤트 없이 멤버에서 빠진 경우(안전망)
@@ -346,7 +345,7 @@ class ChatIntegrationTest extends IntegrationTest {
 
 		chatSweeper.sweep();
 		assertThat(leeTab.closeStatus).isEqualTo(ChatHub.NOT_ALLOWED);
-		assertThat(kimTab.sent).hasAtLeastOneElementOfType(PingMessage.class);
+		assertThat(kimTab.texts()).containsExactly("{\"type\":\"ping\"}");
 
 		clock.set(2026, 9, 30, 12, 50);
 		chatSweeper.sweep();

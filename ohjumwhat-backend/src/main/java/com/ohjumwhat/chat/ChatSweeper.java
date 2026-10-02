@@ -17,7 +17,7 @@ import com.ohjumwhat.poll.PollRepository;
 /**
  * 채팅 연결 점검(30초마다, {@link ChatSweepScheduler}).
  * 채팅이 닫힌 투표(마감 1시간 뒤)와 없어진 투표의 연결을 끊고, 멤버가 아니게 된 사람의 연결을 끊고(이벤트를 놓친 경우의 안전망),
- * 나머지에는 ping을 보낸다. 연결이 있는 투표·조직만 읽는다.
+ * 나머지에는 연결 확인 신호({"type":"ping"})를 보낸다. 연결이 있는 투표·조직만 읽는다.
  */
 @Component
 class ChatSweeper {

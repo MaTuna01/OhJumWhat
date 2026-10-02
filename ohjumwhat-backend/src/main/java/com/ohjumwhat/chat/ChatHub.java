@@ -13,7 +13,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.web.socket.CloseStatus;
-import org.springframework.web.socket.PingMessage;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -53,6 +52,12 @@ public class ChatHub {
 	private static final int SEND_TIME_LIMIT_MS = 5_000;
 
 	private static final int BUFFER_SIZE_LIMIT = 64 * 1024;
+
+	/**
+	 * 연결 확인 신호. 브라우저 JS는 WebSocket ping 프레임을 볼 수 없어서 글로 보낸다.
+	 * 화면은 이것도 오지 않으면(반쯤 끊긴 연결: 네트워크 변경·프록시) 끊긴 것으로 보고 다시 연결한다.
+	 */
+	static final TextMessage HEARTBEAT = new TextMessage("{\"type\":\"ping\"}");
 
 	private record Connection(WebSocketSession session, Long pollId, Long organizationId, Long userId,
 			String httpSessionId) {
@@ -142,10 +147,9 @@ public class ChatHub {
 		closeAll(c -> c.organizationId().equals(organizationId) && !memberIds.contains(c.userId()), NOT_ALLOWED);
 	}
 
-	/** 연결이 살아 있게(중간 프록시·NAT가 끊지 않게) 주기적으로 ping을 보낸다. */
+	/** 연결이 살아 있게(중간 프록시·NAT가 끊지 않게) 주기적으로 확인 신호를 보낸다. */
 	void ping() {
-		PingMessage ping = new PingMessage();
-		connections.values().forEach(c -> send(c, ping));
+		connections.values().forEach(c -> send(c, HEARTBEAT));
 	}
 
 	private Collection<Connection> matching(Predicate<Connection> filter) {
