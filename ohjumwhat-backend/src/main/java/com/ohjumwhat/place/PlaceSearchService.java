@@ -2,6 +2,7 @@ package com.ohjumwhat.place;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -45,9 +46,7 @@ public class PlaceSearchService {
 	/** 카카오는 검색어 하나에 45개(15개씩 3페이지)까지만 준다. */
 	static final int MAX_PAGE = 3;
 
-	/**
-	 * 카카오 식당을 다시 찾을 때의 반경. 거리순이라 반경이 달라도 가까운 45개는 같으므로, 조직의 검색 반경을 바꿔도 지난 식당을 계속 찾는다.
-	 */
+	/** 카카오 식당을 같은 방법으로 다시 찾지 못했을 때(조직 반경이 바뀐 경우 등) 한 번 더 볼 반경. 가까운 순으로 본다. */
 	static final int RESOLVE_RADIUS = 20_000;
 
 	/** 위치 찾기 한 단계(주소 → 좌표, 카카오 식당 다시 찾기)의 마감. 넘긴 항목은 빼고 찾은 것만 준다. */
@@ -75,14 +74,15 @@ public class PlaceSearchService {
 	}
 
 	/**
-	 * 근처 식당 찾기: 회사 주소 기준 검색 반경 안 음식점을 가까운 순으로 15개씩(page 1~3).
-	 * query가 비면 근처 음식점을 모두 둘러본다.
+	 * 근처 식당 찾기: 회사 주소 기준 검색 반경 안 음식점 45개까지(카카오 3페이지를 한 번에 받는다).
+	 * <ul>
+	 * <li>검색어가 있으면 정확도순으로 받아, 이름·분류에 검색어가 있는 곳(matched)을 앞에 가까운 순으로, 메뉴·태그로만 걸린 곳을 뒤에
+	 * 가까운 순으로 둔다.</li>
+	 * <li>검색어가 비면 근처 음식점을 가까운 순으로 둘러본다.</li>
+	 * </ul>
 	 */
-	public PlaceSearchResponse search(Long organizationId, Long userId, String rawQuery, int page) {
+	public PlaceSearchResponse search(Long organizationId, Long userId, String rawQuery) {
 		membershipService.requireMember(organizationId, userId);
-		if (page < 1 || page > MAX_PAGE) {
-			throw ApiException.badRequest("더 볼 식당이 없어요.");
-		}
 		String query = PlaceLinks.query(rawQuery);
 		if (query != null && query.length() > MAX_QUERY_LENGTH) {
 			throw ApiException.badRequest("검색어는 50자 이하로 입력해 주세요.");
@@ -97,15 +97,15 @@ public class PlaceSearchService {
 		try {
 			Coordinate center = kakaoLocal.geocode(organization.getOfficeAddress())
 				.orElseThrow(() -> ApiException.badRequest("회사 주소를 지도에서 찾지 못했어요. 조직 설정에서 주소를 확인해 주세요."));
-			KakaoPlace.Page result = kakaoLocal.searchRestaurants(query, center, organization.getSearchRadius(), page);
-			List<PlaceSearchResponse.Place> places = result.places()
+			List<PlaceSearchResponse.Place> places = searchAll(query, center, organization.getSearchRadius(), sortFor(query))
 				.stream()
 				.map(p -> new PlaceSearchResponse.Place(p.id(), p.name(), p.category(), p.roadAddress(), p.at().lat(),
-						p.at().lng(), p.distance()))
+						p.at().lng(), p.distance(), query == null || p.matches(query)))
+				.sorted(Comparator.comparing((PlaceSearchResponse.Place p) -> !p.matched())
+					.thenComparing(p -> p.distance() == null ? Integer.MAX_VALUE : p.distance()))
 				.toList();
 			return new PlaceSearchResponse(
-					new PlacesResponse.Center(center.lat(), center.lng(), organization.getOfficeName()), places,
-					!result.end() && page < MAX_PAGE);
+					new PlacesResponse.Center(center.lat(), center.lng(), organization.getOfficeName()), places);
 		}
 		catch (PlaceSearchUnavailableException e) {
 			log.warn("근처 식당 찾기 실패: organizationId={}", organizationId);
@@ -151,7 +151,8 @@ public class PlaceSearchService {
 		Coordinate officeAt = office == null ? null : found.get(office);
 
 		// 2단계: 카카오 식당 다시 찾기(회사 좌표가 있어야 한다). 같은 검색어끼리 한 번에 찾는다.
-		Map<String, KakaoPlace> kakaoPlaces = officeAt == null ? Map.of() : resolveKakao(options, officeAt);
+		Map<String, KakaoPlace> kakaoPlaces = officeAt == null ? Map.of()
+				: resolveKakao(options, officeAt, organization.getSearchRadius());
 
 		List<PlacesResponse.Spot> spots = new ArrayList<>();
 		for (MenuOption option : options) {
@@ -202,32 +203,60 @@ public class PlaceSearchService {
 	}
 
 	/**
-	 * 카카오 식당(장소 ID → 결과). 검색어(없으면 둘러보기)별로 가까운 순 페이지를 넘기며 찾던 ID를 모두 찾거나 끝까지 본다.
-	 * 고를 때 그 검색어의 가까운 45개 안에 있었으므로 대개 다시 찾는다. 회사 위치가 바뀌었으면 못 찾을 수 있다.
+	 * 카카오 식당(장소 ID → 결과). 검색어(없으면 둘러보기)별로, 고를 때와 같은 방법(검색어·회사 좌표·조직 반경·순서)으로 다시 찾는다.
+	 * 고를 때 그 결과 45개 안에 있었으므로 대개 다시 찾는다. 조직 반경이 바뀌어 못 찾으면 넓은 반경(20km)을 가까운 순으로 한 번 더 본다.
+	 * 회사 위치가 바뀌었으면 못 찾을 수 있다(카드는 저장한 카카오 링크를 보여준다).
 	 */
-	private Map<String, KakaoPlace> resolveKakao(List<MenuOption> options, Coordinate center) {
+	private Map<String, KakaoPlace> resolveKakao(List<MenuOption> options, Coordinate center, int radius) {
 		Map<Optional<String>, Set<String>> idsByQuery = new LinkedHashMap<>();
 		options.stream()
 			.filter(o -> o.getKakaoPlaceId() != null)
 			.forEach(o -> idsByQuery.computeIfAbsent(Optional.ofNullable(o.getPlaceQuery()), q -> new HashSet<>())
 				.add(o.getKakaoPlaceId()));
 		Map<Optional<String>, Callable<Map<String, KakaoPlace>>> tasks = new LinkedHashMap<>();
-		idsByQuery.forEach((query, wanted) -> tasks.put(query, () -> find(query.orElse(null), wanted, center)));
+		idsByQuery.forEach((query, wanted) -> tasks.put(query, () -> find(query.orElse(null), wanted, center, radius)));
 		Map<String, KakaoPlace> result = new HashMap<>();
 		runAll(tasks).values().forEach(result::putAll);
 		return result;
 	}
 
-	private Map<String, KakaoPlace> find(String query, Set<String> wanted, Coordinate center) {
+	private Map<String, KakaoPlace> find(String query, Set<String> wanted, Coordinate center, int radius) {
 		Map<String, KakaoPlace> found = new HashMap<>();
+		collect(query, center, radius, sortFor(query), wanted, found);
+		if (found.size() < wanted.size()) {
+			collect(query, center, RESOLVE_RADIUS, KakaoLocal.Sort.DISTANCE, wanted, found);
+		}
+		return found;
+	}
+
+	/** 페이지를 넘기며 찾던 ID를 모으고, 다 찾았거나 마지막 페이지면 멈춘다. */
+	private void collect(String query, Coordinate center, int radius, KakaoLocal.Sort sort, Set<String> wanted,
+			Map<String, KakaoPlace> found) {
 		for (int page = 1; page <= MAX_PAGE && found.size() < wanted.size(); page++) {
-			KakaoPlace.Page result = kakaoLocal.searchRestaurants(query, center, RESOLVE_RADIUS, page);
-			result.places().stream().filter(p -> wanted.contains(p.id())).forEach(p -> found.put(p.id(), p));
+			KakaoPlace.Page result = kakaoLocal.searchRestaurants(query, center, radius, sort, page);
+			result.places().stream().filter(p -> wanted.contains(p.id())).forEach(p -> found.putIfAbsent(p.id(), p));
+			if (result.end()) {
+				return;
+			}
+		}
+	}
+
+	/** 근처 식당 찾기 결과 전부(45개까지). 마지막 페이지면 멈춘다. */
+	private List<KakaoPlace> searchAll(String query, Coordinate center, int radius, KakaoLocal.Sort sort) {
+		List<KakaoPlace> all = new ArrayList<>();
+		for (int page = 1; page <= MAX_PAGE; page++) {
+			KakaoPlace.Page result = kakaoLocal.searchRestaurants(query, center, radius, sort, page);
+			all.addAll(result.places());
 			if (result.end()) {
 				break;
 			}
 		}
-		return found;
+		return all;
+	}
+
+	/** 검색어가 있으면 정확도순(이름·분류가 맞는 곳이 앞), 없으면(둘러보기) 가까운 순 */
+	private static KakaoLocal.Sort sortFor(String query) {
+		return query == null ? KakaoLocal.Sort.DISTANCE : KakaoLocal.Sort.ACCURACY;
 	}
 
 	/** 작업을 가상 스레드로 함께 돌린다. 값이 null이거나, 실패했거나, 마감을 넘긴 작업은 결과에서 빠진다. */

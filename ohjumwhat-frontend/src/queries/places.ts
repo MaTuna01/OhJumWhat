@@ -1,4 +1,4 @@
-import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api.ts'
 import { type LatLng, distanceMeters } from '../lib/distance.ts'
 
@@ -36,9 +36,12 @@ export type FoundPlace = LatLng & {
   roadAddress: string | null
   /** 회사에서의 직선거리(m). 모르면 null */
   distance: number | null
+  /** 검색어가 이름이나 분류에 들어 있는지(둘러보기는 모두 true). false면 메뉴·태그로만 걸린 곳이다 */
+  matched: boolean
 }
 
-export type PlaceSearchPage = { center: PlaceCenter; places: FoundPlace[]; hasMore: boolean }
+/** 근처 식당 찾기 결과: 이름·분류가 맞는 곳이 앞에 가까운 순, 그다음 메뉴·태그로만 걸린 곳이 가까운 순(45개까지) */
+export type PlaceSearchResult = { center: PlaceCenter; places: FoundPlace[] }
 
 /** 위치를 찾을 수 있는 메뉴: 링크로 붙이고 주소가 있거나, 근처 식당 찾기로 고른 카카오 식당 */
 export function placeOptionIds(refs: PlaceRef[]): number[] {
@@ -76,16 +79,13 @@ export function usePlaces(orgId: number, officeAddress: string | null, refs: Pla
 }
 
 /**
- * 근처 식당 찾기(GET /api/orgs/{orgId}/places/search): 회사 주소 기준 반경 안 음식점을 가까운 순으로 15개씩, 45개까지.
- * 검색어가 비면 근처 음식점을 둘러본다. 결과는 화면에 보여줄 때만 쓴다.
+ * 근처 식당 찾기(GET /api/orgs/{orgId}/places/search): 회사 주소 기준 반경 안 음식점 45개까지.
+ * 검색어가 있으면 이름·분류가 맞는 곳이 앞이고, 비면 근처 음식점을 가까운 순으로 둘러본다. 결과는 화면에 보여줄 때만 쓴다.
  */
 export function usePlaceSearch(orgId: number, officeAddress: string | null, searchRadius: number, q: string, enabled: boolean) {
-  return useInfiniteQuery({
+  return useQuery({
     queryKey: ['orgs', orgId, 'places', 'search', officeAddress, searchRadius, q],
-    queryFn: ({ pageParam }) =>
-      api<PlaceSearchPage>(`/api/orgs/${orgId}/places/search?q=${encodeURIComponent(q)}&page=${pageParam}`),
-    initialPageParam: 1,
-    getNextPageParam: (last, pages) => (last.hasMore ? pages.length + 1 : undefined),
+    queryFn: () => api<PlaceSearchResult>(`/api/orgs/${orgId}/places/search?q=${encodeURIComponent(q)}`),
     enabled,
     staleTime: 60_000,
   })

@@ -2,6 +2,7 @@ package com.ohjumwhat.place;
 
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -81,7 +82,7 @@ class RestKakaoLocal implements KakaoLocal {
 	}
 
 	@Override
-	public KakaoPlace.Page searchRestaurants(String query, Coordinate center, int radius, int page) {
+	public KakaoPlace.Page searchRestaurants(String query, Coordinate center, int radius, Sort sort, int page) {
 		Map<String, Object> params = new LinkedHashMap<>();
 		boolean keyword = query != null && !query.isBlank();
 		if (keyword) {
@@ -91,7 +92,8 @@ class RestKakaoLocal implements KakaoLocal {
 		params.put("x", center.lng());
 		params.put("y", center.lat());
 		params.put("radius", Math.min(radius, MAX_RADIUS));
-		params.put("sort", "distance");
+		// 분류 검색(검색어 없음)은 정확도순이 없어 가까운 순만 쓴다.
+		params.put("sort", keyword && sort == Sort.ACCURACY ? "accuracy" : "distance");
 		params.put("page", page);
 		params.put("size", PAGE_SIZE);
 		PlaceResponse response = get(keyword ? "/v2/local/search/keyword.json" : "/v2/local/search/category.json",
@@ -115,17 +117,17 @@ class RestKakaoLocal implements KakaoLocal {
 		String address = d.roadAddressName() == null || d.roadAddressName().isBlank() ? d.addressName()
 				: d.roadAddressName();
 		return coordinate(d.x(), d.y())
-			.map(at -> new KakaoPlace(d.id(), d.placeName(), category(d.categoryName()), address, at,
+			.map(at -> new KakaoPlace(d.id(), d.placeName(), categories(d.categoryName()), address, at,
 					distance(d.distance())));
 	}
 
-	/** "음식점 > 한식 > 찌개,전골" → "찌개,전골" */
-	static String category(String categoryName) {
+	/** "음식점 > 분식 > 떡볶이" → [분식, 떡볶이](맨 앞의 「음식점」은 뺀다) */
+	static List<String> categories(String categoryName) {
 		if (categoryName == null || categoryName.isBlank()) {
-			return null;
+			return List.of();
 		}
-		String[] parts = categoryName.split(">");
-		return parts[parts.length - 1].strip();
+		List<String> parts = Arrays.stream(categoryName.split(">")).map(String::strip).filter(s -> !s.isEmpty()).toList();
+		return !parts.isEmpty() && parts.getFirst().equals("음식점") ? parts.subList(1, parts.size()) : parts;
 	}
 
 	private static Integer distance(String value) {

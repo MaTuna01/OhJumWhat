@@ -33,16 +33,21 @@ public class FakeKakaoLocalConfiguration {
 
 	public static final String FAILING_QUERY = "장애";
 
-	/** 「김치찌개」로 찾으면 나오는 식당(1페이지) */
-	public static final KakaoPlace HALMAE = new KakaoPlace("1001", "할매집", "찌개,전골", "서울 강남구 테헤란로 10",
-			new Coordinate(37.4990, 127.0350), 150);
+	/** 「김치찌개」: 이름에 검색어가 있는 식당(1페이지) */
+	public static final KakaoPlace HALMAE = new KakaoPlace("1001", "할매집 김치찌개", List.of("한식", "찌개,전골"),
+			"서울 강남구 테헤란로 10", new Coordinate(37.4990, 127.0350), 150);
 
-	public static final KakaoPlace MYEONGDONG = new KakaoPlace("1002", "명동교자", "칼국수", "서울 강남구 역삼로 5",
-			new Coordinate(37.5040, 127.0400), 600);
+	/** 「김치찌개」: 메뉴로만 걸린 식당(1페이지, 정확도순으로 앞) */
+	public static final KakaoPlace MYEONGDONG = new KakaoPlace("1002", "명동교자", List.of("한식", "국수", "칼국수"),
+			"서울 강남구 역삼로 5", new Coordinate(37.5040, 127.0400), 600);
 
-	/** 「김치찌개」의 2페이지에만 나오는 식당 */
-	public static final KakaoPlace FAR = new KakaoPlace("1003", "김치랑", "찌개,전골", "서울 강남구 논현로 9",
-			new Coordinate(37.5100, 127.0300), 1200);
+	/** 「김치찌개」의 2페이지에만 나오는 식당(분류가 체인 이름) */
+	public static final KakaoPlace FAR = new KakaoPlace("1003", "김치찌개랑 역삼점", List.of("한식", "찌개,전골", "김치찌개랑"),
+			"서울 강남구 논현로 9", new Coordinate(37.5100, 127.0300), 1200);
+
+	/** 조직 반경으로 다시 찾으면 안 나오고, 넓은 반경(20km) 가까운 순에서만 나오는 식당 */
+	public static final KakaoPlace WIDE_ONLY = new KakaoPlace("1004", "멀리김치찌개", List.of("한식", "찌개,전골"),
+			"서울 강남구 도산대로 1", new Coordinate(37.5200, 127.0300), 2500);
 
 	private static final Map<String, Coordinate> COORDINATES = Map.of(OFFICE_ADDRESS, OFFICE, PLACE_ADDRESS, PLACE);
 
@@ -59,6 +64,8 @@ public class FakeKakaoLocalConfiguration {
 
 		private volatile int lastRadius;
 
+		private volatile Sort lastSort;
+
 		@Override
 		public boolean enabled() {
 			return true;
@@ -73,19 +80,26 @@ public class FakeKakaoLocalConfiguration {
 			return Optional.ofNullable(COORDINATES.get(query));
 		}
 
-		/** 「김치찌개」: 1페이지 할매집·명동교자, 2페이지 김치랑. 검색어가 없으면(둘러보기) 셋 다 한 페이지 */
+		/**
+		 * 「김치찌개」 정확도순: 1페이지 명동교자·할매집, 2페이지 김치찌개랑. 넓은 반경(20km)을 가까운 순으로 보면 멀리김치찌개도 나온다.
+		 * 검색어가 없으면(둘러보기) 할매집·명동교자·김치찌개랑 한 페이지
+		 */
 		@Override
-		public KakaoPlace.Page searchRestaurants(String query, Coordinate center, int radius, int page) {
+		public KakaoPlace.Page searchRestaurants(String query, Coordinate center, int radius, Sort sort, int page) {
 			calls.incrementAndGet();
 			lastRadius = radius;
+			lastSort = sort;
 			if (FAILING_QUERY.equals(query)) {
 				throw new PlaceSearchUnavailableException("테스트 장애");
 			}
 			if (query == null) {
 				return new KakaoPlace.Page(page == 1 ? List.of(HALMAE, MYEONGDONG, FAR) : List.of(), true);
 			}
+			if ("김치찌개".equals(query) && radius >= 20_000 && sort == Sort.DISTANCE) {
+				return new KakaoPlace.Page(page == 1 ? List.of(HALMAE, MYEONGDONG, FAR, WIDE_ONLY) : List.of(), true);
+			}
 			if ("김치찌개".equals(query)) {
-				return page == 1 ? new KakaoPlace.Page(List.of(HALMAE, MYEONGDONG), false)
+				return page == 1 ? new KakaoPlace.Page(List.of(MYEONGDONG, HALMAE), false)
 						: new KakaoPlace.Page(page == 2 ? List.of(FAR) : List.of(), true);
 			}
 			return new KakaoPlace.Page(List.of(), true);
@@ -97,6 +111,10 @@ public class FakeKakaoLocalConfiguration {
 
 		public int lastRadius() {
 			return lastRadius;
+		}
+
+		public Sort lastSort() {
+			return lastSort;
 		}
 
 		public void reset() {

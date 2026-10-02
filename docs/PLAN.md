@@ -113,7 +113,7 @@ ohjumwhat/
 | 투표 관리 | `PUT /api/polls/{pollId}` (title, closesAt "HH:mm"), `POST /api/polls/{pollId}/close` (지금 마감), `DELETE /api/polls/{pollId}` (수동 투표만) — 진행 중일 때 멤버 누구나 | 완료 |
 | 메뉴 | `POST /api/polls/{pollId}/options` (name, 식당 선택: link·placeName·placeAddress 또는 kakaoPlaceId·placeQuery), `DELETE /api/polls/{pollId}/options/{optionId}`, `PUT /api/polls/{pollId}/options/{optionId}/link` (같은 식당 값), `GET /api/orgs/{id}/menu-names?q=` (자동완성: 이름 + 마지막으로 먹은 날 + 지난번 식당) | 완료 |
 | 통계 | `GET /api/orgs/{id}/menu-stats?days=` (없으면 전체), `GET /api/orgs/{id}/menu-recommendations` | 완료 |
-| 지도 | `GET /api/config` (네이버 지도 키, 위치 찾기 가능 여부), `GET /api/orgs/{id}/places?optionIds=` (회사·식당 좌표, 카카오 식당은 이름까지, 볼 때마다 찾음, 30개까지), `GET /api/orgs/{id}/places/search?q=&page=` (근처 식당 찾기, 15개씩 45개까지) | 진행 중 |
+| 지도 | `GET /api/config` (네이버 지도 키, 위치 찾기 가능 여부), `GET /api/orgs/{id}/places?optionIds=` (회사·식당 좌표, 카카오 식당은 이름까지, 볼 때마다 찾음, 30개까지), `GET /api/orgs/{id}/places/search?q=` (근처 식당 찾기, 45개까지, 이름·분류가 맞는 곳이 앞) | 진행 중 |
 | 참여 | `PUT /api/polls/{pollId}/vote` `{optionId: number \| null}` (null이면 "오늘은 패스") | 완료 |
 | 정기 | `GET/POST /api/orgs/{id}/schedules`, `PUT/DELETE /api/orgs/{id}/schedules/{sid}` | 완료 |
 | 새 소식 | `GET /api/notices?page=` (최신순 10개씩, 항목마다 unread), `GET /api/notices/unread` (안 읽은 수·가장 최근 것), `POST /api/notices/seen` | 완료 |

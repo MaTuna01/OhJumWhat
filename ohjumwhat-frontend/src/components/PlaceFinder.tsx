@@ -7,6 +7,9 @@ import { type FoundPlace, usePlaceSearch } from '../queries/places.ts'
 import Button from './Button.tsx'
 import NaverMap, { type MapMarker } from './NaverMap.tsx'
 
+/** 처음과 「더 보기」마다 보여줄 식당 수 */
+const PAGE_SIZE = 15
+
 /** 검색어가 비었을 때 둘러보기 분류(누르면 그 말로 찾는다) */
 const CATEGORIES = ['한식', '중식', '일식', '양식', '분식', '아시아음식', '패스트푸드']
 
@@ -22,34 +25,50 @@ type Props = {
 }
 
 /**
- * 근처에서 찾기(Figma 05-F): 회사 주소 기준 반경 안 음식점을 가까운 순으로 보여준다(카카오 로컬, 15개씩, 45개까지).
- * 검색어가 비면 분류 칩으로 둘러본다. 목록과 지도 마커는 번호로 이어지고, 누르면 고른다.
+ * 근처에서 찾기(Figma 05-F): 회사 주소 기준 반경 안 음식점(카카오 로컬, 45개까지, 15개씩 더 보기).
+ * 검색어가 있으면 이름·분류가 맞는 곳을 가까운 순으로 먼저 보여주고, 메뉴·태그로만 걸린 곳은 「그 밖에 관련된 곳」으로 뒤에 둔다
+ * (가까운 순만 쓰면 떡볶이를 찾았는데 메뉴에 떡볶이가 있는 치킨집이 맨 앞에 온다).
+ * 검색어가 비면 분류 칩으로 둘러본다(가까운 순). 목록과 지도 마커는 번호로 이어지고, 누르면 고른다.
  * 결과는 화면에만 보여주고, 고른 식당은 장소 ID와 검색어만 저장한다.
  */
 export default function PlaceFinder({ org, keyId, initialQuery, selectedId, onSelect }: Props) {
   const [input, setInput] = useState(initialQuery)
   const [query, setQuery] = useState(initialQuery.trim())
+  const [shown, setShown] = useState(PAGE_SIZE)
   const search = usePlaceSearch(org.id, org.officeAddress, org.searchRadius, query, true)
-  const places = search.data?.pages.flatMap((page) => page.places) ?? []
-  const center = search.data?.pages[0]?.center
+  const places = search.data?.places ?? []
+  const visible = places.slice(0, shown)
+  const center = search.data?.center
+  // 메뉴·태그로만 걸린 곳이 시작하는 자리(검색어가 있을 때만 나눈다)
+  const firstRelated = query ? visible.findIndex((place) => !place.matched) : -1
+
+  const find = (word: string) => {
+    setQuery(word)
+    setShown(PAGE_SIZE)
+  }
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    setQuery(input.trim())
+    find(input.trim())
   }
 
   const choose = (word: string) => {
     setInput(word)
-    setQuery(word)
+    find(word)
   }
 
-  const markers: MapMarker[] = places.map((place, i) => ({
-    id: place.kakaoPlaceId,
-    lat: place.lat,
-    lng: place.lng,
-    label: `${i + 1} ${place.name}`,
-    tone: place.kakaoPlaceId === selectedId ? 'brand' : 'default',
-  }))
+  // 이름·분류가 맞는 곳이 있으면 지도에는 그곳들(과 고른 곳)만 올린다. 메뉴·태그로만 걸린 곳은 회사 가까이 몰려 있어 지도를 가린다.
+  const hasMatched = firstRelated !== 0 && visible.length > 0
+  const markers: MapMarker[] = visible
+    .map((place, i) => ({ place, number: i + 1 }))
+    .filter(({ place }) => !hasMatched || place.matched || place.kakaoPlaceId === selectedId)
+    .map(({ place, number }) => ({
+      id: place.kakaoPlaceId,
+      lat: place.lat,
+      lng: place.lng,
+      label: `${number} ${place.name}`,
+      tone: place.kakaoPlaceId === selectedId ? 'brand' : 'default',
+    }))
   if (center) markers.unshift({ id: 'office', lat: center.lat, lng: center.lng, label: '회사', tone: 'office' })
 
   return (
@@ -112,10 +131,15 @@ export default function PlaceFinder({ org, keyId, initialQuery, selectedId, onSe
         </p>
       ) : (
         <ul className="max-h-64 space-y-1.5 overflow-y-auto" aria-label="근처 식당">
-          {places.map((place, i) => {
+          {visible.map((place, i) => {
             const selected = place.kakaoPlaceId === selectedId
             return (
               <li key={place.kakaoPlaceId}>
+                {i === firstRelated && (
+                  <p className="px-1 pt-2 pb-1.5 text-xs font-medium text-text-tertiary">
+                    {i === 0 ? `이름·분류가 「${query}」인 곳은 없어요. 메뉴나 태그로 관련된 곳이에요` : `그 밖에 「${query}」와 관련된 곳(메뉴·태그)`}
+                  </p>
+                )}
                 <div
                   className={`flex items-center gap-2.5 rounded-xl border px-3 py-2.5 ${
                     selected ? 'border-border-brand bg-bg-brand-soft' : 'border-border-default bg-bg-surface hover:border-border-strong'
@@ -157,15 +181,14 @@ export default function PlaceFinder({ org, keyId, initialQuery, selectedId, onSe
         </ul>
       )}
 
-      {search.hasNextPage && (
+      {places.length > shown && (
         <div className="text-center">
           <button
             type="button"
-            onClick={() => search.fetchNextPage()}
-            disabled={search.isFetchingNextPage}
-            className="text-sm font-medium text-text-secondary hover:text-text-primary disabled:opacity-50"
+            onClick={() => setShown((n) => n + PAGE_SIZE)}
+            className="text-sm font-medium text-text-secondary hover:text-text-primary"
           >
-            {search.isFetchingNextPage ? '불러오는 중…' : '더 보기'}
+            더 보기
           </button>
         </div>
       )}
