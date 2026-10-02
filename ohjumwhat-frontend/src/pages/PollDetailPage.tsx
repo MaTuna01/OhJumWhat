@@ -4,6 +4,7 @@ import Badge from '../components/Badge.tsx'
 import Button from '../components/Button.tsx'
 import MenuInput from '../components/MenuInput.tsx'
 import OptionCard from '../components/OptionCard.tsx'
+import OptionComments from '../components/OptionComments.tsx'
 import { PageLoader, PageMessage, Section } from '../components/PageState.tsx'
 import PersonChip from '../components/PersonChip.tsx'
 import PlaceModal from '../components/PlaceModal.tsx'
@@ -39,12 +40,15 @@ import {
  * 데스크톱(D05·D05b)은 메뉴를 본문에, 응답 현황·패스·미응답을 오른쪽 사이드에 둔다.
  * 진행 중일 때 제목 옆 ⋯(05-A)에서 수정·지금 마감·삭제를 한다.
  * 식당 위치를 찾은 메뉴가 있으면 지도(05-G·D05-G)를 모바일은 메뉴 목록 위에(진행 중에는 접어서), 데스크톱은 사이드 맨 위에 둔다.
+ * 메뉴 카드의 「💬 댓글 N」을 누르면 카드 아래로 댓글이 펼쳐진다(05-K, 마감된 투표는 읽기만 05b-K).
+ * 펼친 메뉴는 마감돼도 그대로 두고 읽기 전용으로 바꾼다(쓰던 입력은 닫힌다).
  */
 export default function PollDetailPage() {
   const orgId = useOrgId()
   const pollId = Number(useParams().pollId)
   const poll = usePollDetail(orgId, pollId)
   const { data: org } = useOrganization(orgId)
+  const comments = useCommentsToggle()
   useDocumentTitle(poll.data?.title, org?.name)
 
   if (!Number.isInteger(pollId) || (poll.error instanceof ApiError && poll.error.status === 404)) {
@@ -65,9 +69,27 @@ export default function PollDetailPage() {
       <Link to={`/orgs/${orgId}`} className="inline-block text-sm font-medium text-text-tertiary hover:text-text-secondary">
         ‹ {org?.name ?? '조직'} 투표 목록
       </Link>
-      {poll.data.status === 'OPEN' ? <OpenPoll orgId={orgId} poll={poll.data} /> : <ClosedPoll orgId={orgId} poll={poll.data} />}
+      {poll.data.status === 'OPEN' ? (
+        <OpenPoll orgId={orgId} poll={poll.data} comments={comments} />
+      ) : (
+        <ClosedPoll orgId={orgId} poll={poll.data} comments={comments} />
+      )}
     </div>
   )
+}
+
+/** 댓글을 펼친 메뉴들 */
+type CommentsToggle = { open: ReadonlySet<number>; toggle: (optionId: number) => void }
+
+function useCommentsToggle(): CommentsToggle {
+  const [open, setOpen] = useState<ReadonlySet<number>>(() => new Set())
+  const toggle = (optionId: number) =>
+    setOpen((prev) => {
+      const next = new Set(prev)
+      if (!next.delete(optionId)) next.add(optionId)
+      return next
+    })
+  return { open, toggle }
 }
 
 /**
@@ -127,7 +149,7 @@ function usePollMap(orgId: number, poll: PollDetail, options: PollOption[], coll
   }
 }
 
-function OpenPoll({ orgId, poll }: { orgId: number; poll: PollDetail }) {
+function OpenPoll({ orgId, poll, comments }: { orgId: number; poll: PollDetail; comments: CommentsToggle }) {
   const { data: me } = useMe()
   const now = useNow(10_000)
   const vote = useVote(orgId, poll.id, me)
@@ -188,19 +210,23 @@ function OpenPoll({ orgId, poll }: { orgId: number; poll: PollDetail }) {
             <>
               <p className="text-xs font-medium text-text-tertiary">메뉴 {poll.options.length}개 · 카드를 누르면 그 메뉴로 참여해요</p>
               {poll.options.map((option) => (
-                <OptionCard
-                  key={option.id}
-                  option={option}
-                  meId={me?.id ?? -1}
-                  selected={poll.myOptionId === option.id}
-                  onSelect={() => poll.myOptionId !== option.id && vote.mutate(option.id)}
-                  onDelete={() => deleteOption.mutate(option.id)}
-                  onEditLink={() => setPlaceOptionId(option.id)}
-                  disabled={deleteOption.isPending}
-                  distance={distances.get(option.id)}
-                  resolved={resolved.get(option.id)}
-                  highlighted={highlighted === option.id}
-                />
+                <div key={option.id} className="space-y-1.5">
+                  <OptionCard
+                    option={option}
+                    meId={me?.id ?? -1}
+                    selected={poll.myOptionId === option.id}
+                    onSelect={() => poll.myOptionId !== option.id && vote.mutate(option.id)}
+                    onDelete={() => deleteOption.mutate(option.id)}
+                    onEditLink={() => setPlaceOptionId(option.id)}
+                    disabled={deleteOption.isPending}
+                    distance={distances.get(option.id)}
+                    resolved={resolved.get(option.id)}
+                    highlighted={highlighted === option.id}
+                    commentsOpen={comments.open.has(option.id)}
+                    onToggleComments={() => comments.toggle(option.id)}
+                  />
+                  {comments.open.has(option.id) && <OptionComments pollId={poll.id} optionId={option.id} menuName={option.name} readOnly={false} />}
+                </div>
               ))}
             </>
           )}
@@ -286,7 +312,7 @@ function ResponseProgress({ poll }: { poll: PollDetail }) {
   )
 }
 
-function ClosedPoll({ orgId, poll }: { orgId: number; poll: PollDetail }) {
+function ClosedPoll({ orgId, poll, comments }: { orgId: number; poll: PollDetail; comments: CommentsToggle }) {
   const { data: me } = useMe()
   const teams = confirmedTeams(poll)
   const myTeam = teams.find((t) => t.id === poll.myOptionId)
@@ -328,15 +354,21 @@ function ClosedPoll({ orgId, poll }: { orgId: number; poll: PollDetail }) {
           <section className="space-y-2.5" aria-label="확정 팀">
             <h2 className="font-bold">확정 팀</h2>
             {teams.map((option) => (
-              <OptionCard
-                key={option.id}
-                option={option}
-                meId={me?.id ?? -1}
-                result
-                distance={distances.get(option.id)}
-                resolved={resolved.get(option.id)}
-                highlighted={highlighted === option.id}
-              />
+              <div key={option.id} className="space-y-1.5">
+                <OptionCard
+                  option={option}
+                  meId={me?.id ?? -1}
+                  result
+                  distance={distances.get(option.id)}
+                  resolved={resolved.get(option.id)}
+                  highlighted={highlighted === option.id}
+                  commentsOpen={comments.open.has(option.id)}
+                  onToggleComments={() => comments.toggle(option.id)}
+                />
+                {comments.open.has(option.id) && option.commentCount > 0 && (
+                  <OptionComments pollId={poll.id} optionId={option.id} menuName={option.name} readOnly />
+                )}
+              </div>
             ))}
           </section>
         )}

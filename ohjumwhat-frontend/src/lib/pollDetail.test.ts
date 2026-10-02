@@ -15,8 +15,8 @@ const base: PollDetail = {
   scheduled: false,
   memberCount: 2,
   options: [
-    { id: 100, name: '김치찌개', link: null, placeName: null, placeAddress: null, kakaoPlaceId: null, placeQuery: null, createdBy: lee, voters: [lee], mine: false, deletable: false },
-    { id: 101, name: '쌀국수', link: 'https://naver.me/x', placeName: null, placeAddress: null, kakaoPlaceId: null, placeQuery: null, createdBy: { userId: 1, name: '김철수', profileImageUrl: null }, voters: [], mine: true, deletable: true },
+    { id: 100, name: '김치찌개', link: null, placeName: null, placeAddress: null, kakaoPlaceId: null, placeQuery: null, createdBy: lee, voters: [lee], mine: false, deletable: false, commentCount: 0 },
+    { id: 101, name: '쌀국수', link: 'https://naver.me/x', placeName: null, placeAddress: null, kakaoPlaceId: null, placeQuery: null, createdBy: { userId: 1, name: '김철수', profileImageUrl: null }, voters: [], mine: true, deletable: true, commentCount: 2 },
   ],
   myResponse: 'NONE',
   myOptionId: null,

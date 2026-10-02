@@ -97,7 +97,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 사용자에게 보여줄 오류는 `ApiException`(`notFound`/`badRequest`/`forbidden`/`conflict`)으로 던진다. `GlobalExceptionHandler`가 이를 `{"message": "..."}`로 응답하고, 요청 값 검증 실패(`@Valid`)와 파일 올리기 오류(multipart 아님·파트 없음 400, 한도 초과 413)도 같은 형식으로 준다. 프론트 `api()`는 이 `message`를 `ApiError.message`로 꺼낸다.
 - 조직 하위 API는 먼저 `MembershipService.requireMember(orgId, userId)`를 호출한다. 멤버가 아니면 조직이 있는지도 알리지 않도록 404로 응답한다.
 - 조회용 DTO가 필요하면 JPQL `select new ...Record(...)`로 바로 만든다(예: `MembershipRepository.findMembers`).
-- 투표 관련 쓰기 API(메뉴 추가·삭제, 참여·패스)는 모두 최신 `PollDetailResponse`를 돌려준다. 프론트는 이 응답을 바로 쿼리 캐시에 넣는다.
+- 투표 관련 쓰기 API(메뉴 추가·삭제, 참여·패스)는 모두 최신 `PollDetailResponse`를 돌려준다. 프론트는 이 응답을 바로 쿼리 캐시에 넣는다. 메뉴 댓글 쓰기 API만 그 메뉴의 최신 댓글 목록을 돌려준다(아래 「메뉴 댓글」).
 - 투표 접근은 `PollService.getForMember`로 확인한다. 투표가 없거나 멤버가 아니면 404로 응답한다.
 - 진행 중인 투표에서만 쓰기가 되고, 이 확인은 `PollService.requireOpen`이 한다. 마감되면 409다.
 - 참여는 `VoteRepository.upsert`(native `ON CONFLICT`)로 한 사람 한 행을 유지한다.
@@ -149,6 +149,12 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 조직 안에는 관리자가 없고 모든 멤버의 권한이 같다(서비스 전체를 관리하는 관리자 콘솔은 아래 별도). 마지막 멤버가 탈퇴하면 조직을 삭제하고, 하위 데이터는 DB `ON DELETE CASCADE`로 함께 지운다. 정기 규칙을 삭제하면 `polls.schedule_id`만 NULL이 된다.
 - 멤버가 탈퇴하면 그 조직의 **진행 중인** 투표에서 그 사람의 votes만 지운다. 마감된 투표 기록은 남긴다.
 - 지난 투표(`GET /api/orgs/{id}/polls/history?page=`)는 `poll_date`가 오늘(한국) 이전인 투표를 최신순으로 10개씩 준다. 오늘 투표는 `/polls/today`가 맡는다. 메뉴·응답은 페이지 단위로 한 번에 읽는다(`findByPollIdIn`).
+- 메뉴 댓글(`menu/MenuComment*`, V11 `menu_comments`, Notion 「14. 투표별 채팅/댓글 기능 추가」 1단계)은 채팅과 독립된 REST 기능이다(실시간 아님).
+  - `GET/POST /api/polls/{pollId}/options/{optionId}/comments`, `PUT/DELETE …/{commentId}`. 멤버만(아니면 404), 쓰기·고치기·지우기는 **「마감 = 기록」 원칙대로 진행 중에만**(`requireOpen`, 마감 뒤 409) 하고, 고치기·지우기는 쓴 사람만(403). 마감된 투표의 댓글은 읽기만 한다. 쓰기 API는 그 메뉴의 최신 댓글 목록을 돌려준다.
+  - 본문은 `common/UserText`로 정리한다(앞뒤 공백 제거, 제어 문자 거절, 200자는 글자(코드 포인트) 수). 고치면 `edited_at`이 생겨 「수정됨」으로 보인다.
+  - 메뉴를 지우면 댓글도 CASCADE로 지워진다(메뉴 삭제 조건은 그대로). 강제 탈퇴로 회원이 지워지면 `user_id`만 NULL → 「탈퇴한 사용자」, 조직 탈퇴는 글을 남긴다.
+  - 투표 상세 응답의 메뉴에 `commentCount`가 있어 진행 중에는 3초 폴링으로 개수만 바뀐다. 목록은 펼칠 때·창이 다시 보일 때·내가 쓸 때 받는다(`queries/comments.ts`, 쓰면 상세 캐시의 개수도 맞춘다).
+  - 관리자는 `GET /api/admin/menu-options/{optionId}/comments`, `DELETE /api/admin/menu-comments/{commentId}`로 마감과 상관없이 지운다.
 - 메뉴 자동완성은 별도 테이블 없이 같은 조직 과거 투표의 `menu_options.name`을 중복 없이 조회해서 만든다. 항목마다 마지막으로 먹은 날을 붙이고, 최근 7일 안에 먹은 메뉴는 뒤로 보낸다.
 - 메뉴 통계·추천(`menu/MenuStatsService`, 네이티브 SQL)도 별도 테이블 없이 계산한다. "먹은 메뉴"는 **마감된 투표에서 참여자가 한 명 이상인 메뉴**이고(조직 기준), 이름은 소문자·띄어쓰기 제거로 묶는다("김치찌개" = "김치 찌개", 표시는 가장 최근 이름). 추천은 먹은 적이 있지만 최근 7일(오늘 포함) 안에는 먹지 않은 메뉴를 많이 먹은 순으로 준다. 조직 「통계」 탭(`/orgs/:orgId/stats`)과 메뉴 입력창(비운 채 누르면 추천)에서 쓴다.
 
@@ -223,9 +229,9 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 「디자인 시스템」 페이지
     - Foundations 프레임: 로고, 컨셉 컬러, 원색 팔레트, 의미 기반 토큰, 타이포그래피, 간격·둥글기·그림자
     - Components 프레임: Button, Badge, Avatar, OptionCard, Input, Logo, TopBar(「새 소식 점」 속성), UpdateToast, MapPin(지도 핀)
-  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 별명·프로필 사진(`03-N` 마이페이지, `03-M2` 프로필 수정, `03-M3` 사진 맞추기), 지난 투표(`04-H`), 새 소식 배너(`04-B`), 결과 복사(`05b-S`), 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제), 식당 붙이기(`05-L`, `05-M4` 식당 모달), 식당 찾기 모달(`05-F`), 투표 지도(`05-G`, 크게 보기 `05-G2`), 메뉴 추천(`05-R`, 지난 식당·고른 식당 칩 `05-R2`), 조직 위치(`07-L`, 조직 주소·반경·지도), `08 통계`, `09 새 소식`
-  - 「와이어프레임 · 데스크톱」 페이지: 같은 화면의 데스크톱(1440px) 버전(`D01`~`D07-M`, `D03-N`, `D04-H`, `D05-A`, `D05-G`, `D05-G2`, `D07-L`, `D08`, `D09`). 모달은 모바일 `-M` 프레임과 같다(큰 지도 모달 `D05-G2`만 넓다).
-  - 「관리자 콘솔」 페이지: 관리자 화면(모바일 `A01`~`A08`, 데스크톱 `DA01`~`DA08`, 강제 탈퇴 모달 `-M`, 올린 사진 지우기 `A03-M2`, 공지 글쓰기 모달 `A08-M`, 차단된 로그인 `L01`)과 로컬 컴포넌트 StatCard·ListRow
+  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 별명·프로필 사진(`03-N` 마이페이지, `03-M2` 프로필 수정, `03-M3` 사진 맞추기), 지난 투표(`04-H`), 새 소식 배너(`04-B`), 결과 복사(`05b-S`), 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제), 식당 붙이기(`05-L`, `05-M4` 식당 모달), 식당 찾기 모달(`05-F`), 투표 지도(`05-G`, 크게 보기 `05-G2`), 메뉴 추천(`05-R`, 지난 식당·고른 식당 칩 `05-R2`), 메뉴 댓글(`05-K` 진행 중, `05b-K` 마감 결과 읽기 전용), 조직 위치(`07-L`, 조직 주소·반경·지도), `08 통계`, `09 새 소식`
+  - 「와이어프레임 · 데스크톱」 페이지: 같은 화면의 데스크톱(1440px) 버전(`D01`~`D07-M`, `D03-N`, `D04-H`, `D05-A`, `D05-G`, `D05-G2`, `D05-K`, `D07-L`, `D08`, `D09`). 모달은 모바일 `-M` 프레임과 같다(큰 지도 모달 `D05-G2`만 넓다).
+  - 「관리자 콘솔」 페이지: 관리자 화면(모바일 `A01`~`A08`, 데스크톱 `DA01`~`DA08`, 강제 탈퇴 모달 `-M`, 올린 사진 지우기 `A03-M2`, 공지 글쓰기 모달 `A08-M`, 메뉴 댓글 지우기 `A06-K`, 차단된 로그인 `L01`)과 로컬 컴포넌트 StatCard·ListRow
     - 콘텐츠 폭 1024px 가운데 정렬. 1024px 이상(`lg`)에서 본문 + 오른쪽 사이드(320px) 2단, 그보다 좁으면 모바일 레이아웃을 쓴다.
     - 로그인은 좌우 분할(왼쪽 브랜드 소개·투표 미리보기, 오른쪽 로그인), 모달은 폭 448px이다.
 - **새 화면이나 컴포넌트를 만들 때는 먼저 해당 Figma 프레임을 보고 그대로 구현한다.**
@@ -248,7 +254,8 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - Logo → `components/Logo.tsx`(`Logo`, `LogoMark`)
   - TopBar → `components/AppLayout.tsx`
   - Badge → `components/Badge.tsx`
-  - OptionCard → `components/OptionCard.tsx`(투표 상세의 메뉴 카드, 결과 모드 포함). Figma `Link` 속성(식당 줄)을 켜면 「식당 이름 · 네이버 지도 ↗」(이름이 없으면 「지도 · 서비스 ↗」, `lib/link.ts serviceLabel`)·「식당 고치기」가 보이고, `Distance` 속성은 조직 위치에서의 거리·도보 시간(「350m · 도보 약 7분」)이다. 식당 찾기 모달(05-F, 「근처에서 찾기」·「링크 붙이기」 탭, 메뉴 입력과 카드의 고치기 공용)은 `components/PlaceModal.tsx`, 근처에서 찾기(검색·분류 칩·지도·목록·더 보기)는 `components/PlaceFinder.tsx`, 링크 붙이기 입력(찾기·공유 링크·이름·주소, 조직 위치도 공용)은 `components/PlaceFields.tsx`
+  - OptionCard → `components/OptionCard.tsx`(투표 상세의 메뉴 카드, 결과 모드 포함). Figma `Link` 속성(식당 줄)을 켜면 「식당 이름 · 네이버 지도 ↗」(이름이 없으면 「지도 · 서비스 ↗」, `lib/link.ts serviceLabel`)·「식당 고치기」가 보이고, `Distance` 속성은 조직 위치에서의 거리·도보 시간(「350m · 도보 약 7분」)이다. 식당 찾기 모달(05-F, 「근처에서 찾기」·「링크 붙이기」 탭, 메뉴 입력과 카드의 고치기 공용)은 `components/PlaceModal.tsx`, 근처에서 찾기(검색·분류 칩·지도·목록·더 보기)는 `components/PlaceFinder.tsx`, 링크 붙이기 입력(찾기·공유 링크·이름·주소, 조직 위치도 공용)은 `components/PlaceFields.tsx`. `Comments` 속성은 카드 아래 「💬 댓글 N」 토글이다(댓글이 없으면 「댓글 달기」, 마감된 투표에서 댓글이 없으면 숨김, 카드 선택과 별개라 `stopPropagation`).
+  - MenuComments(펼친 메뉴 댓글, Open·Readonly·Empty) → `components/OptionComments.tsx`. 카드(`role="button"`) 안에 입력창을 넣지 않도록 카드 밖 바로 아래에 그린다. 펼친 메뉴는 `PollDetailPage`가 들고 있어 마감돼도 펼친 채 읽기 전용으로 바뀐다. 관리자 콘솔도 `CommentList`·`CommentRow`를 쓴다
   - 투표 지도(05-G·D05-G) → `components/PollPlacesMap.tsx`(조직 위치·메뉴별 식당 핀, 모바일 접힘, 「⤢ 크게 보기」 → 큰 지도 모달 05-G2·D05-G2: 지도 + 목록, 목록을 누르면 지도가 그 식당으로 옮겨 간다), 지도 공용 → `components/NaverMap.tsx`
   - MapPin(지도 핀) → `NaverMap`의 `markerElement`: 물방울 핀 끝이 정확한 위치, 이름표는 핀 오른쪽. Tone(조직 위치·내 메뉴·그 밖), Number(식당 찾기 번호, 핀 머리), Show Label(식당 찾기는 고른 식당만 이름표)
   - 모달 크기: `Modal`의 `size="lg"`(폭 1024px, 큰 지도)와 `closable`(제목 옆 ✕). 기본은 448px

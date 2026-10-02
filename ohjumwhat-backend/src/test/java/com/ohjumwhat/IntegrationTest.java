@@ -42,8 +42,8 @@ public abstract class IntegrationTest {
 	void cleanDatabase() throws IOException {
 		clock.reset();
 		jdbcTemplate.execute("""
-				TRUNCATE users, organizations, memberships, poll_schedules, polls, menu_options, votes, spring_session,
-					blocked_accounts, notices
+				TRUNCATE users, organizations, memberships, poll_schedules, polls, menu_options, menu_comments, votes,
+					spring_session, blocked_accounts, notices
 				RESTART IDENTITY CASCADE""");
 		try (Stream<Path> files = Files.list(photoStorage.dir())) {
 			for (Path file : files.toList()) {

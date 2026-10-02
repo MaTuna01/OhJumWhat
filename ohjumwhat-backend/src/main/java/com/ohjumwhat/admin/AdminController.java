@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ohjumwhat.auth.LoginUser;
+import com.ohjumwhat.menu.MenuCommentResponse;
+import com.ohjumwhat.menu.MenuCommentService;
 import com.ohjumwhat.organization.LeaveResponse;
 import com.ohjumwhat.poll.PollDetailResponse;
 
@@ -23,8 +25,11 @@ class AdminController {
 
 	private final AdminService adminService;
 
-	AdminController(AdminService adminService) {
+	private final MenuCommentService menuCommentService;
+
+	AdminController(AdminService adminService, MenuCommentService menuCommentService) {
 		this.adminService = adminService;
+		this.menuCommentService = menuCommentService;
 	}
 
 	@GetMapping("/stats")
@@ -103,6 +108,18 @@ class AdminController {
 	@DeleteMapping("/menu-options/{optionId}")
 	PollDetailResponse deleteMenuOption(@AuthenticationPrincipal LoginUser admin, @PathVariable Long optionId) {
 		return adminService.deleteMenuOption(admin.getUserId(), optionId);
+	}
+
+	@GetMapping("/menu-options/{optionId}/comments")
+	List<MenuCommentResponse> menuComments(@AuthenticationPrincipal LoginUser admin, @PathVariable Long optionId) {
+		return menuCommentService.listForAdmin(optionId, admin.getUserId());
+	}
+
+	/** 댓글 강제 삭제(마감과 무관). 그 메뉴의 남은 댓글을 돌려준다. */
+	@DeleteMapping("/menu-comments/{commentId}")
+	List<MenuCommentResponse> deleteMenuComment(@AuthenticationPrincipal LoginUser admin,
+			@PathVariable Long commentId) {
+		return menuCommentService.deleteByAdmin(commentId, admin.getUserId());
 	}
 
 	@DeleteMapping("/schedules/{scheduleId}")

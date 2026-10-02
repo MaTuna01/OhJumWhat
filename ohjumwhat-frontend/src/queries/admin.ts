@@ -1,5 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api.ts'
+import type { MenuComment } from './comments.ts'
 import type { Notice } from './notices.ts'
 import type { PollDetail, PollStatus } from './polls.ts'
 import type { Schedule } from './schedules.ts'
@@ -96,6 +97,7 @@ export const adminKeys = {
   orgs: (q: string) => ['admin', 'orgs', q] as const,
   org: (orgId: number) => ['admin', 'org', orgId] as const,
   poll: (pollId: number) => ['admin', 'poll', pollId] as const,
+  comments: (optionId: number) => ['admin', 'comments', optionId] as const,
   blocks: ['admin', 'blocks'] as const,
 }
 
@@ -183,6 +185,17 @@ export const useDeletePoll = () =>
 
 export const useDeleteMenuOption = () =>
   useAdminMutation((optionId: number) => api<PollDetail>(`/api/admin/menu-options/${optionId}`, { method: 'DELETE' }))
+
+/** 메뉴의 댓글(마감과 무관하게 지울 수 있다) */
+export function useAdminOptionComments(optionId: number) {
+  return useQuery({
+    queryKey: adminKeys.comments(optionId),
+    queryFn: () => api<MenuComment[]>(`/api/admin/menu-options/${optionId}/comments`),
+  })
+}
+
+export const useDeleteMenuComment = () =>
+  useAdminMutation((commentId: number) => api<MenuComment[]>(`/api/admin/menu-comments/${commentId}`, { method: 'DELETE' }))
 
 export const useDeleteSchedule = () =>
   useAdminMutation((scheduleId: number) => api<void>(`/api/admin/schedules/${scheduleId}`, { method: 'DELETE' }))

@@ -28,6 +28,8 @@ export type PollOption = {
   voters: Person[]
   mine: boolean
   deletable: boolean
+  /** 댓글 수(진행 중에는 폴링으로 갱신). 목록은 queries/comments.ts로 펼칠 때 받는다 */
+  commentCount: number
 }
 
 export type PollDetail = {
