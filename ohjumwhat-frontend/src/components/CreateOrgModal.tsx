@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from 'react'
 import { Link } from 'react-router'
+import { josa } from '../lib/josa.ts'
 import { buttonClass, inputClass } from '../lib/ui.ts'
 import { type Organization, useCreateOrganization } from '../queries/orgs.ts'
 import Button from './Button.tsx'
@@ -23,7 +24,7 @@ function CreateOrgForm({ onClose }: { onClose: () => void }) {
     return (
       <div>
         <p className="text-sm text-text-secondary">
-          <strong className="text-text-primary">{created.name}</strong>을(를) 만들었어요. 초대 링크를 메신저로 공유해 멤버를 모으세요.
+          <strong className="text-text-primary">{created.name}</strong>{josa(created.name, '을/를')} 만들었어요. 초대 링크를 메신저로 공유해 멤버를 모으세요.
         </p>
         <div className="mt-4">
           <InviteLinkField token={created.inviteToken} />
