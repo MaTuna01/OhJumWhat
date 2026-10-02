@@ -28,6 +28,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.jayway.jsonpath.JsonPath;
 import com.ohjumwhat.IntegrationTest;
 import com.ohjumwhat.TestImages;
+import com.ohjumwhat.menu.MenuCommentService;
 import com.ohjumwhat.menu.MenuService;
 import com.ohjumwhat.organization.InviteService;
 import com.ohjumwhat.organization.OrganizationService;
@@ -63,6 +64,9 @@ class ProfilePhotoIntegrationTest extends IntegrationTest {
 	VoteService voteService;
 
 	@Autowired
+	MenuCommentService menuCommentService;
+
+	@Autowired
 	TransactionTemplate transactionTemplate;
 
 	User kim;
@@ -87,7 +91,7 @@ class ProfilePhotoIntegrationTest extends IntegrationTest {
 	}
 
 	@Test
-	void 사진을_올리면_내_정보와_멤버_목록과_투표_명단과_관리자_화면에_올린_사진이_보인다() throws Exception {
+	void 사진을_올리면_내_정보와_멤버_목록과_투표_명단과_댓글과_관리자_화면에_올린_사진이_보인다() throws Exception {
 		String url = photoUrl(upload(kim, TestImages.jpeg(512, 512))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.profileImageUrl", startsWith("/api/photos/")))
@@ -107,6 +111,11 @@ class ProfilePhotoIntegrationTest extends IntegrationTest {
 			.andExpect(jsonPath("$.options[0].createdBy.profileImageUrl").value(url))
 			.andExpect(jsonPath("$.options[0].voters[0].profileImageUrl").value(url))
 			.andExpect(jsonPath("$.nonRespondents[0].profileImageUrl").value(LEE_GOOGLE_PHOTO));
+		menuCommentService.add(pollId, optionId, kim.getId(), "여기 맛있어요");
+		menuCommentService.add(pollId, optionId, lee.getId(), "좋아요");
+		mockMvc.perform(get("/api/polls/" + pollId + "/options/" + optionId + "/comments").with(loginAs(lee)))
+			.andExpect(jsonPath("$[0].author.profileImageUrl").value(url))
+			.andExpect(jsonPath("$[1].author.profileImageUrl").value(LEE_GOOGLE_PHOTO));
 
 		mockMvc.perform(get("/api/admin/users/" + kim.getId()).with(loginAs(admin)))
 			.andExpect(jsonPath("$.user.profileImageUrl").value(url))
