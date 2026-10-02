@@ -30,8 +30,8 @@
 | 14 | 새 소식(공지사항): 업데이트(배포 때 자동 게시)·개발자 노트, 새 버전 안내 | 완료(v1.5.0) | [#29](https://github.com/MaTuna01/OhJumWhat/pull/29) |
 | 11 | 식당 정보·네이버 지도 연동 1차: 공유 링크로 식당 붙이기(장소 정식 링크·식당 이름), 조직 위치 | 완료(v1.6.0) | [#32](https://github.com/MaTuna01/OhJumWhat/pull/32) |
 | 15 | 식당 검색·네이버 지도 연동(지도 연동 3단계): 조직 주소·검색 반경, 투표 지도·거리(1차), 근처 식당 찾기·둘러보기·지난 식당(2차). 찾기는 카카오 로컬, 지도는 네이버 | 완료(v1.7.0) | [#41](https://github.com/MaTuna01/OhJumWhat/pull/41), [#42](https://github.com/MaTuna01/OhJumWhat/pull/42) |
-| - | 투표별 채팅·메뉴 댓글(Notion 「14. 투표별 채팅/댓글 기능 추가」): 1단계 메뉴 댓글(진행 중에만 쓰기, 마감 뒤 읽기 전용, 관리자 삭제) → 2단계 투표 채팅(WebSocket, 마감 후 1시간까지) | 1단계 완료([#55](https://github.com/MaTuna01/OhJumWhat/pull/55)), 2단계 진행 중 | 이슈 [#54](https://github.com/MaTuna01/OhJumWhat/issues/54), [#57](https://github.com/MaTuna01/OhJumWhat/issues/57) |
-| - | 프로필 사진: 직접 맞춰 올린 사진(서버 디스크 볼륨에 256px JPEG, DB와 함께 백업), 「프로필 수정」 모달(사진·이름 한 번에 저장), 관리자 「올린 사진 지우기」 | 완료(dev, 릴리스 전) | [#56](https://github.com/MaTuna01/OhJumWhat/pull/56) |
+| - | 투표별 채팅·메뉴 댓글(Notion 「14. 투표별 채팅/댓글 기능 추가」): 1단계 메뉴 댓글(진행 중에만 쓰기, 마감 뒤 읽기 전용, 관리자 삭제) → 2단계 투표 채팅(WebSocket, 마감 후 1시간까지) | 완료(v1.8.0) | [#55](https://github.com/MaTuna01/OhJumWhat/pull/55), [#58](https://github.com/MaTuna01/OhJumWhat/pull/58) |
+| - | 프로필 사진: 직접 맞춰 올린 사진(서버 디스크 볼륨에 256px JPEG, DB와 함께 백업), 「프로필 수정」 모달(사진·이름 한 번에 저장), 관리자 「올린 사진 지우기」 | 완료(v1.8.0) | [#56](https://github.com/MaTuna01/OhJumWhat/pull/56) |
 
 확장 기능(8~13단계)의 순서와 체크리스트는 Notion Tasks에 있다. 기획서 「나중에」 목록을 구현 난이도 순으로 정렬했다: 8 투표 조기 마감·수정·삭제 → 9 메뉴에 식당 지도 링크 → 10 메뉴 통계 → 11 식당 정보·지도 연동(검색 API는 약관상 결과를 저장할 수 없어 네이버 공유 링크 방식으로, 결과 지도는 다음 단계) → 12 중복 투표 → 13 최소 인원 미달 자동 해산. 14 공지사항(새 소식)은 배포마다 바뀐 점을 알리려고 나중에 추가했다.
 
