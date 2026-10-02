@@ -97,15 +97,15 @@ public class PollController {
 			@Valid @RequestBody AddOptionRequest request) {
 		// 식당 링크 확인(naver.me 요청)은 DB 트랜잭션 밖에서 한다.
 		return menuService.add(pollId, loginUser.getUserId(), request.name(),
-				placeLinkResolver.place(request.link(), request.placeName()));
+				placeLinkResolver.place(request.link(), request.placeName(), request.placeAddress()));
 	}
 
-	/** link가 비어 있으면 식당(링크·이름)을 뺀다. */
+	/** link가 비어 있으면 식당(링크·이름·주소)을 뺀다. */
 	@PutMapping("/api/polls/{pollId}/options/{optionId}/link")
 	PollDetailResponse changeLink(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId,
 			@PathVariable Long optionId, @Valid @RequestBody PlaceRequest request) {
 		return menuService.changePlace(pollId, optionId, loginUser.getUserId(),
-				placeLinkResolver.place(request.link(), request.placeName()));
+				placeLinkResolver.place(request.link(), request.placeName(), request.placeAddress()));
 	}
 
 	@DeleteMapping("/api/polls/{pollId}/options/{optionId}")
@@ -124,6 +124,7 @@ public class PollController {
 	/**
 	 * @param link 식당 지도 링크(선택). 지도 앱의 공유 문구를 통째로 붙여도 된다.
 	 * @param placeName 식당 이름(선택, 링크가 있을 때만 저장). 공백을 정리한 뒤 100자까지
+	 * @param placeAddress 식당 주소(선택, 링크가 있을 때만 저장). 공유 글의 주소 줄. 공백을 정리한 뒤 200자까지
 	 */
 	record AddOptionRequest(
 			@NotBlank(message = "메뉴 이름을 입력해 주세요.")
@@ -132,15 +133,19 @@ public class PollController {
 			@Size(max = 1000, message = "링크가 너무 길어요.")
 			String link,
 			@Size(max = 200, message = "식당 이름은 100자 이하로 입력해 주세요.")
-			String placeName) {
+			String placeName,
+			@Size(max = 400, message = "주소는 200자 이하로 입력해 주세요.")
+			String placeAddress) {
 	}
 
-	/** 식당 달기·고치기. link가 비면 식당(링크·이름)을 뺀다. */
+	/** 식당 달기·고치기. link가 비면 식당(링크·이름·주소)을 뺀다. */
 	record PlaceRequest(
 			@Size(max = 1000, message = "링크가 너무 길어요.")
 			String link,
 			@Size(max = 200, message = "식당 이름은 100자 이하로 입력해 주세요.")
-			String placeName) {
+			String placeName,
+			@Size(max = 400, message = "주소는 200자 이하로 입력해 주세요.")
+			String placeAddress) {
 	}
 
 	record VoteRequest(Long optionId) {

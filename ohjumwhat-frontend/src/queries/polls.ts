@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError, api } from '../lib/api.ts'
+import type { PlaceInput } from '../lib/place.ts'
 import { applyVote } from '../lib/pollDetail.ts'
 import type { Me } from './me.ts'
 import { orgKeys } from './orgs.ts'
@@ -16,6 +17,8 @@ export type PollOption = {
   link: string | null
   /** 식당 이름(링크가 있을 때만). 없으면 null */
   placeName: string | null
+  /** 식당 주소(링크가 있을 때만, 공유 글의 주소 줄). 지도 위치는 usePollPlaces로 따로 받는다. 없으면 null */
+  placeAddress: string | null
   /** 추가한 사람. 강제 탈퇴로 삭제된 회원이면 null("탈퇴한 사용자") */
   createdBy: Person | null
   voters: Person[]
@@ -191,20 +194,17 @@ export function useDeletePoll(orgId: number, pollId: number) {
   })
 }
 
-/** 메뉴 추가. 식당(링크·이름)은 선택이고, naver.me 공유 링크는 서버가 장소 정식 링크로 바꾼다. */
+/** 메뉴 추가. 식당(링크·이름·주소)은 선택이고, naver.me 공유 링크는 서버가 장소 정식 링크로 바꾼다. */
 export function useAddOption(orgId: number, pollId: number) {
-  return usePollMutation(pollId, orgId, (body: { name: string; link: string | null; placeName: string | null }) =>
+  return usePollMutation(pollId, orgId, (body: { name: string } & PlaceInput) =>
     api<PollDetail>(`/api/polls/${pollId}/options`, { method: 'POST', body }),
   )
 }
 
-/** 식당 달기·고치기. link가 null이면 식당(링크·이름)을 뺀다. */
+/** 식당 달기·고치기. link가 null이면 식당(링크·이름·주소)을 뺀다. */
 export function useChangePlace(orgId: number, pollId: number) {
-  return usePollMutation(
-    pollId,
-    orgId,
-    ({ optionId, link, placeName }: { optionId: number; link: string | null; placeName: string | null }) =>
-      api<PollDetail>(`/api/polls/${pollId}/options/${optionId}/link`, { method: 'PUT', body: { link, placeName } }),
+  return usePollMutation(pollId, orgId, ({ optionId, ...place }: { optionId: number } & PlaceInput) =>
+    api<PollDetail>(`/api/polls/${pollId}/options/${optionId}/link`, { method: 'PUT', body: place }),
   )
 }
 

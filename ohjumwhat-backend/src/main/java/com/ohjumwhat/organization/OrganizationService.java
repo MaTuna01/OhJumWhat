@@ -78,15 +78,21 @@ public class OrganizationService {
 
 	/**
 	 * 조직 위치 바꾸기(멤버 누구나). area는 앞뒤 공백을 지우고 비면 지운다.
-	 * office는 컨트롤러가 트랜잭션 밖에서 PlaceLinkResolver로 정리한 값이다(없으면 null).
+	 * office·officeAddress는 컨트롤러가 트랜잭션 밖에서 정리·확인한 값이다(없으면 null). searchRadius가 null이면 1000m.
 	 */
 	@Transactional
-	public OrganizationResponse changeLocation(Long organizationId, Long userId, String area, PlaceLink office) {
+	public OrganizationResponse changeLocation(Long organizationId, Long userId, String area, PlaceLink office,
+			String officeAddress, Integer searchRadius) {
 		membershipService.requireMember(organizationId, userId);
+		int radius = searchRadius == null ? Organization.DEFAULT_SEARCH_RADIUS : searchRadius;
+		if (!Organization.SEARCH_RADII.contains(radius)) {
+			throw ApiException.badRequest("검색 반경은 500m, 1km, 2km 중에서 골라 주세요.");
+		}
 		Organization organization = organizationRepository.findById(organizationId).orElseThrow();
-		organization.changeLocation(area == null || area.isBlank() ? null : area.strip(), office);
-		log.info("조직 위치 변경: organizationId={}, userId={}, 지역={}, 회사={}", organizationId, userId,
-				organization.getArea() != null, office != null);
+		organization.changeLocation(area == null || area.isBlank() ? null : area.strip(), office, officeAddress,
+				radius);
+		log.info("조직 위치 변경: organizationId={}, userId={}, 지역={}, 회사={}, 주소={}, 반경={}", organizationId, userId,
+				organization.getArea() != null, office != null, officeAddress != null, radius);
 		return toResponse(organization, membershipRepository.countByOrganizationId(organizationId));
 	}
 
@@ -156,7 +162,8 @@ public class OrganizationService {
 
 	private static OrganizationResponse toResponse(Organization organization, long memberCount) {
 		return new OrganizationResponse(organization.getId(), organization.getName(), organization.getInviteToken(),
-				memberCount, organization.getArea(), organization.getOfficeName(), organization.getOfficeLinkUrl());
+				memberCount, organization.getArea(), organization.getOfficeName(), organization.getOfficeLinkUrl(),
+				organization.getOfficeAddress(), organization.getSearchRadius());
 	}
 
 	/** 초대 링크용 토큰: 32바이트 난수를 URL에 안전한 base64로 인코딩(43자) */

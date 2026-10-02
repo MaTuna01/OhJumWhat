@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from 'react'
-import { type PlaceValue, placeInput } from '../lib/place.ts'
+import { type PlaceInput, type PlaceValue, placeInput } from '../lib/place.ts'
 import { type PollOption, useChangePlace } from '../queries/polls.ts'
 import Button from './Button.tsx'
 import Modal from './Modal.tsx'
@@ -37,15 +37,18 @@ type FormProps = {
   pending: boolean
   error: string | undefined
   onCancel: () => void
-  onSave: (input: { link: string | null; placeName: string | null }) => void
+  onSave: (input: PlaceInput) => void
 }
 
 function PlaceForm({ option, area, pending, error, onCancel, onSave }: FormProps) {
-  const initial: PlaceValue = { link: option.link ?? '', name: option.placeName ?? '' }
+  const initial: PlaceValue = { link: option.link ?? '', name: option.placeName ?? '', address: option.placeAddress ?? '' }
   const [place, setPlace] = useState(initial)
   const hasPlace = option.link != null
   const input = placeInput(place)
-  const unchanged = input.link === (option.link ?? null) && input.placeName === (option.placeName ?? null)
+  const unchanged =
+    input.link === (option.link ?? null) &&
+    input.placeName === (option.placeName ?? null) &&
+    input.placeAddress === (option.placeAddress ?? null)
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -64,7 +67,7 @@ function PlaceForm({ option, area, pending, error, onCancel, onSave }: FormProps
         {hasPlace ? (
           <button
             type="button"
-            onClick={() => onSave({ link: null, placeName: null })}
+            onClick={() => onSave({ link: null, placeName: null, placeAddress: null })}
             disabled={pending}
             className="text-sm font-medium text-text-danger hover:underline disabled:opacity-50"
           >

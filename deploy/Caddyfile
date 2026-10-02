@@ -6,9 +6,10 @@
 	header {
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
-		# 외부 리소스는 Google Fonts와 구글 프로필 사진뿐이다. 인라인 스크립트·스타일 태그는 쓰지 않는다.
+		# 외부 리소스는 Google Fonts, 구글 프로필 사진, 네이버 지도(NCP Maps)뿐이다. 우리 코드는 인라인 스크립트·스타일 태그를 쓰지 않는다.
+		# 네이버 지도: 스크립트(oapi.map.naver.com), 타일 스타일 JSONP·타일 이미지(*.pstatic.net).
 		# 새 외부 리소스(분석 도구, CDN 등)를 추가하면 여기도 함께 고친다.
-		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://*.googleusercontent.com; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		Content-Security-Policy "default-src 'self'; script-src 'self' https://oapi.map.naver.com https://*.pstatic.net; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleusercontent.com https://oapi.map.naver.com https://*.pstatic.net; connect-src 'self' https://oapi.map.naver.com https://*.pstatic.net; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 		-Server
 	}
 }

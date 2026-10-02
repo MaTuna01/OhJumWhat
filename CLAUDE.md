@@ -43,6 +43,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - `application.yml`에는 `${DB_PASSWORD}` 같은 플레이스홀더만 둔다. `spring.config.import: optional:file:../.env[.properties]`로 로컬 `bootRun`이 루트 `.env`를 읽는다. 운영(Docker)에서는 compose의 `env_file`로 주입한다.
 - `ohjumwhat-backend/src/test/resources/application.yml`은 커밋된 테스트 전용 설정이다. 클래스패스에서 main의 `application.yml`보다 먼저 잡혀 이를 가린다. DB 연결은 `TestcontainersConfiguration`의 `@ServiceConnection`(postgres:18-alpine)으로 받는다.
 - 구글 OAuth 로컬 리디렉션 URI는 `http://localhost:5173/login/oauth2/code/google`이다(Vite 프록시 경유).
+- 지도 키는 `ohjumwhat.maps`(`KAKAO_REST_KEY`, `NAVER_MAP_KEY_ID`)다. 비어 있으면 지도·거리를 끄고 링크 방식만 쓴다(테스트·로컬에서 키 없이도 뜬다). 네이버 지도 키는 프론트 빌드에 넣지 않고 `GET /api/config`로 받는다.
 
 ## 아키텍처
 
@@ -102,11 +103,16 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - `votes`는 (poll, user)당 한 행이다. 메뉴를 바꾸면 `option_id`만 갱신한다. `option_id`가 NULL이면 "오늘은 패스"다.
 - `votes.option_id` FK는 의도적으로 `NO ACTION`이다(RESTRICT 아님). 투표를 CASCADE로 삭제할 때 검사가 문장 끝으로 미뤄지게 하기 위해서다. 참여자가 있는 메뉴를 삭제하지 못하게 막는 검사는 서비스에서 먼저 한다.
 - 메뉴를 추가해도 추가한 사람이 자동으로 참여하지 않는다. 메뉴는 추가한 사람만, 참여자가 0명이고 투표가 진행 중일 때만 삭제할 수 있다. 메뉴 이름은 trim해서 저장하고, (poll, name)은 UNIQUE다.
-- 메뉴의 식당(`menu_options.link_url`·`place_name`, V4·V7)은 선택이다. 메뉴를 추가할 때 붙이거나, 추가한 사람이 진행 중에 `PUT /api/polls/{pollId}/options/{optionId}/link {link, placeName}`로 달고 고친다. 링크를 빼면 이름도 지운다. 화면은 새 탭(`rel="noopener noreferrer"`)으로 연다(Notion 「11. 식당 정보·네이버 지도 연동」).
+- 메뉴의 식당(`menu_options.link_url`·`place_name`·`place_address`, V4·V7·V8)은 선택이다. 메뉴를 추가할 때 붙이거나, 추가한 사람이 진행 중에 `PUT /api/polls/{pollId}/options/{optionId}/link {link, placeName, placeAddress}`로 달고 고친다. 링크를 빼면 이름·주소도 지운다. 화면은 새 탭(`rel="noopener noreferrer"`)으로 연다(Notion 「11. 식당 정보·네이버 지도 연동」, 「15. 식당 검색·네이버 지도 연동」).
   - 링크 규칙은 `place/PlaceLinks`다. 지도 서비스를 가리지 않고 http/https 주소면 받는다. 공유 문구에서 네이버 지도 링크를 먼저 꺼내고(스킴이 없어도 된다), 장소 ID가 있는 네이버 링크는 정식 링크 `https://map.naver.com/p/entry/place/{id}`로 바꾼다. 길이(500자)는 바꾼 뒤에 검사한다.
   - naver.me 단축 링크는 `place/PlaceLinkResolver`가 첫 리디렉션만 읽어 장소 ID로 정식 링크를 만든다(`JdkNaverShortLinks`: 검증한 코드로 `https://naver.me/{code}`를 직접 만들고, 리디렉션은 따라가지 않고, 2·3초 타임아웃). 실패하면 단축 링크를 그대로 둔다. 네트워크를 쓰므로 **컨트롤러에서(트랜잭션 밖)** 확인하고, 서비스는 정리된 `PlaceLink`를 받는다. 테스트는 `FakeNaverShortLinksConfiguration`(고정 표)이 대신한다.
-  - 지도 검색 API 결과(카카오·네이버)는 약관상 저장할 수 없어서 쓰지 않는다. 식당 이름은 사용자가 붙인 공유 글에서 프론트가 미리 채운 값이다(`lib/place.ts parseShareText`). 「네이버 지도에서 찾기」는 「조직 검색 지역 + 메뉴 이름」으로 네이버 지도 검색을 연다(`naverSearchUrl`).
-- 조직 위치(`organizations.area`·`office_name`·`office_link_url`, V7)는 `PUT /api/orgs/{orgId}/location`으로 통째로 바꾼다(멤버 누구나, 빈 값은 지운다). 검색 지역은 「네이버 지도에서 찾기」 검색어 앞에 붙고, 회사 위치는 지도 단계에서 쓴다. 회사 링크도 같은 링크 규칙을 쓴다.
+  - 식당 이름·주소는 사용자가 붙인 공유 글에서 프론트가 미리 채운 값이다(`lib/place.ts parseShareText`, 주소는 시·도 이름으로 시작하는 줄). 「네이버 지도에서 찾기」는 「조직 검색 지역 + 메뉴 이름」으로 네이버 지도 검색을 연다(`naverSearchUrl`).
+- 조직 위치(`organizations.area`·`office_name`·`office_link_url`·`office_address`·`search_radius`, V7·V8)는 `PUT /api/orgs/{orgId}/location`으로 통째로 바꾼다(멤버 누구나, 빈 값은 지운다, 반경은 500·1000·2000m이고 없으면 1000). 검색 지역은 「네이버 지도에서 찾기」 검색어 앞에 붙는다. 회사 주소는 지도·거리의 기준점이라 저장 전에 카카오로 찾을 수 있는지 확인한다(못 찾으면 400, 카카오를 못 쓰면 확인 없이 저장). 회사 링크도 같은 링크 규칙을 쓴다.
+- **지도: 찾기는 카카오 로컬, 보여주기는 네이버 지도.** 카카오 로컬 REST(`place/KakaoLocal` → `RestKakaoLocal`, 키는 서버에만)로 주소를 좌표로 바꾸고, 화면의 지도는 네이버 지도 JS(`lib/naverMaps.ts`, `components/NaverMap.tsx`)로 그린다. 네이버 지역 검색 API는 5건·위치 검색 없음·저장 불가라 쓰지 않는다.
+  - **약관상 좌표·검색 결과는 저장·캐시하지 않는다.** 저장하는 것은 사용자가 입력한 주소 문자열뿐이고, `GET /api/orgs/{orgId}/places?optionIds=`가 볼 때마다 회사·식당 주소를 좌표로 바꿔 준다(`place/PlaceSearchService`, 가상 스레드 병렬·4초 마감, 실패한 항목은 빼고 부분 결과). ref는 서버가 그 조직의 옵션에서 만든다(클라이언트가 임의 검색어로 쿼터를 쓰지 못하게). 멤버 확인을 카카오 호출보다 먼저 한다.
+  - 카카오 호출은 네트워크를 쓰므로 트랜잭션 밖(컨트롤러·비트랜잭션 서비스)에서 한다. 로그에는 주소·검색어를 남기지 않는다. 테스트는 `FakeKakaoLocalConfiguration`(고정 표, 호출 횟수)이 대신하고, `RestKakaoLocalTest`는 `MockRestServiceServer`로 요청을 확인한다.
+  - 거리·도보 시간은 프론트가 좌표로 계산한다(`lib/distance.ts`: 직선거리, 도보 = 거리 × 1.3 ÷ 분당 67m). 투표 상세는 위치를 폴링과 따로 받는다(`queries/places.ts usePlaces`, 키 = 회사 주소 + 메뉴의 식당 서명). 지도는 `useMediaQuery`로 모바일(메뉴 목록 위, 진행 중에는 접힘)과 데스크톱(사이드 맨 위) 중 한 곳에만 그린다.
+  - 지도 마커 글자는 사용자 입력(메뉴 이름)이라 DOM 노드의 `textContent`로만 넣는다. `NaverMap`은 `<dialog>`·접힌 영역에서 크기가 0일 수 있어 ResizeObserver로 크기가 생긴 뒤에 지도를 만든다.
 - 조직 안에는 관리자가 없고 모든 멤버의 권한이 같다(서비스 전체를 관리하는 관리자 콘솔은 아래 별도). 마지막 멤버가 탈퇴하면 조직을 삭제하고, 하위 데이터는 DB `ON DELETE CASCADE`로 함께 지운다. 정기 규칙을 삭제하면 `polls.schedule_id`만 NULL이 된다.
 - 멤버가 탈퇴하면 그 조직의 **진행 중인** 투표에서 그 사람의 votes만 지운다. 마감된 투표 기록은 남긴다.
 - 지난 투표(`GET /api/orgs/{id}/polls/history?page=`)는 `poll_date`가 오늘(한국) 이전인 투표를 최신순으로 10개씩 준다. 오늘 투표는 `/polls/today`가 맡는다. 메뉴·응답은 페이지 단위로 한 번에 읽는다(`findByPollIdIn`).
@@ -171,7 +177,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 보안 헤더
   - HSTS·nosniff·X-Frame-Options는 Spring Security가 붙인다.
   - Referrer-Policy·Permissions-Policy·**CSP**는 `deploy/Caddyfile`이 붙인다. Caddyfile이 바뀌면 배포 스크립트가 검증 후 Caddy 컨테이너를 다시 만든다(단일 파일 마운트라 `up -d`만으로는 반영되지 않는다).
-  - CSP가 허용하는 외부 출처는 Google Fonts와 `*.googleusercontent.com`(프로필 사진)뿐이다. 새 외부 리소스(스크립트, 폰트, 이미지 CDN, 분석 도구)를 추가하면 CSP도 함께 고친다. 안 고치면 운영에서만 막힌다(개발 서버에는 CSP가 없다).
+  - CSP가 허용하는 외부 출처는 Google Fonts, `*.googleusercontent.com`(프로필 사진), 네이버 지도(`oapi.map.naver.com` 스크립트, `*.pstatic.net` 타일 스타일 JSONP·타일 이미지)뿐이다. 새 외부 리소스(스크립트, 폰트, 이미지 CDN, 분석 도구)를 추가하면 CSP도 함께 고친다. 안 고치면 운영에서만 막힌다(개발 서버에는 CSP가 없다).
 - `Dockerfile`이나 `deploy/`를 바꾸면, 합치기 전에 로컬에서 `docker build`와 `deploy/docker-compose.yml`로 스택을 띄워 확인한다(도메인은 `localhost`).
 
 ## 디자인 시스템 (Figma) — 프론트엔드는 이것을 기준으로 개발한다
@@ -180,8 +186,8 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 「디자인 시스템」 페이지
     - Foundations 프레임: 로고, 컨셉 컬러, 원색 팔레트, 의미 기반 토큰, 타이포그래피, 간격·둥글기·그림자
     - Components 프레임: Button, Badge, Avatar, OptionCard, Input, Logo, TopBar(「새 소식 점」 속성), UpdateToast
-  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 별명(`03-N` 마이페이지, `03-M2` 이름 바꾸기), 지난 투표(`04-H`), 새 소식 배너(`04-B`), 결과 복사(`05b-S`), 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제), 식당 붙이기(`05-L`, `05-M4` 식당 모달), 메뉴 추천(`05-R`), 조직 위치(`07-L`), `08 통계`, `09 새 소식`
-  - 「와이어프레임 · 데스크톱」 페이지: 같은 화면의 데스크톱(1440px) 버전(`D01`~`D07-M`, `D03-N`, `D04-H`, `D05-A`, `D07-L`, `D08`, `D09`). 모달은 모바일 `-M` 프레임과 같다.
+  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 별명(`03-N` 마이페이지, `03-M2` 이름 바꾸기), 지난 투표(`04-H`), 새 소식 배너(`04-B`), 결과 복사(`05b-S`), 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제), 식당 붙이기(`05-L`, `05-M4` 식당 모달), 투표 지도(`05-G`), 메뉴 추천(`05-R`), 조직 위치(`07-L`, 회사 주소·반경·지도), `08 통계`, `09 새 소식`
+  - 「와이어프레임 · 데스크톱」 페이지: 같은 화면의 데스크톱(1440px) 버전(`D01`~`D07-M`, `D03-N`, `D04-H`, `D05-A`, `D05-G`, `D07-L`, `D08`, `D09`). 모달은 모바일 `-M` 프레임과 같다.
   - 「관리자 콘솔」 페이지: 관리자 화면(모바일 `A01`~`A08`, 데스크톱 `DA01`~`DA08`, 강제 탈퇴 모달 `-M`, 공지 글쓰기 모달 `A08-M`, 차단된 로그인 `L01`)과 로컬 컴포넌트 StatCard·ListRow
     - 콘텐츠 폭 1024px 가운데 정렬. 1024px 이상(`lg`)에서 본문 + 오른쪽 사이드(320px) 2단, 그보다 좁으면 모바일 레이아웃을 쓴다.
     - 로그인은 좌우 분할(왼쪽 브랜드 소개·투표 미리보기, 오른쪽 로그인), 모달은 폭 448px이다.
@@ -205,7 +211,8 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - Logo → `components/Logo.tsx`(`Logo`, `LogoMark`)
   - TopBar → `components/AppLayout.tsx`
   - Badge → `components/Badge.tsx`
-  - OptionCard → `components/OptionCard.tsx`(투표 상세의 메뉴 카드, 결과 모드 포함). Figma `Link` 속성(식당 줄)을 켜면 「식당 이름 · 네이버 지도 ↗」(이름이 없으면 「지도 · 서비스 ↗」, `lib/link.ts serviceLabel`)·「식당 고치기」가 보인다. 식당 모달(05-M4)은 `components/PlaceModal.tsx`, 식당 입력(찾기·공유 링크·이름, 메뉴 입력·식당 모달·조직 위치 공용)은 `components/PlaceFields.tsx`
+  - OptionCard → `components/OptionCard.tsx`(투표 상세의 메뉴 카드, 결과 모드 포함). Figma `Link` 속성(식당 줄)을 켜면 「식당 이름 · 네이버 지도 ↗」(이름이 없으면 「지도 · 서비스 ↗」, `lib/link.ts serviceLabel`)·「식당 고치기」가 보이고, `Distance` 속성은 회사에서의 거리·도보 시간(「350m · 도보 약 7분」)이다. 식당 모달(05-M4)은 `components/PlaceModal.tsx`, 식당 입력(찾기·공유 링크·이름·주소, 메뉴 입력·식당 모달·조직 위치 공용)은 `components/PlaceFields.tsx`
+  - 투표 지도(05-G·D05-G) → `components/PollPlacesMap.tsx`(회사·메뉴별 식당 마커, 모바일 접힘), 지도 공용 → `components/NaverMap.tsx`
   - 멤버 카드(Figma 「멤버 N명」) → `components/MemberList.tsx`(조직 설정, 데스크톱 조직 홈 사이드)
   - 이름 바꾸기 모달(03-M2) → `components/NicknameModal.tsx`
   - 투표 관리 메뉴·모달(05-A, 05-M1~M3) → `components/PollManageMenu.tsx`. 제목·마감 시간 입력은 만들기(04-M)와 수정이 `components/PollForm.tsx`를 같이 쓴다.

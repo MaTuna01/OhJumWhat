@@ -1,4 +1,5 @@
 import type { KeyboardEvent } from 'react'
+import { distanceLabel } from '../lib/distance.ts'
 import { withJosa } from '../lib/josa.ts'
 import { serviceLabel } from '../lib/link.ts'
 import type { PollOption } from '../queries/polls.ts'
@@ -16,14 +17,20 @@ type Props = {
   /** 내가 추가한 메뉴에서 「식당 고치기」·「＋ 식당 달기」를 누르면(진행 중일 때만) */
   onEditLink?: () => void
   disabled?: boolean
+  /** 회사에서 식당까지 직선거리(m). 회사·식당 위치를 찾았을 때만 */
+  distance?: number
+  /** 지도에서 마커를 눌러 이 카드로 왔을 때 잠깐 강조한다. */
+  highlighted?: boolean
 }
 
 /**
  * Figma OptionCard. 카드 전체를 누르면 그 메뉴에 참여한다(한 사람은 한 메뉴만).
  * 상태: 기본 / 내 선택(오렌지 테두리) / 혼자(배지) / 비어 있음(내가 추가했으면 삭제) / 결과
- * 식당이 있으면 「식당 이름 · 네이버 지도 ↗」(이름이 없으면 「지도 · 서비스 ↗」, Figma OptionCard Link=true, 05-L)를 보여준다.
+ * 식당이 있으면 「식당 이름 · 네이버 지도 ↗」(이름이 없으면 「지도 · 서비스 ↗」, Figma OptionCard Link=true, 05-L)를 보여주고,
+ * 위치를 찾았으면 회사에서의 거리·도보 시간(Figma Distance=true, 05-G)을 함께 보여준다.
+ * 지도 마커에서 찾아올 수 있게 id="option-{id}"를 둔다.
  */
-export default function OptionCard({ option, meId, result, selected, onSelect, onDelete, onEditLink, disabled }: Props) {
+export default function OptionCard({ option, meId, result, selected, onSelect, onDelete, onEditLink, disabled, distance, highlighted }: Props) {
   const count = option.voters.length
   const solo = count === 1
   const interactive = !result && !disabled
@@ -39,6 +46,7 @@ export default function OptionCard({ option, meId, result, selected, onSelect, o
 
   return (
     <div
+      id={`option-${option.id}`}
       role={result ? undefined : 'button'}
       tabIndex={interactive ? 0 : undefined}
       aria-pressed={result ? undefined : selected}
@@ -46,7 +54,9 @@ export default function OptionCard({ option, meId, result, selected, onSelect, o
       aria-disabled={!result && disabled ? true : undefined}
       onClick={interactive ? onSelect : undefined}
       onKeyDown={onKeyDown}
-      className={`flex flex-col gap-3 rounded-2xl border p-4 text-left transition-colors ${
+      className={`flex scroll-mt-24 flex-col gap-3 rounded-2xl border p-4 text-left transition-[colors,box-shadow] ${
+        highlighted && !selected ? 'ring-2 ring-border-brand-soft' : ''
+      } ${
         selected
           ? 'border-border-brand bg-bg-brand-soft ring-1 ring-border-brand'
           : 'border-border-default bg-bg-surface'
@@ -78,6 +88,7 @@ export default function OptionCard({ option, meId, result, selected, onSelect, o
                   </span>
                 </a>
               )}
+              {option.link && distance != null && <span className="text-xs text-text-tertiary">{distanceLabel(distance)}</span>}
               {canEditLink && (
                 <button
                   type="button"

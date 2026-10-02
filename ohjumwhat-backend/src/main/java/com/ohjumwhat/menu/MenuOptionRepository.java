@@ -24,4 +24,10 @@ public interface MenuOptionRepository extends JpaRepository<MenuOption, Long> {
 			group by m.name
 			order by max(m.createdAt) desc""")
 	List<String> findRecentNames(Long organizationId, String query, Pageable pageable);
+
+	/** ids 중 이 조직의 투표에 올라온 메뉴만(다른 조직의 메뉴는 뺀다) */
+	@Query("""
+			select m from MenuOption m join com.ohjumwhat.poll.Poll p on p.id = m.pollId
+			where p.organizationId = :organizationId and m.id in :ids""")
+	List<MenuOption> findInOrganization(Long organizationId, Collection<Long> ids);
 }

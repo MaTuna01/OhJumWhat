@@ -48,3 +48,9 @@ ohjumwhat:
     # 관리자 계정 이메일(쉼표로 여러 개). 서버 시작·로그인 때 이 계정을 관리자로 지정하고, 목록에 없는 관리자는 해제한다.
     # 저장소가 공개라 이메일은 여기 쓰지 않고 .env(ADMIN_EMAILS)로 넣는다. 비어 있으면 관리자 목록을 바꾸지 않는다.
     emails: ${ADMIN_EMAILS:}
+  maps:
+    # 카카오 로컬 REST API 키(https://developers.kakao.com, 앱 설정에서 「카카오맵」을 켜야 한다). 서버에서만 쓴다.
+    # 회사·식당 주소를 좌표로 바꾸고 근처 식당을 찾는다. 비어 있으면 지도·근처 식당 찾기를 끈다.
+    kakao-rest-key: ${KAKAO_REST_KEY:}
+    # 네이버 지도(NCP Maps) Client ID. 브라우저가 지도 스크립트를 부를 때 쓰는 공개 값이고, NCP 콘솔에 등록한 도메인에서만 동작한다.
+    naver-map-key-id: ${NAVER_MAP_KEY_ID:}
