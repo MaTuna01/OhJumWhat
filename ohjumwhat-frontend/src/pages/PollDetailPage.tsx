@@ -93,11 +93,22 @@ function usePollMap(orgId: number, poll: PollDetail, options: PollOption[], coll
     setHighlighted(optionId)
   }
 
+  // 카카오 식당은 이름을 저장하지 않으므로, 다시 찾은 이름과 그 이름으로 만든 네이버 지도 링크를 쓴다.
+  const resolved = new Map<number, { name: string; link: string }>()
+  for (const spot of places.data?.places ?? []) {
+    if (spot.name) resolved.set(spot.optionId, { name: spot.name, link: naverPlaceSearchUrl(spot.name, spot.roadAddress) })
+  }
+
+  const distances = distancesByOption(places.data)
+
   const map =
     mapKey && places.data ? (
       <PollPlacesMap
         keyId={mapKey}
+        title={poll.title}
         places={places.data}
+        distances={distances}
+        resolved={resolved}
         options={options}
         myOptionId={poll.myOptionId}
         collapsible={collapsible && !isDesktop}
@@ -106,14 +117,8 @@ function usePollMap(orgId: number, poll: PollDetail, options: PollOption[], coll
       />
     ) : null
 
-  // 카카오 식당은 이름을 저장하지 않으므로, 다시 찾은 이름과 그 이름으로 만든 네이버 지도 링크를 쓴다.
-  const resolved = new Map<number, { name: string; link: string }>()
-  for (const spot of places.data?.places ?? []) {
-    if (spot.name) resolved.set(spot.optionId, { name: spot.name, link: naverPlaceSearchUrl(spot.name, spot.roadAddress) })
-  }
-
   return {
-    distances: distancesByOption(places.data),
+    distances,
     resolved,
     highlighted,
     mobileMap: isDesktop ? null : map,

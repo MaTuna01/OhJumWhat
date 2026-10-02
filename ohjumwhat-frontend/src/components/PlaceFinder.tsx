@@ -66,8 +66,11 @@ export default function PlaceFinder({ org, keyId, initialQuery, selectedId, onSe
       id: place.kakaoPlaceId,
       lat: place.lat,
       lng: place.lng,
-      label: `${number} ${place.name}`,
+      label: place.name,
+      badge: String(number),
       tone: place.kakaoPlaceId === selectedId ? 'brand' : 'default',
+      // 번호로 목록과 이어지므로 이름표는 고른 식당에만 단다.
+      hideLabel: place.kakaoPlaceId !== selectedId,
     }))
   if (center) markers.unshift({ id: 'office', lat: center.lat, lng: center.lng, label: '회사', tone: 'office' })
 
@@ -112,6 +115,7 @@ export default function PlaceFinder({ org, keyId, initialQuery, selectedId, onSe
           }}
           className="h-40"
           label="근처 식당 지도"
+          focusId={selectedId}
         />
       )}
 
