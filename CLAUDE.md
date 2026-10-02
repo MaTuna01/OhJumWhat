@@ -179,7 +179,8 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 보안 헤더
   - HSTS·nosniff·X-Frame-Options는 Spring Security가 붙인다.
   - Referrer-Policy·Permissions-Policy·**CSP**는 `deploy/Caddyfile`이 붙인다. Caddyfile이 바뀌면 배포 스크립트가 검증 후 Caddy 컨테이너를 다시 만든다(단일 파일 마운트라 `up -d`만으로는 반영되지 않는다).
-  - CSP가 허용하는 외부 출처는 Google Fonts, `*.googleusercontent.com`(프로필 사진), 네이버 지도(`oapi.map.naver.com` 스크립트·인증, `*.map.naver.net` 타일 스타일 JSONP·타일, `static.naver.net` 로고, `kr-col-ext.nelo.navercorp.com` 오류 수집, 스킴 없이 적어 운영은 https만)뿐이다. 지도 스크립트가 style 속성을 직접 넣어서 `style-src-attr`만 `'unsafe-inline'`이다(`<style>` 태그·스크립트는 막는다). 새 외부 리소스(스크립트, 폰트, 이미지 CDN, 분석 도구)를 추가하면 CSP도 함께 고친다. 안 고치면 운영에서만 막힌다(개발 서버에는 CSP가 없다).
+  - CSP가 허용하는 외부 출처는 Google Fonts, `*.googleusercontent.com`(프로필 사진), 네이버 지도뿐이다. 네이버 지도 스크립트(maps.js)는 **페이지 스킴에 따라 출처를 바꾼다**: https면 `*.pstatic.net`(타일 스타일 JSONP·타일·로고·커서), http면 `*.map.naver.net`·`static.naver.net`이고, 둘 다 `oapi.map.naver.com`(스크립트·인증)과 `kr-col-ext.nelo.navercorp.com`(오류 수집)을 쓴다. 네이버 출처는 스킴 없이 적어 운영은 https만 허용한다. 지도 스크립트가 style 속성을 직접 넣어서 `style-src-attr`만 `'unsafe-inline'`이다(`<style>` 태그·스크립트는 막는다). 새 외부 리소스(스크립트, 폰트, 이미지 CDN, 분석 도구)를 추가하면 CSP도 함께 고친다. 안 고치면 운영에서만 막힌다(개발 서버에는 CSP가 없다).
+  - **CSP는 https로 확인한다.** http로만 확인했다가 v1.7.0 운영에서 지도 타일이 막혔다. 자체 서명 인증서로 https 서버를 띄워 Caddyfile의 CSP를 그대로 붙이고, 헤드리스 Chrome(`--ignore-certificate-errors`, CDP)에서 `securitypolicyviolation` 이벤트가 0건인지 본다(앱 내 브라우저는 자체 서명 https를 열지 않는다).
 - `Dockerfile`이나 `deploy/`를 바꾸면, 합치기 전에 로컬에서 `docker build`와 `deploy/docker-compose.yml`로 스택을 띄워 확인한다(도메인은 `localhost`).
 
 ## 디자인 시스템 (Figma) — 프론트엔드는 이것을 기준으로 개발한다

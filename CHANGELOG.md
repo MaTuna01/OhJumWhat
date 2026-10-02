@@ -2,6 +2,11 @@
 
 버전은 `vMAJOR.MINOR.PATCH`로 붙인다. 릴리스 절차는 [docs/DEPLOY.md](docs/DEPLOY.md#릴리스와-버전)에 있다.
 
+## v1.7.1 — 2026-10-02
+
+- 운영(https)에서 지도 타일이 보이지 않던 문제를 고쳤다. 네이버 지도 스크립트는 https 페이지에서 `*.pstatic.net`(타일 스타일 JSONP·타일·로고·커서)을 쓰는데, v1.7.0 CSP는 http로만 확인해서 이 출처가 빠졌다. CSP의 `script-src`·`img-src`·`connect-src`에 `*.pstatic.net`을 더했다.
+  - 자체 서명 https 서버 + 헤드리스 Chrome으로 옛 CSP는 운영과 같은 차단을, 새 CSP는 위반 0건·타일 표시를 확인했다.
+
 ## v1.7.0 — 2026-10-02
 
 - 근처 식당 찾기(카카오 로컬): 식당 찾기 모달의 「근처에서 찾기」에서 조직 주소 기준 반경(500m·1km·2km) 안 음식점을 찾는다.
