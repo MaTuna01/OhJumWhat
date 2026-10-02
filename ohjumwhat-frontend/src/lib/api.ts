@@ -23,12 +23,14 @@ type RequestOptions = {
 }
 
 /**
- * 같은 도메인의 백엔드를 세션 쿠키로 호출한다.
+ * 같은 도메인의 백엔드를 세션 쿠키로 호출한다. body는 JSON으로 보내고, FormData(파일 올리기)는 그대로 보낸다.
  * GET이 아닌 요청에는 서버가 내려준 XSRF-TOKEN 쿠키 값을 X-XSRF-TOKEN 헤더로 붙인다.
  */
 export async function api<T>(path: string, { method = 'GET', body }: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' }
-  if (body !== undefined) {
+  const form = body instanceof FormData
+  // FormData는 브라우저가 경계(boundary)가 든 multipart Content-Type을 붙인다.
+  if (body !== undefined && !form) {
     headers['Content-Type'] = 'application/json'
   }
   if (method !== 'GET') {
@@ -42,7 +44,7 @@ export async function api<T>(path: string, { method = 'GET', body }: RequestOpti
     method,
     headers,
     credentials: 'same-origin',
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : form ? body : JSON.stringify(body),
   })
 
   if (!res.ok) {
