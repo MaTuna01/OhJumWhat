@@ -29,7 +29,7 @@
 | - | 지난 투표 기록 · 결과 복사(메신저 공유) | 완료(v1.5.0) | [#28](https://github.com/MaTuna01/OhJumWhat/pull/28) |
 | 14 | 새 소식(공지사항): 업데이트(배포 때 자동 게시)·개발자 노트, 새 버전 안내 | 완료(v1.5.0) | [#29](https://github.com/MaTuna01/OhJumWhat/pull/29) |
 | 11 | 식당 정보·네이버 지도 연동 1차: 공유 링크로 식당 붙이기(장소 정식 링크·식당 이름), 조직 위치 | 완료(v1.6.0) | [#32](https://github.com/MaTuna01/OhJumWhat/pull/32) |
-| 15 | 식당 검색·네이버 지도 연동(지도 연동 3단계): 조직 주소·검색 반경, 투표 지도·거리(1차), 근처 식당 찾기·둘러보기·지난 식당(2차). 찾기는 카카오 로컬, 지도는 네이버 | 진행 중 | — |
+| 15 | 식당 검색·네이버 지도 연동(지도 연동 3단계): 조직 주소·검색 반경, 투표 지도·거리(1차), 근처 식당 찾기·둘러보기·지난 식당(2차). 찾기는 카카오 로컬, 지도는 네이버 | 완료(v1.7.0) | [#41](https://github.com/MaTuna01/OhJumWhat/pull/41), [#42](https://github.com/MaTuna01/OhJumWhat/pull/42) |
 
 확장 기능(8~13단계)의 순서와 체크리스트는 Notion Tasks에 있다. 기획서 「나중에」 목록을 구현 난이도 순으로 정렬했다: 8 투표 조기 마감·수정·삭제 → 9 메뉴에 식당 지도 링크 → 10 메뉴 통계 → 11 식당 정보·지도 연동(검색 API는 약관상 결과를 저장할 수 없어 네이버 공유 링크 방식으로, 결과 지도는 다음 단계) → 12 중복 투표 → 13 최소 인원 미달 자동 해산. 14 공지사항(새 소식)은 배포마다 바뀐 점을 알리려고 나중에 추가했다.
 
@@ -113,7 +113,7 @@ ohjumwhat/
 | 투표 관리 | `PUT /api/polls/{pollId}` (title, closesAt "HH:mm"), `POST /api/polls/{pollId}/close` (지금 마감), `DELETE /api/polls/{pollId}` (수동 투표만) — 진행 중일 때 멤버 누구나 | 완료 |
 | 메뉴 | `POST /api/polls/{pollId}/options` (name, 식당 선택: link·placeName·placeAddress 또는 kakaoPlaceId·placeQuery), `DELETE /api/polls/{pollId}/options/{optionId}`, `PUT /api/polls/{pollId}/options/{optionId}/link` (같은 식당 값), `GET /api/orgs/{id}/menu-names?q=` (자동완성: 이름 + 마지막으로 먹은 날 + 지난번 식당) | 완료 |
 | 통계 | `GET /api/orgs/{id}/menu-stats?days=` (없으면 전체), `GET /api/orgs/{id}/menu-recommendations` | 완료 |
-| 지도 | `GET /api/config` (네이버 지도 키, 위치 찾기 가능 여부), `GET /api/orgs/{id}/places?optionIds=` (조직·식당 좌표, 카카오 식당은 이름까지, 볼 때마다 찾음, 30개까지), `GET /api/orgs/{id}/places/search?q=` (근처 식당 찾기, 45개까지, 이름·분류가 맞는 곳이 앞) | 진행 중 |
+| 지도 | `GET /api/config` (네이버 지도 키, 위치 찾기 가능 여부), `GET /api/orgs/{id}/places?optionIds=` (조직·식당 좌표, 카카오 식당은 이름까지, 볼 때마다 찾음, 30개까지), `GET /api/orgs/{id}/places/search?q=` (근처 식당 찾기, 45개까지, 이름·분류가 맞는 곳이 앞) | 완료 |
 | 참여 | `PUT /api/polls/{pollId}/vote` `{optionId: number \| null}` (null이면 "오늘은 패스") | 완료 |
 | 정기 | `GET/POST /api/orgs/{id}/schedules`, `PUT/DELETE /api/orgs/{id}/schedules/{sid}` | 완료 |
 | 새 소식 | `GET /api/notices?page=` (최신순 10개씩, 항목마다 unread), `GET /api/notices/unread` (안 읽은 수·가장 최근 것), `POST /api/notices/seen` | 완료 |
