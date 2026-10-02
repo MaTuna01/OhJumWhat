@@ -103,13 +103,15 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - `votes`는 (poll, user)당 한 행이다. 메뉴를 바꾸면 `option_id`만 갱신한다. `option_id`가 NULL이면 "오늘은 패스"다.
 - `votes.option_id` FK는 의도적으로 `NO ACTION`이다(RESTRICT 아님). 투표를 CASCADE로 삭제할 때 검사가 문장 끝으로 미뤄지게 하기 위해서다. 참여자가 있는 메뉴를 삭제하지 못하게 막는 검사는 서비스에서 먼저 한다.
 - 메뉴를 추가해도 추가한 사람이 자동으로 참여하지 않는다. 메뉴는 추가한 사람만, 참여자가 0명이고 투표가 진행 중일 때만 삭제할 수 있다. 메뉴 이름은 trim해서 저장하고, (poll, name)은 UNIQUE다.
-- 메뉴의 식당(`menu_options.link_url`·`place_name`·`place_address`, V4·V7·V8)은 선택이다. 메뉴를 추가할 때 붙이거나, 추가한 사람이 진행 중에 `PUT /api/polls/{pollId}/options/{optionId}/link {link, placeName, placeAddress}`로 달고 고친다. 링크를 빼면 이름·주소도 지운다. 화면은 새 탭(`rel="noopener noreferrer"`)으로 연다(Notion 「11. 식당 정보·네이버 지도 연동」, 「15. 식당 검색·네이버 지도 연동」).
+- 메뉴의 식당(`menu_options.link_url`·`place_name`·`place_address`·`kakao_place_id`·`place_query`, V4·V7·V8·V9)은 선택이다. 메뉴를 추가할 때 붙이거나, 추가한 사람이 진행 중에 `PUT /api/polls/{pollId}/options/{optionId}/link {link, placeName, placeAddress, kakaoPlaceId, placeQuery}`로 달고 고친다. 지도 링크(이름·주소) **또는** 근처 식당 찾기로 고른 카카오 식당(장소 ID·검색어) 중 하나만 받고(둘 다 오면 400), 둘 다 비면 식당을 뺀다. 화면은 새 탭(`rel="noopener noreferrer"`)으로 연다(Notion 「11. 식당 정보·네이버 지도 연동」, 「15. 식당 검색·네이버 지도 연동」).
   - 링크 규칙은 `place/PlaceLinks`다. 지도 서비스를 가리지 않고 http/https 주소면 받는다. 공유 문구에서 네이버 지도 링크를 먼저 꺼내고(스킴이 없어도 된다), 장소 ID가 있는 네이버 링크는 정식 링크 `https://map.naver.com/p/entry/place/{id}`로 바꾼다. 길이(500자)는 바꾼 뒤에 검사한다.
   - naver.me 단축 링크는 `place/PlaceLinkResolver`가 첫 리디렉션만 읽어 장소 ID로 정식 링크를 만든다(`JdkNaverShortLinks`: 검증한 코드로 `https://naver.me/{code}`를 직접 만들고, 리디렉션은 따라가지 않고, 2·3초 타임아웃). 실패하면 단축 링크를 그대로 둔다. 네트워크를 쓰므로 **컨트롤러에서(트랜잭션 밖)** 확인하고, 서비스는 정리된 `PlaceLink`를 받는다. 테스트는 `FakeNaverShortLinksConfiguration`(고정 표)이 대신한다.
   - 식당 이름·주소는 사용자가 붙인 공유 글에서 프론트가 미리 채운 값이다(`lib/place.ts parseShareText`, 주소는 시·도 이름으로 시작하는 줄). 「네이버 지도에서 찾기」는 「조직 검색 지역 + 메뉴 이름」으로 네이버 지도 검색을 연다(`naverSearchUrl`).
 - 조직 위치(`organizations.area`·`office_name`·`office_link_url`·`office_address`·`search_radius`, V7·V8)는 `PUT /api/orgs/{orgId}/location`으로 통째로 바꾼다(멤버 누구나, 빈 값은 지운다, 반경은 500·1000·2000m이고 없으면 1000). 검색 지역은 「네이버 지도에서 찾기」 검색어 앞에 붙는다. 회사 주소는 지도·거리의 기준점이라 저장 전에 카카오로 찾을 수 있는지 확인한다(못 찾으면 400, 카카오를 못 쓰면 확인 없이 저장). 회사 링크도 같은 링크 규칙을 쓴다.
 - **지도: 찾기는 카카오 로컬, 보여주기는 네이버 지도.** 카카오 로컬 REST(`place/KakaoLocal` → `RestKakaoLocal`, 키는 서버에만)로 주소를 좌표로 바꾸고, 화면의 지도는 네이버 지도 JS(`lib/naverMaps.ts`, `components/NaverMap.tsx`)로 그린다. 네이버 지역 검색 API는 5건·위치 검색 없음·저장 불가라 쓰지 않는다.
-  - **약관상 좌표·검색 결과는 저장·캐시하지 않는다.** 저장하는 것은 사용자가 입력한 주소 문자열뿐이고, `GET /api/orgs/{orgId}/places?optionIds=`가 볼 때마다 회사·식당 주소를 좌표로 바꿔 준다(`place/PlaceSearchService`, 가상 스레드 병렬·4초 마감, 실패한 항목은 빼고 부분 결과). ref는 서버가 그 조직의 옵션에서 만든다(클라이언트가 임의 검색어로 쿼터를 쓰지 못하게). 멤버 확인을 카카오 호출보다 먼저 한다.
+  - **약관상 좌표·검색 결과는 저장·캐시하지 않는다.** 저장하는 것은 사용자가 입력한 주소 문자열과, 카카오 식당의 장소 ID·장소 링크(서버가 ID로 `https://place.map.kakao.com/{id}`를 만든다)·사용자가 친 검색어뿐이다(카카오 식당의 이름도 저장하지 않는다, 데브톡 9/17 답변 기준). 근처 식당 찾기는 `GET /api/orgs/{orgId}/places/search?q=&page=`(회사 주소 기준 반경, 음식점 FD6, 거리순 15개씩 3페이지까지, 검색어가 비면 분류 검색으로 둘러보기)이고, `GET /api/orgs/{orgId}/places?optionIds=`가 볼 때마다 회사·식당 주소를 좌표로 바꿔 준다(`place/PlaceSearchService`, 가상 스레드 병렬·4초 마감, 실패한 항목은 빼고 부분 결과). ref는 서버가 그 조직의 옵션에서 만든다(클라이언트가 임의 검색어로 쿼터를 쓰지 못하게). 멤버 확인을 카카오 호출보다 먼저 한다.
+  - 카카오 식당은 `places`가 볼 때마다 (검색어, 회사 좌표, 반경 20km, 거리순)으로 다시 찾아 장소 ID가 같은 결과의 이름·분류·도로명 주소·좌표를 준다(검색어별로 묶어 페이지를 넘기며 찾으면 멈춘다). 반경이 달라도 거리순 45개는 같아서 조직 반경을 바꿔도 찾지만, 회사 위치를 옮기면 못 찾을 수 있다(그때 카드는 저장한 카카오 링크로 「지도 · 카카오맵 ↗」). 카드·결과 복사의 링크는 다시 찾은 이름 + 도로명 주소로 만든 네이버 지도 검색 링크다(`lib/place.ts naverPlaceSearchUrl`).
+  - 자동완성(`menu-names`)과 추천(`menu-recommendations`)은 같은 이름의 메뉴에 지난번 붙인 식당(`lastPlace`, 식당이 붙은 가장 최근 메뉴)을 준다. 고르면 그 식당까지 붙여 추가한다(직접 고른 식당이 있으면 그쪽). 카카오 식당의 이름은 `lastPlace.optionId`로 `places`에서 받는다.
   - 카카오 호출은 네트워크를 쓰므로 트랜잭션 밖(컨트롤러·비트랜잭션 서비스)에서 한다. 로그에는 주소·검색어를 남기지 않는다. 테스트는 `FakeKakaoLocalConfiguration`(고정 표, 호출 횟수)이 대신하고, `RestKakaoLocalTest`는 `MockRestServiceServer`로 요청을 확인한다.
   - 거리·도보 시간은 프론트가 좌표로 계산한다(`lib/distance.ts`: 직선거리, 도보 = 거리 × 1.3 ÷ 분당 67m, 60분이 넘으면 거리만). 투표 상세는 위치를 폴링과 따로 받는다(`queries/places.ts usePlaces`, 키 = 회사 주소 + 메뉴의 식당 서명). 지도는 `useMediaQuery`로 모바일(메뉴 목록 위, 진행 중에는 접힘)과 데스크톱(사이드 맨 위) 중 한 곳에만 그린다.
   - 지도 마커 글자는 사용자 입력(메뉴 이름)이라 DOM 노드의 `textContent`로만 넣는다. `NaverMap`은 `<dialog>`·접힌 영역에서 크기가 0일 수 있어 ResizeObserver로 크기가 생긴 뒤에 지도를 만든다.
@@ -186,7 +188,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 「디자인 시스템」 페이지
     - Foundations 프레임: 로고, 컨셉 컬러, 원색 팔레트, 의미 기반 토큰, 타이포그래피, 간격·둥글기·그림자
     - Components 프레임: Button, Badge, Avatar, OptionCard, Input, Logo, TopBar(「새 소식 점」 속성), UpdateToast
-  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 별명(`03-N` 마이페이지, `03-M2` 이름 바꾸기), 지난 투표(`04-H`), 새 소식 배너(`04-B`), 결과 복사(`05b-S`), 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제), 식당 붙이기(`05-L`, `05-M4` 식당 모달), 투표 지도(`05-G`), 메뉴 추천(`05-R`), 조직 위치(`07-L`, 회사 주소·반경·지도), `08 통계`, `09 새 소식`
+  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 별명(`03-N` 마이페이지, `03-M2` 이름 바꾸기), 지난 투표(`04-H`), 새 소식 배너(`04-B`), 결과 복사(`05b-S`), 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제), 식당 붙이기(`05-L`, `05-M4` 식당 모달), 식당 찾기 모달(`05-F`), 투표 지도(`05-G`), 메뉴 추천(`05-R`, 지난 식당·고른 식당 칩 `05-R2`), 조직 위치(`07-L`, 회사 주소·반경·지도), `08 통계`, `09 새 소식`
   - 「와이어프레임 · 데스크톱」 페이지: 같은 화면의 데스크톱(1440px) 버전(`D01`~`D07-M`, `D03-N`, `D04-H`, `D05-A`, `D05-G`, `D07-L`, `D08`, `D09`). 모달은 모바일 `-M` 프레임과 같다.
   - 「관리자 콘솔」 페이지: 관리자 화면(모바일 `A01`~`A08`, 데스크톱 `DA01`~`DA08`, 강제 탈퇴 모달 `-M`, 공지 글쓰기 모달 `A08-M`, 차단된 로그인 `L01`)과 로컬 컴포넌트 StatCard·ListRow
     - 콘텐츠 폭 1024px 가운데 정렬. 1024px 이상(`lg`)에서 본문 + 오른쪽 사이드(320px) 2단, 그보다 좁으면 모바일 레이아웃을 쓴다.
@@ -211,7 +213,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - Logo → `components/Logo.tsx`(`Logo`, `LogoMark`)
   - TopBar → `components/AppLayout.tsx`
   - Badge → `components/Badge.tsx`
-  - OptionCard → `components/OptionCard.tsx`(투표 상세의 메뉴 카드, 결과 모드 포함). Figma `Link` 속성(식당 줄)을 켜면 「식당 이름 · 네이버 지도 ↗」(이름이 없으면 「지도 · 서비스 ↗」, `lib/link.ts serviceLabel`)·「식당 고치기」가 보이고, `Distance` 속성은 회사에서의 거리·도보 시간(「350m · 도보 약 7분」)이다. 식당 모달(05-M4)은 `components/PlaceModal.tsx`, 식당 입력(찾기·공유 링크·이름·주소, 메뉴 입력·식당 모달·조직 위치 공용)은 `components/PlaceFields.tsx`
+  - OptionCard → `components/OptionCard.tsx`(투표 상세의 메뉴 카드, 결과 모드 포함). Figma `Link` 속성(식당 줄)을 켜면 「식당 이름 · 네이버 지도 ↗」(이름이 없으면 「지도 · 서비스 ↗」, `lib/link.ts serviceLabel`)·「식당 고치기」가 보이고, `Distance` 속성은 회사에서의 거리·도보 시간(「350m · 도보 약 7분」)이다. 식당 찾기 모달(05-F, 「근처에서 찾기」·「링크 붙이기」 탭, 메뉴 입력과 카드의 고치기 공용)은 `components/PlaceModal.tsx`, 근처에서 찾기(검색·분류 칩·지도·목록·더 보기)는 `components/PlaceFinder.tsx`, 링크 붙이기 입력(찾기·공유 링크·이름·주소, 조직 위치도 공용)은 `components/PlaceFields.tsx`
   - 투표 지도(05-G·D05-G) → `components/PollPlacesMap.tsx`(회사·메뉴별 식당 마커, 모바일 접힘), 지도 공용 → `components/NaverMap.tsx`
   - 멤버 카드(Figma 「멤버 N명」) → `components/MemberList.tsx`(조직 설정, 데스크톱 조직 홈 사이드)
   - 이름 바꾸기 모달(03-M2) → `components/NicknameModal.tsx`

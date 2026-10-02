@@ -2,6 +2,7 @@ package com.ohjumwhat.place;
 
 import static com.ohjumwhat.TestAuth.loginAs;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -148,6 +149,90 @@ class PlaceIntegrationTest extends IntegrationTest {
 		mockMvc.perform(get("/api/orgs/" + orgId + "/places").param("optionIds", tooMany).with(loginAs(kim)))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.message").value("한 번에 메뉴 30개까지 볼 수 있어요."));
+	}
+
+	@Test
+	void 근처_식당을_회사_기준으로_찾는다() throws Exception {
+		setOffice(FakeKakaoLocalConfiguration.OFFICE_ADDRESS);
+
+		mockMvc.perform(get("/api/orgs/" + orgId + "/places/search").param("q", " 김치찌개 ").with(loginAs(kim)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.center.lat").value(FakeKakaoLocalConfiguration.OFFICE.lat()))
+			.andExpect(jsonPath("$.places[*].name", contains("할매집", "명동교자")))
+			.andExpect(jsonPath("$.places[0].kakaoPlaceId").value("1001"))
+			.andExpect(jsonPath("$.places[0].category").value("찌개,전골"))
+			.andExpect(jsonPath("$.places[0].roadAddress").value("서울 강남구 테헤란로 10"))
+			.andExpect(jsonPath("$.places[0].distance").value(150))
+			.andExpect(jsonPath("$.hasMore").value(true));
+		assertThat(fakeKakaoLocal.lastRadius()).isEqualTo(1000);
+
+		mockMvc.perform(get("/api/orgs/" + orgId + "/places/search").param("q", "김치찌개").param("page", "2")
+			.with(loginAs(kim)))
+			.andExpect(jsonPath("$.places[*].name", contains("김치랑")))
+			.andExpect(jsonPath("$.hasMore").value(false));
+
+		// 검색어가 없으면 근처 음식점을 둘러본다.
+		mockMvc.perform(get("/api/orgs/" + orgId + "/places/search").with(loginAs(kim)))
+			.andExpect(jsonPath("$.places", hasSize(3)));
+	}
+
+	@Test
+	void 회사_주소가_없거나_값이_올바르지_않거나_카카오가_실패하면_알려준다() throws Exception {
+		mockMvc.perform(get("/api/orgs/" + orgId + "/places/search").param("q", "김치찌개").with(loginAs(kim)))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("조직 설정에서 회사 주소를 정하면 근처 식당을 찾을 수 있어요."));
+
+		setOffice(FakeKakaoLocalConfiguration.OFFICE_ADDRESS);
+		mockMvc.perform(get("/api/orgs/" + orgId + "/places/search").param("page", "4").with(loginAs(kim)))
+			.andExpect(status().isBadRequest());
+		mockMvc.perform(get("/api/orgs/" + orgId + "/places/search").param("q", "가".repeat(51)).with(loginAs(kim)))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("검색어는 50자 이하로 입력해 주세요."));
+		mockMvc.perform(get("/api/orgs/" + orgId + "/places/search").param("q", FakeKakaoLocalConfiguration.FAILING_QUERY)
+			.with(loginAs(kim)))
+			.andExpect(status().isServiceUnavailable())
+			.andExpect(jsonPath("$.message").value("식당 검색이 잠시 안 돼요. 잠시 뒤에 다시 해 주세요."));
+
+		fakeKakaoLocal.reset();
+		mockMvc.perform(get("/api/orgs/" + orgId + "/places/search").param("q", "김치찌개").with(loginAs(outsider)))
+			.andExpect(status().isNotFound());
+		assertThat(fakeKakaoLocal.calls()).isZero();
+	}
+
+	@Test
+	void 카카오_식당은_같은_검색어로_다시_찾아_이름과_위치를_준다() throws Exception {
+		setOffice(FakeKakaoLocalConfiguration.OFFICE_ADDRESS);
+		Long near = addKakaoMenu("김치찌개", "1001", "김치찌개");
+		Long secondPage = addKakaoMenu("김치볶음밥", "1003", "김치찌개");
+		Long browsed = addKakaoMenu("칼국수", "1002", null);
+		Long gone = addKakaoMenu("냉면", "9999", "김치찌개");
+
+		mockMvc.perform(get("/api/orgs/" + orgId + "/places").param("optionIds", ids(near, secondPage, browsed, gone))
+			.with(loginAs(kim)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.places", hasSize(3)))
+			.andExpect(jsonPath("$.places[0].optionId").value(near))
+			.andExpect(jsonPath("$.places[0].name").value("할매집"))
+			.andExpect(jsonPath("$.places[0].category").value("찌개,전골"))
+			.andExpect(jsonPath("$.places[0].roadAddress").value("서울 강남구 테헤란로 10"))
+			.andExpect(jsonPath("$.places[1].name").value("김치랑"))
+			.andExpect(jsonPath("$.places[2].name").value("명동교자"));
+		// 조직의 검색 반경과 상관없이 넓게(20km) 거리순으로 다시 찾는다.
+		assertThat(fakeKakaoLocal.lastRadius()).isEqualTo(20_000);
+	}
+
+	@Test
+	void 회사_위치를_모르면_카카오_식당은_다시_찾지_못한다() throws Exception {
+		Long near = addKakaoMenu("김치찌개", "1001", "김치찌개");
+
+		mockMvc.perform(get("/api/orgs/" + orgId + "/places").param("optionIds", ids(near)).with(loginAs(kim)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.center").value(nullValue()))
+			.andExpect(jsonPath("$.places", hasSize(0)));
+	}
+
+	private Long addKakaoMenu(String name, String kakaoPlaceId, String query) {
+		return menuService.add(pollId, kim.getId(), name, PlaceLink.kakao(kakaoPlaceId, query)).options().getLast().id();
 	}
 
 	private void setOffice(String address) {

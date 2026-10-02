@@ -17,4 +17,13 @@ public interface KakaoLocal {
 	 * @throws PlaceSearchUnavailableException 쓸 수 없거나 응답이 실패했을 때
 	 */
 	Optional<Coordinate> geocode(String query);
+
+	/**
+	 * center 근처 음식점(분류 FD6)을 가까운 순으로 15개씩. query가 비면 분류 검색(근처 둘러보기)이다.
+	 *
+	 * @param radius 반경(m, 20000까지)
+	 * @param page 1부터. 카카오는 45개(3페이지)까지만 준다
+	 * @throws PlaceSearchUnavailableException 쓸 수 없거나 응답이 실패했을 때
+	 */
+	KakaoPlace.Page searchRestaurants(String query, Coordinate center, int radius, int page);
 }

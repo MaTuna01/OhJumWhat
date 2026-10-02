@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { naverSearchUrl, parseShareText, placeInput } from './place.ts'
+import { kakaoPlaceInput, naverPlaceSearchUrl, naverSearchUrl, parseShareText, placeInput } from './place.ts'
 
 describe('parseShareText', () => {
   it('네이버 지도 공유 글에서 머리말·링크를 빼고 식당 이름과 주소를 꺼낸다', () => {
@@ -50,12 +50,32 @@ describe('placeInput', () => {
       link: 'https://naver.me/abcd1234',
       placeName: '할매집',
       placeAddress: '서울 강남구 테헤란로 1',
+      kakaoPlaceId: null,
+      placeQuery: null,
     })
-    expect(placeInput({ link: 'https://naver.me/abcd1234', name: '  ', address: '' })).toEqual({
-      link: 'https://naver.me/abcd1234',
+    expect(placeInput({ link: 'https://naver.me/abcd1234', name: '  ', address: '' })).toMatchObject({ placeName: null, placeAddress: null })
+    expect(placeInput({ link: ' ', name: '할매집', address: '서울' })).toEqual({
+      link: null,
       placeName: null,
       placeAddress: null,
+      kakaoPlaceId: null,
+      placeQuery: null,
     })
-    expect(placeInput({ link: ' ', name: '할매집', address: '서울' })).toEqual({ link: null, placeName: null, placeAddress: null })
+  })
+})
+
+describe('kakaoPlaceInput', () => {
+  it('카카오 식당은 장소 ID와 검색어만 보낸다(검색어가 비면 둘러보기)', () => {
+    expect(kakaoPlaceInput('1001', ' 김치찌개 ')).toEqual({ link: null, placeName: null, placeAddress: null, kakaoPlaceId: '1001', placeQuery: '김치찌개' })
+    expect(kakaoPlaceInput('1001', ' ').placeQuery).toBeNull()
+  })
+})
+
+describe('naverPlaceSearchUrl', () => {
+  it('이름과 도로명 주소로 네이버 지도 검색 주소를 만든다', () => {
+    expect(naverPlaceSearchUrl('할매집', '서울 강남구 테헤란로 10')).toBe(
+      `https://map.naver.com/p/search/${encodeURIComponent('할매집 서울 강남구 테헤란로 10')}`,
+    )
+    expect(naverPlaceSearchUrl('할매집', null)).toBe(`https://map.naver.com/p/search/${encodeURIComponent('할매집')}`)
   })
 })

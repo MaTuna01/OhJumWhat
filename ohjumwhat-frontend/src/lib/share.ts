@@ -12,8 +12,9 @@ const names = (people: Person[]) => people.map((p) => p.name).join(', ')
  *     패스: 한가람
  *     응답 안 함: 윤서준
  *     https://www.ohjumwhat.cloud/orgs/1/polls/3
+ * resolved: 카카오 식당을 다시 찾은 이름과 네이버 지도 링크(메뉴 id별, 저장하지 않는 값)
  */
-export function resultText(poll: PollDetail, url: string): string {
+export function resultText(poll: PollDetail, url: string, resolved: Map<number, { name: string; link: string }> = new Map()): string {
   const teams = confirmedTeams(poll)
   const lines = [
     `[오점왓] ${formatMonthDay(poll.closesAt)} ${poll.title} 결과 · ${teams.length > 0 ? `${teams.length}팀` : '참여한 메뉴 없음'}`,
@@ -21,7 +22,9 @@ export function resultText(poll: PollDetail, url: string): string {
   ]
   for (const team of teams) {
     lines.push(`· ${team.name} ${team.voters.length}명: ${names(team.voters)}`)
-    if (team.link) lines.push(`  ${team.placeName ?? '지도'} ${team.link}`)
+    const place = resolved.get(team.id)
+    if (place) lines.push(`  ${place.name} ${place.link}`)
+    else if (team.link) lines.push(`  ${team.placeName ?? '지도'} ${team.link}`)
   }
   if (poll.passed.length > 0) lines.push(`패스: ${names(poll.passed)}`)
   if (poll.nonRespondents.length > 0) lines.push(`응답 안 함: ${names(poll.nonRespondents)}`)

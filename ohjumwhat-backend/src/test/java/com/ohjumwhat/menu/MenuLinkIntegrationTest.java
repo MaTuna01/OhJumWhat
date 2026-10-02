@@ -18,6 +18,7 @@ import com.ohjumwhat.FakeNaverShortLinksConfiguration;
 import com.ohjumwhat.IntegrationTest;
 import com.ohjumwhat.organization.InviteService;
 import com.ohjumwhat.organization.OrganizationService;
+import com.ohjumwhat.place.PlaceLink;
 import com.ohjumwhat.poll.PollRequest;
 import com.ohjumwhat.poll.PollService;
 import com.ohjumwhat.user.User;
@@ -144,6 +145,57 @@ class MenuLinkIntegrationTest extends IntegrationTest {
 		changePlace(kim, optionId, "https://map.kakao.com/123", null, "가".repeat(201))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.message").value("주소는 200자 이하로 입력해 주세요."));
+	}
+
+	@Test
+	void 근처_식당_찾기로_고른_식당은_장소_ID와_검색어만_저장한다() throws Exception {
+		mockMvc.perform(post("/api/polls/" + pollId + "/options").with(loginAs(kim)).with(xsrf())
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"name\": \"김치찌개\", \"kakaoPlaceId\": \" 1001 \", \"placeQuery\": \" 김치  찌개 \"}"))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.options[0].link").value("https://place.map.kakao.com/1001"))
+			.andExpect(jsonPath("$.options[0].placeName").value(nullValue()))
+			.andExpect(jsonPath("$.options[0].placeAddress").value(nullValue()))
+			.andExpect(jsonPath("$.options[0].kakaoPlaceId").value("1001"))
+			.andExpect(jsonPath("$.options[0].placeQuery").value("김치 찌개"));
+
+		mockMvc.perform(post("/api/polls/" + pollId + "/options").with(loginAs(kim)).with(xsrf())
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"name\": \"돈까스\", \"kakaoPlaceId\": \"1001\", \"link\": \"https://naver.me/x\"}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("지도 링크와 근처 식당을 함께 붙일 수 없어요."));
+		mockMvc.perform(post("/api/polls/" + pollId + "/options").with(loginAs(kim)).with(xsrf())
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"name\": \"돈까스\", \"kakaoPlaceId\": \"place.map.kakao.com/1\"}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("식당 정보가 올바르지 않아요. 다시 골라 주세요."));
+	}
+
+	@Test
+	void 카카오_식당을_링크로_바꾸거나_빼면_카카오_정보를_지운다() throws Exception {
+		Long optionId = menuService.add(pollId, kim.getId(), "김치찌개", PlaceLink.kakao("1001", "김치찌개"))
+			.options()
+			.getFirst()
+			.id();
+
+		changePlace(kim, optionId, "https://map.kakao.com/123", "김치찌개 명가", null)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.options[0].link").value("https://map.kakao.com/123"))
+			.andExpect(jsonPath("$.options[0].kakaoPlaceId").value(nullValue()))
+			.andExpect(jsonPath("$.options[0].placeQuery").value(nullValue()));
+
+		mockMvc.perform(put("/api/polls/" + pollId + "/options/" + optionId + "/link").with(loginAs(kim)).with(xsrf())
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"kakaoPlaceId\": \"1002\", \"placeQuery\": null}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.options[0].link").value("https://place.map.kakao.com/1002"))
+			.andExpect(jsonPath("$.options[0].placeName").value(nullValue()))
+			.andExpect(jsonPath("$.options[0].kakaoPlaceId").value("1002"));
+
+		changePlace(kim, optionId, null, null, null)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.options[0].link").value(nullValue()))
+			.andExpect(jsonPath("$.options[0].kakaoPlaceId").value(nullValue()));
 	}
 
 	private ResultActions addPlace(User user, String name, String link, String placeName) throws Exception {

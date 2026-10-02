@@ -19,6 +19,14 @@ class PlaceController {
 		this.placeSearchService = placeSearchService;
 	}
 
+	/** 근처 식당 찾기: 회사 주소 기준 반경 안 음식점을 가까운 순으로 15개씩(page 1~3). q가 비면 둘러보기 */
+	@GetMapping("/api/orgs/{orgId}/places/search")
+	PlaceSearchResponse search(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long orgId,
+			@RequestParam(defaultValue = "") String q,
+			@RequestParam(defaultValue = "1") int page) {
+		return placeSearchService.search(orgId, loginUser.getUserId(), q, page);
+	}
+
 	/** 지도에 올릴 위치: 회사와 메뉴(optionIds, 30개까지)별 식당. optionIds가 없으면 회사 위치만 */
 	@GetMapping("/api/orgs/{orgId}/places")
 	PlacesResponse places(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long orgId,

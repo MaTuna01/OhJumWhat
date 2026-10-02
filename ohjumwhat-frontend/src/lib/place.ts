@@ -6,14 +6,34 @@ export type PlaceValue = { link: string; name: string; address: string }
 
 export const EMPTY_PLACE: PlaceValue = { link: '', name: '', address: '' }
 
-export type PlaceInput = { link: string | null; placeName: string | null; placeAddress: string | null }
+/**
+ * 서버에 보낼 식당: 지도 링크(이름·주소) 또는 근처 식당 찾기로 고른 카카오 식당(장소 ID·검색어). 모두 null이면 식당 없음.
+ * 카카오 식당은 약관상 이름·주소를 저장할 수 없어서 장소 ID와 검색어만 보낸다.
+ */
+export type PlaceInput = {
+  link: string | null
+  placeName: string | null
+  placeAddress: string | null
+  kakaoPlaceId: string | null
+  placeQuery: string | null
+}
 
-/** 서버에 보낼 값: 링크가 비면 식당 없음(이름·주소도 보내지 않는다) */
+export const NO_PLACE: PlaceInput = { link: null, placeName: null, placeAddress: null, kakaoPlaceId: null, placeQuery: null }
+
+/** 링크로 붙이는 식당: 링크가 비면 식당 없음(이름·주소도 보내지 않는다) */
 export function placeInput(value: PlaceValue): PlaceInput {
   const link = value.link.trim()
-  return link
-    ? { link, placeName: value.name.trim() || null, placeAddress: value.address.trim() || null }
-    : { link: null, placeName: null, placeAddress: null }
+  return link ? { ...NO_PLACE, link, placeName: value.name.trim() || null, placeAddress: value.address.trim() || null } : NO_PLACE
+}
+
+/** 근처 식당 찾기로 고른 카카오 식당. query는 찾을 때 친 검색어(비면 둘러보기) */
+export function kakaoPlaceInput(kakaoPlaceId: string, query: string): PlaceInput {
+  return { ...NO_PLACE, kakaoPlaceId, placeQuery: query.trim() || null }
+}
+
+/** 카카오 식당의 「네이버 지도 ↗」: 볼 때 받은 이름과 도로명 주소로 네이버 지도 검색을 연다(대개 바로 그 식당이 열린다). */
+export function naverPlaceSearchUrl(name: string, roadAddress: string | null): string {
+  return naverSearchUrl(null, [name, roadAddress].filter(Boolean).join(' '))
 }
 
 // 지도 앱 공유 글의 머리말: [네이버 지도], [네이버지도], [카카오맵], [NAVER Map] …
