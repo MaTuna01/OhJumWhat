@@ -31,8 +31,8 @@ public abstract class IntegrationTest {
 	void cleanDatabase() {
 		clock.reset();
 		jdbcTemplate.execute("""
-				TRUNCATE users, organizations, memberships, poll_schedules, polls, menu_options, votes, spring_session,
-					blocked_accounts, notices
+				TRUNCATE users, organizations, memberships, poll_schedules, polls, menu_options, menu_comments, votes,
+					spring_session, blocked_accounts, notices
 				RESTART IDENTITY CASCADE""");
 	}
 }

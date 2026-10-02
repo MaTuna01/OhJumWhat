@@ -50,13 +50,14 @@ export function ListRow({ to, person, title, badge, subtitle, meta }: { to: stri
 }
 
 /** 오른쪽에 버튼(삭제·내보내기·차단 해제)이 있는 한 줄 */
-export function ActionRow({ person, title, subtitle, action }: { person?: Person; title: ReactNode; subtitle: ReactNode; action: ReactNode }) {
+export function ActionRow({ person, title, subtitle, extra, action }: { person?: Person; title: ReactNode; subtitle: ReactNode; extra?: ReactNode; action: ReactNode }) {
   return (
     <li className="flex items-center gap-3 py-3">
       {person && <Avatar name={person.name} imageUrl={person.imageUrl} />}
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium">{title}</p>
         <p className="truncate text-sm text-text-tertiary">{subtitle}</p>
+        {extra}
       </div>
       {action}
     </li>
