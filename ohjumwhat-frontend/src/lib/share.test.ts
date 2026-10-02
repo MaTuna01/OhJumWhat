@@ -15,6 +15,7 @@ const option = (id: number, name: string, voters: Person[], link: string | null 
   voters,
   mine: false,
   deletable: false,
+  commentCount: 0,
 })
 
 const base: PollDetail = {
