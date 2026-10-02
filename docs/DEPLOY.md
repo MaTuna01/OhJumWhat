@@ -153,6 +153,7 @@ curl -I http://ohjumwhat.cloud                    # https://www.ohjumwhat.cloud 
    - 형식: 첫 줄 `# 제목`, 나머지는 본문(빈 줄 = 문단, `- ` = 목록). 사용자 말투로 3~5줄, DB·마이그레이션·CSP 같은 개발 용어는 쓰지 않는다. CHANGELOG는 개발자용이라 따로 쓴다.
    - 사용자에게 보이는 변경이 없으면(인프라 수정 등) 파일을 만들지 않는다. 배포 뒤에 고쳐도 다시 알리지 않는다.
 2. `dev` → `main` 릴리스 PR을 만들어 머지한다. Deploy 워크플로가 배포한다.
+   - 운영 버그를 고치는 릴리스(보통 PATCH)는 제목을 `[hotfix] 릴리스 vX.Y.Z: …`로 쓰고, 고친 문제를 사용자 말투로 알리는 업데이트 글을 함께 낸다(예: `release-notes/1.7.1.md`).
 3. 배포가 끝나면 `main`의 머지 커밋에 태그와 GitHub Release를 만든다.
 ```bash
 git tag -a vX.Y.Z -m "vX.Y.Z" origin/main && git push origin vX.Y.Z

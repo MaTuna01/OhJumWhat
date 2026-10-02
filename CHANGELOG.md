@@ -6,6 +6,7 @@
 
 - 운영(https)에서 지도 타일이 보이지 않던 문제를 고쳤다. 네이버 지도 스크립트는 https 페이지에서 `*.pstatic.net`(타일 스타일 JSONP·타일·로고·커서)을 쓰는데, v1.7.0 CSP는 http로만 확인해서 이 출처가 빠졌다. CSP의 `script-src`·`img-src`·`connect-src`에 `*.pstatic.net`을 더했다.
   - 자체 서명 https 서버 + 헤드리스 Chrome으로 옛 CSP는 운영과 같은 차단을, 새 CSP는 위반 0건·타일 표시를 확인했다.
+- 업데이트 글 「지도가 보이지 않던 문제를 고쳤어요」(`release-notes/1.7.1.md`)로 사용자에게 버그 수정을 알린다.
 
 ## v1.7.0 — 2026-10-02
 

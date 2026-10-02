@@ -14,7 +14,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 원격 저장소: https://github.com/MaTuna01/OhJumWhat (`main`). 커밋 메시지는 한국어로 쓴다.
   - main에 바로 푸시하지 않고 dev브랜치를 개발 브랜치로 활용하고 기능 개발은 dev브랜치에서 개발할 기능 이름으로 분기하여 개발하며 기능 개발 이 완료되면 dev 브랜치로 PR/merge를 통해 모은다
   - main 승격은 사용자 판단하에 진행한다.
-  - 기능 브랜치 이름은 `feature/<기능명>`으로 짓는다(예: `feature/auth`, `feature/organization`). `dev`의 최신 상태에서 분기하고, 완료되면 `gh pr create --base dev`로 PR을 연다.
+  - 기능 브랜치 이름은 `feature/<기능명>`으로 짓는다(예: `feature/auth`, `feature/organization`). 버그 수정은 `fix/<이름>`으로 짓는다(예: `fix/csp-pstatic`). `dev`의 최신 상태에서 분기하고, 완료되면 `gh pr create --base dev`로 PR을 연다.
+  - 운영 버그를 고치는 `dev` → `main` 승격은 PR 제목 앞에 `[hotfix]`를 붙이고, 사용자가 버그 수정으로 알 수 있게 업데이트 글도 적는다.
   - 기능 PR을 `dev`에 머지하는 것은 Claude가 직접 해도 된다. 단, 백엔드·프론트 테스트와 빌드를 통과하고 동작 확인을 마친 뒤, PR 체크리스트를 채우고 머지한다(merge commit, `gh pr merge --merge`). `dev` → `main`은 사용자가 결정한다.
 
 ## 명령어
