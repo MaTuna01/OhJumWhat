@@ -148,12 +148,12 @@ curl -I http://ohjumwhat.cloud                    # https://www.ohjumwhat.cloud 
 `dev` → `main` 승격(사용자 결정) 한 번이 릴리스 하나다. 버전은 `vMAJOR.MINOR.PATCH`로 붙인다.
 
 0. DB 스키마가 바뀌는 릴리스(새 `V{n}__*.sql`)라면 승격 전에 서버에서 `./backup.sh`로 백업한다. 새 설정 키가 있으면 서버 `.env`에 먼저 넣는다.
-1. 기능 브랜치에서 버전을 올린다: `ohjumwhat-backend/build.gradle.kts`의 `version`, 프론트는 `npm version X.Y.Z --no-git-tag-version`(package.json·package-lock.json). `CHANGELOG.md`에 바뀐 점을 적고 `dev`에 머지한다.
+1. 릴리스 이슈(`[release] vX.Y.Z`)를 만들고 `release/vX.Y.Z` 브랜치에서 버전을 올린다(이슈·브랜치·커밋 규칙은 `CLAUDE.md` 「작업 규칙」): `ohjumwhat-backend/build.gradle.kts`의 `version`, 프론트는 `npm version X.Y.Z --no-git-tag-version`(package.json·package-lock.json). `CHANGELOG.md`에 바뀐 점을 적고 `dev`에 머지한다.
    - 사용자에게 보이는 변경이 있으면 업데이트 글 `ohjumwhat-backend/src/main/resources/release-notes/X.Y.Z.md`도 함께 적는다. 배포 뒤 서버가 뜰 때 새 소식에 자동으로 올라간다(게시 시각 = 배포 시각).
    - 형식: 첫 줄 `# 제목`, 나머지는 본문(빈 줄 = 문단, `- ` = 목록). 사용자 말투로 3~5줄, DB·마이그레이션·CSP 같은 개발 용어는 쓰지 않는다. CHANGELOG는 개발자용이라 따로 쓴다.
    - 사용자에게 보이는 변경이 없으면(인프라 수정 등) 파일을 만들지 않는다. 배포 뒤에 고쳐도 다시 알리지 않는다.
-2. `dev` → `main` 릴리스 PR을 만들어 머지한다. Deploy 워크플로가 배포한다.
-   - 운영 버그를 고치는 릴리스(보통 PATCH)는 제목을 `[hotfix] 릴리스 vX.Y.Z: …`로 쓰고, 고친 문제를 사용자 말투로 알리는 업데이트 글을 함께 낸다(예: `release-notes/1.7.1.md`).
+2. `dev` → `main` 릴리스 PR(제목 `[#이슈 번호] - 릴리스 vX.Y.Z: 요약`, 본문에 포함 이슈·PR)을 만들어 머지한다. Deploy 워크플로가 배포한다.
+   - 운영 버그를 고치는 릴리스(보통 PATCH)는 제목 앞에 `[hotfix]`를 붙이고(`[hotfix] [#이슈 번호] - 릴리스 vX.Y.Z: …`, 라벨 `hotfix`·`bug`), 고친 문제를 사용자 말투로 알리는 업데이트 글을 함께 낸다(예: `release-notes/1.7.1.md`).
 3. 배포가 끝나면 `main`의 머지 커밋에 태그와 GitHub Release를 만든다.
 ```bash
 git tag -a vX.Y.Z -m "vX.Y.Z" origin/main && git push origin vX.Y.Z

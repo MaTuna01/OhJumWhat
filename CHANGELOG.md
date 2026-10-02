@@ -2,6 +2,11 @@
 
 버전은 `vMAJOR.MINOR.PATCH`로 붙인다. 릴리스 절차는 [docs/DEPLOY.md](docs/DEPLOY.md#릴리스와-버전)에 있다.
 
+## v1.7.2 — 2026-10-02
+
+- 작업 규칙(#48): 보고는 한국어로 하고, 작업은 이슈부터 시작한다. 브랜치는 작업 종류로 시작하고(`feat`·`fix`·`refactor`·`docs`·`test`·`chore`·`release`/<이름>), 커밋·PR 제목은 `[#이슈 번호] - 요약`이다. 이슈 양식 `.github/ISSUE_TEMPLATE/task.md`를 추가했다(`CLAUDE.md` 「작업 규칙」, `docs/DEPLOY.md`).
+- 서비스 동작 변경은 없다.
+
 ## v1.7.1 — 2026-10-02
 
 - 운영(https)에서 지도 타일이 보이지 않던 문제를 고쳤다. 네이버 지도 스크립트는 https 페이지에서 `*.pstatic.net`(타일 스타일 JSONP·타일·로고·커서)을 쓰는데, v1.7.0 CSP는 http로만 확인해서 이 출처가 빠졌다. CSP의 `script-src`·`img-src`·`connect-src`에 `*.pstatic.net`을 더했다.

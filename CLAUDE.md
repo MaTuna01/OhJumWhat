@@ -11,12 +11,36 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 구현 계획·진행 현황·남은 단계는 [docs/PLAN.md](docs/PLAN.md)에 있다. 단계를 마치면 이 문서의 진행 현황도 갱신한다.
 - 진행 단계는 같은 페이지의 Tasks DB에 7단계로 등록되어 있다. 단계를 마치면 해당 작업의 상태를 갱신한다.
 - git에 올리지 않는 파일(`.env`, `application.yml`, OAuth JSON, 서버 pem 키)의 실제 내용은 Notion 「개발 필요 파일」 페이지(기획서 하위)에 있다.
-- 원격 저장소: https://github.com/MaTuna01/OhJumWhat (`main`). 커밋 메시지는 한국어로 쓴다.
-  - main에 바로 푸시하지 않고 dev브랜치를 개발 브랜치로 활용하고 기능 개발은 dev브랜치에서 개발할 기능 이름으로 분기하여 개발하며 기능 개발 이 완료되면 dev 브랜치로 PR/merge를 통해 모은다
-  - main 승격은 사용자 판단하에 진행한다.
-  - 기능 브랜치 이름은 `feature/<기능명>`으로 짓는다(예: `feature/auth`, `feature/organization`). 버그 수정은 `fix/<이름>`으로 짓는다(예: `fix/csp-pstatic`). `dev`의 최신 상태에서 분기하고, 완료되면 `gh pr create --base dev`로 PR을 연다.
-  - 운영 버그를 고치는 `dev` → `main` 승격은 PR 제목 앞에 `[hotfix]`를 붙이고, 사용자가 버그 수정으로 알 수 있게 업데이트 글도 적는다.
-  - 기능 PR을 `dev`에 머지하는 것은 Claude가 직접 해도 된다. 단, 백엔드·프론트 테스트와 빌드를 통과하고 동작 확인을 마친 뒤, PR 체크리스트를 채우고 머지한다(merge commit, `gh pr merge --merge`). `dev` → `main`은 사용자가 결정한다.
+- 원격 저장소: https://github.com/MaTuna01/OhJumWhat (`main`). 이슈·브랜치·커밋·PR 규칙은 아래 「작업 규칙」을 따른다.
+- **보고는 한국어로 한다.** 사용자에게 하는 보고·설명·질문·요약과 커밋 메시지·이슈·PR을 모두 한국어로 쓴다.
+
+## 작업 규칙 (이슈 → 브랜치 → 커밋 → PR)
+
+작업은 모두 GitHub 이슈에서 시작한다. 이슈 번호로 커밋·PR을 이슈와 잇는다.
+
+1. **착수 전에 이슈를 만든다.** 코드·문서를 고치기 전에 이슈를 만들고, 착수할 기능과 내용을 적는다(양식: `.github/ISSUE_TEMPLATE/task.md`, 작업 종류·내용·할 일·참고).
+   - 제목은 `[종류] 요약`이다(예: `[feat] 근처 식당 찾기`, `[fix] 운영에서 지도 타일이 막힘`). 라벨은 feat → `enhancement`, fix → `bug`, docs → `documentation`을 붙인다.
+   - `gh issue create --title "[feat] …" --body-file <본문> --label enhancement`
+   - 하다가 범위가 바뀌면 이슈 본문의 할 일을 고치거나 댓글로 남긴다.
+2. **브랜치 이름은 작업 종류로 시작한다.** `dev`의 최신 상태에서 `<종류>/<이름>`으로 분기한다(예: `feat/place-search`, `fix/csp-pstatic`). 이슈 번호는 브랜치 이름에 넣지 않고 커밋·PR에 적는다. `main`·`dev`에 바로 푸시하지 않는다.
+
+   | 종류 | 쓰는 곳 |
+   |---|---|
+   | `feat` | 새 기능·화면 |
+   | `fix` | 버그 수정 |
+   | `refactor` | 동작을 바꾸지 않는 코드 정리 |
+   | `docs` | 문서만(`CLAUDE.md`, `docs/`, README) |
+   | `test` | 테스트만 |
+   | `chore` | 빌드·설정·의존성·CI·배포 스크립트 |
+   | `release` | 릴리스 준비(버전·CHANGELOG·업데이트 글) |
+
+3. **커밋 메시지 첫 줄에 이슈 번호를 꼭 적는다.** 형식은 `[#이슈 번호] - 요약`이다(예: `[#2] - 기능개발`, `[#12] - 근처 식당 찾기 API 추가`). 본문에는 무엇을 왜 바꿨는지 적는다. 이슈 번호를 붙일 수 없는 작업이면 이슈부터 만든다.
+4. **PR은 `dev`로 연다**(`gh pr create --base dev`). 제목은 커밋과 같은 `[#이슈 번호] - 요약`이고, 본문 첫 줄에 `이슈: #이슈 번호`를 적는다.
+   - `dev`에 머지하는 것은 Claude가 직접 해도 된다. 단, 백엔드·프론트 테스트와 빌드를 통과하고 동작 확인을 마친 뒤 PR 체크리스트를 채우고 머지한다. 머지 커밋도 컨벤션을 따르게 제목을 정한다: `gh pr merge --merge --subject "[#이슈 번호] - 요약 (#PR 번호)"`.
+   - 머지하면 이슈를 닫는다(`gh issue close <번호> --comment "#<PR 번호>로 dev에 머지"`). `dev`는 기본 브랜치가 아니라 `Closes #N`으로는 닫히지 않는다.
+5. **`dev` → `main` 승격(릴리스)은 사용자가 결정한다.** 릴리스도 이슈(`[release] vX.Y.Z`)를 만들고 `release/vX.Y.Z` 브랜치에서 버전·CHANGELOG·업데이트 글을 준비한다. 승격 PR 제목은 `[#이슈 번호] - 릴리스 vX.Y.Z: 요약`이고, 본문에 포함한 이슈·PR을 적는다. 릴리스 이슈는 배포·태그까지 마치고 닫는다.
+   - 운영 버그를 고치는 승격은 제목 앞에 `[hotfix]`를 붙이고(`[hotfix] [#이슈 번호] - 릴리스 v1.7.1: …`, 라벨 `hotfix`·`bug`), 사용자가 버그 수정으로 알 수 있게 업데이트 글도 적는다.
+- 이 규칙은 이슈 #48부터 적용한다. 그 전 브랜치(`feature/…`)·커밋에는 이슈 번호가 없다.
 
 ## 명령어
 
