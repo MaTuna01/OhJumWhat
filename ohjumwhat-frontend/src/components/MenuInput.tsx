@@ -1,7 +1,7 @@
 import { type FormEvent, useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useDismiss } from '../hooks/useDismiss.ts'
 import { useNow } from '../hooks/useNow.ts'
-import { EMPTY_PLACE, placeInput } from '../lib/place.ts'
+import { EMPTY_PLACE, type PlaceInput, placeInput } from '../lib/place.ts'
 import { daysAgo, formatEatenDay } from '../lib/time.ts'
 import { inputClass } from '../lib/ui.ts'
 import { useMenuNames, useMenuRecommendations } from '../queries/polls.ts'
@@ -15,7 +15,7 @@ type Props = {
   /** 이미 이 투표에 있는 메뉴(자동완성·추천에서 뺀다) */
   existing: string[]
   pending: boolean
-  onAdd: (name: string, link: string | null, placeName: string | null) => Promise<unknown>
+  onAdd: (name: string, place: PlaceInput) => Promise<unknown>
 }
 
 type Item = { name: string; caption: string }
@@ -62,9 +62,8 @@ export default function MenuInput({ orgId, area, existing, pending, onAdd }: Pro
   const submit = async (name: string) => {
     const trimmed = name.trim()
     if (!trimmed || pending) return
-    const { link, placeName } = placeOpen ? placeInput(place) : placeInput(EMPTY_PLACE)
     try {
-      await onAdd(trimmed, link, placeName)
+      await onAdd(trimmed, placeInput(placeOpen ? place : EMPTY_PLACE))
       setValue('')
       setQuery('')
       setOpen(false)

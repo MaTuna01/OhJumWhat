@@ -1,0 +1,22 @@
+package com.ohjumwhat.place;
+
+import java.util.List;
+
+/**
+ * 지도에 올릴 위치(볼 때마다 주소로 찾는다. 좌표는 약관상 저장하지 않는다).
+ *
+ * @param center 회사 위치. 회사 주소가 없거나 찾지 못했으면 null
+ * @param places 위치를 찾은 메뉴의 식당. 찾지 못한 메뉴는 빠진다
+ */
+public record PlacesResponse(Center center, List<Spot> places) {
+
+	/**
+	 * @param name 회사 위치 이름(조직 설정의 회사 이름). 없으면 null
+	 */
+	public record Center(double lat, double lng, String name) {
+	}
+
+	/** 메뉴(optionId)에 붙인 식당의 위치 */
+	public record Spot(Long optionId, double lat, double lng) {
+	}
+}

@@ -8,6 +8,7 @@ const option = (id: number, name: string, voters: Person[], link: string | null 
   name,
   link,
   placeName,
+  placeAddress: null,
   createdBy: null,
   voters,
   mine: false,

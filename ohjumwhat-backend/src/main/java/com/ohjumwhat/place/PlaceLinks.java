@@ -22,6 +22,8 @@ public final class PlaceLinks {
 
 	public static final int NAME_MAX_LENGTH = 100;
 
+	public static final int ADDRESS_MAX_LENGTH = 200;
+
 	private static final String NAVER_PLACE_URL = "https://map.naver.com/p/entry/place/";
 
 	private static final int CI = Pattern.CASE_INSENSITIVE;
@@ -123,6 +125,18 @@ public final class PlaceLinks {
 			throw ApiException.badRequest("식당 이름은 100자 이하로 입력해 주세요.");
 		}
 		return name;
+	}
+
+	/** 주소(식당·회사): 앞뒤 공백을 지우고 공백·줄바꿈은 한 칸으로. 비면 null, 200자를 넘으면 400 */
+	public static String address(String raw) {
+		if (raw == null || raw.isBlank()) {
+			return null;
+		}
+		String address = raw.strip().replaceAll("\\s+", " ");
+		if (address.length() > ADDRESS_MAX_LENGTH) {
+			throw ApiException.badRequest("주소는 200자 이하로 입력해 주세요.");
+		}
+		return address;
 	}
 
 	private static String trimTrailing(String link) {

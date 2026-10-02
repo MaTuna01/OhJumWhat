@@ -35,6 +35,9 @@ public class MenuOption {
 	/** 식당 이름(선택). 링크가 있을 때만 둔다. */
 	private String placeName;
 
+	/** 식당 주소(선택, 공유 글의 주소 줄). 링크가 있을 때만 둔다. 지도에 올릴 때 볼 때마다 좌표로 바꾼다. */
+	private String placeAddress;
+
 	@Column(nullable = false)
 	private Instant createdAt;
 
@@ -52,10 +55,11 @@ public class MenuOption {
 		changePlace(place);
 	}
 
-	/** 식당 달기·고치기. null이면 링크와 이름을 함께 지운다. */
+	/** 식당 달기·고치기. null이면 링크와 이름·주소를 함께 지운다. */
 	public void changePlace(PlaceLink place) {
 		this.linkUrl = place == null ? null : place.url();
 		this.placeName = place == null ? null : place.name();
+		this.placeAddress = place == null ? null : place.address();
 	}
 
 	@PrePersist
@@ -85,6 +89,10 @@ public class MenuOption {
 
 	public String getPlaceName() {
 		return placeName;
+	}
+
+	public String getPlaceAddress() {
+		return placeAddress;
 	}
 
 	public Instant getCreatedAt() {

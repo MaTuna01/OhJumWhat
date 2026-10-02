@@ -21,9 +21,15 @@ public class PlaceLinkResolver {
 
 	/** 링크와 식당 이름. 링크가 비면 null(식당 없음, 이름도 버린다). 주소·이름이 올바르지 않으면 400 */
 	public PlaceLink place(String rawLink, String rawName) {
+		return place(rawLink, rawName, null);
+	}
+
+	/** 링크와 식당 이름·주소. 링크가 비면 null(식당 없음, 이름·주소도 버린다). 값이 올바르지 않으면 400 */
+	public PlaceLink place(String rawLink, String rawName, String rawAddress) {
 		String name = PlaceLinks.name(rawName);
+		String address = PlaceLinks.address(rawAddress);
 		String url = resolve(rawLink);
-		return url == null ? null : new PlaceLink(url, name);
+		return url == null ? null : new PlaceLink(url, name, address);
 	}
 
 	/** 저장할 링크. 빈 값이면 null */
