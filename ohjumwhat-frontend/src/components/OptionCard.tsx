@@ -1,4 +1,5 @@
 import type { KeyboardEvent } from 'react'
+import { withJosa } from '../lib/josa.ts'
 import { serviceLabel } from '../lib/link.ts'
 import type { PollOption } from '../queries/polls.ts'
 import Badge from './Badge.tsx'
@@ -27,7 +28,7 @@ export default function OptionCard({ option, meId, result, selected, onSelect, o
   const solo = count === 1
   const interactive = !result && !disabled
   const canEditLink = !result && option.mine && onEditLink != null
-  const creator = option.mine ? '내가 추가' : `${option.createdBy?.name ?? '탈퇴한 사용자'}가 추가`
+  const creator = option.mine ? '내가 추가' : `${withJosa(option.createdBy?.name ?? '탈퇴한 사용자', '이/가')} 추가`
 
   const onKeyDown = (e: KeyboardEvent) => {
     if (interactive && (e.key === 'Enter' || e.key === ' ')) {

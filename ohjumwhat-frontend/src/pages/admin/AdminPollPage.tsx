@@ -7,6 +7,7 @@ import ConfirmDialog from '../../components/ConfirmDialog.tsx'
 import { PageLoader, PageMessage, Section } from '../../components/PageState.tsx'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.ts'
 import { ApiError } from '../../lib/api.ts'
+import { withJosa } from '../../lib/josa.ts'
 import { formatClock } from '../../lib/time.ts'
 import { columnsClass } from '../../lib/ui.ts'
 import { useAdminOrg, useAdminPoll, useDeleteMenuOption, useDeletePoll } from '../../queries/admin.ts'
@@ -67,7 +68,7 @@ export default function AdminPollPage() {
                 <ActionRow
                   key={o.id}
                   title={`${o.name} · ${o.voters.length}명`}
-                  subtitle={`${o.voters.length > 0 ? names(o.voters) : '참여자 없음'} · ${o.createdBy?.name ?? '탈퇴한 사용자'}가 추가`}
+                  subtitle={`${o.voters.length > 0 ? names(o.voters) : '참여자 없음'} · ${withJosa(o.createdBy?.name ?? '탈퇴한 사용자', '이/가')} 추가`}
                   action={
                     <Button variant="ghost" className="shrink-0 py-1.5" onClick={() => setRemovingOption(o)}>
                       삭제
