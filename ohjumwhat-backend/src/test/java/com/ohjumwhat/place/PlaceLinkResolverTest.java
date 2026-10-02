@@ -20,6 +20,9 @@ class PlaceLinkResolverTest {
 
 	private final PlaceLinkResolver resolver = new PlaceLinkResolver(code -> {
 		requested.add(code);
+		if (code.equals("gone1234")) {
+			throw new NaverShortLinks.NotFound();
+		}
 		return Optional.ofNullable(Map.of(
 				"place123", "https://m.place.naver.com/share?id=1868364770&tabsPath=%2Fhome",
 				"relative1", "/share?id=1868364770",
@@ -38,6 +41,13 @@ class PlaceLinkResolverTest {
 		assertThat(resolver.resolve("https://naver.me/unknown1")).isEqualTo("https://naver.me/unknown1");
 		assertThat(resolver.resolve("https://naver.me/favor123")).isEqualTo("https://naver.me/favor123");
 		assertThat(resolver.resolve("https://naver.me/relative1")).isEqualTo("https://naver.me/relative1");
+	}
+
+	@Test
+	void naver_me에_없는_코드면_잘못_붙인_링크라_거절한다() {
+		assertThatThrownBy(() -> resolver.resolve("[네이버 지도]\n할매집\nhttps://naver.me/gone1234"))
+			.isInstanceOf(ApiException.class)
+			.hasMessage("공유 링크를 찾을 수 없어요. 네이버 지도에서 링크를 다시 복사해 주세요.");
 	}
 
 	@Test

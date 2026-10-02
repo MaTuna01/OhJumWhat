@@ -49,14 +49,22 @@ public class PlaceLinkResolver {
 		return url == null ? null : new PlaceLink(url, name, address);
 	}
 
-	/** 저장할 링크. 빈 값이면 null */
+	/**
+	 * 저장할 링크. 빈 값이면 null. naver.me가 없는 코드라고 답하면(잘못 붙인 링크) 400이고,
+	 * 확인하지 못했으면(시간 초과·네이버 오류) 단축 링크를 그대로 둔다.
+	 */
 	public String resolve(String rawLink) {
 		String link = PlaceLinks.normalize(rawLink);
-		return PlaceLinks.naverShortCode(link)
-			.flatMap(naverShortLinks::location)
-			.filter(PlaceLinkResolver::isNaver)
-			.flatMap(PlaceLinks::naverPlaceUrl)
-			.orElse(link);
+		try {
+			return PlaceLinks.naverShortCode(link)
+				.flatMap(naverShortLinks::location)
+				.filter(PlaceLinkResolver::isNaver)
+				.flatMap(PlaceLinks::naverPlaceUrl)
+				.orElse(link);
+		}
+		catch (NaverShortLinks.NotFound e) {
+			throw ApiException.badRequest("공유 링크를 찾을 수 없어요. 네이버 지도에서 링크를 다시 복사해 주세요.");
+		}
 	}
 
 	/** 네이버 주소(*.naver.com)로 보낸 리디렉션만 믿는다. */

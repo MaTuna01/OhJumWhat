@@ -84,6 +84,13 @@ class MenuLinkIntegrationTest extends IntegrationTest {
 	}
 
 	@Test
+	void naver_me에_없는_공유_링크는_저장하지_않는다() throws Exception {
+		addOption(kim, "김밥", "https://naver.me/" + FakeNaverShortLinksConfiguration.GONE_CODE)
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("공유 링크를 찾을 수 없어요. 네이버 지도에서 링크를 다시 복사해 주세요."));
+	}
+
+	@Test
 	void 링크는_메뉴를_추가한_사람만_진행_중에_달고_고치고_지울_수_있다() throws Exception {
 		Long optionId = menuService.add(pollId, kim.getId(), "김치찌개", null).options().getFirst().id();
 
