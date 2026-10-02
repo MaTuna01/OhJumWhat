@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import Badge from '../components/Badge.tsx'
 import Button from '../components/Button.tsx'
+import ChatPanel from '../components/ChatPanel.tsx'
+import ChatSheet from '../components/ChatSheet.tsx'
 import MenuInput from '../components/MenuInput.tsx'
 import OptionCard from '../components/OptionCard.tsx'
 import OptionComments from '../components/OptionComments.tsx'
@@ -14,6 +16,7 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { DESKTOP_QUERY, useMediaQuery } from '../hooks/useMediaQuery.ts'
 import { useNow } from '../hooks/useNow.ts'
 import { useOrgId } from '../hooks/useOrgId.ts'
+import { usePollChatSocket } from '../hooks/usePollChatSocket.ts'
 import { ApiError } from '../lib/api.ts'
 import { NO_PLACE, naverPlaceSearchUrl } from '../lib/place.ts'
 import { confirmedTeams } from '../lib/pollDetail.ts'
@@ -42,6 +45,8 @@ import {
  * 식당 위치를 찾은 메뉴가 있으면 지도(05-G·D05-G)를 모바일은 메뉴 목록 위에(진행 중에는 접어서), 데스크톱은 사이드 맨 위에 둔다.
  * 메뉴 카드의 「💬 댓글 N」을 누르면 카드 아래로 댓글이 펼쳐진다(05-K, 마감된 투표는 읽기만 05b-K).
  * 펼친 메뉴는 마감돼도 그대로 두고 읽기 전용으로 바꾼다(쓰던 입력은 닫힌다).
+ * 투표 채팅(05-C·D05-C)은 모바일은 하단 고정 버튼 → 채팅 시트, 데스크톱은 사이드 열(응답 현황 아래)에 둔다.
+ * 받기 연결(WebSocket)은 결과 모드로 바뀌어도 끊기지 않게 이 화면이 들고 있다(마감 1시간 뒤까지).
  */
 export default function PollDetailPage() {
   const orgId = useOrgId()
@@ -49,6 +54,8 @@ export default function PollDetailPage() {
   const poll = usePollDetail(orgId, pollId)
   const { data: org } = useOrganization(orgId)
   const comments = useCommentsToggle()
+  const connection = usePollChatSocket(pollId, poll.data?.chatClosesAt)
+  const isDesktop = useMediaQuery(DESKTOP_QUERY)
   useDocumentTitle(poll.data?.title, org?.name)
 
   if (!Number.isInteger(pollId) || (poll.error instanceof ApiError && poll.error.status === 404)) {
@@ -64,16 +71,19 @@ export default function PollDetailPage() {
   if (poll.isError) return <PageMessage title="투표를 불러오지 못했어요">{poll.error.message}</PageMessage>
   if (poll.isPending) return <PageLoader />
 
+  const chat = isDesktop ? <ChatPanel pollId={pollId} chatClosesAt={poll.data.chatClosesAt} connection={connection} variant="side" /> : null
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-20 lg:pb-0">
       <Link to={`/orgs/${orgId}`} className="inline-block text-sm font-medium text-text-tertiary hover:text-text-secondary">
         ‹ {org?.name ?? '조직'} 투표 목록
       </Link>
       {poll.data.status === 'OPEN' ? (
-        <OpenPoll orgId={orgId} poll={poll.data} comments={comments} />
+        <OpenPoll orgId={orgId} poll={poll.data} comments={comments} chat={chat} />
       ) : (
-        <ClosedPoll orgId={orgId} poll={poll.data} comments={comments} />
+        <ClosedPoll orgId={orgId} poll={poll.data} comments={comments} chat={chat} />
       )}
+      {!isDesktop && <ChatSheet pollId={pollId} chatClosesAt={poll.data.chatClosesAt} connection={connection} />}
     </div>
   )
 }
@@ -149,7 +159,7 @@ function usePollMap(orgId: number, poll: PollDetail, options: PollOption[], coll
   }
 }
 
-function OpenPoll({ orgId, poll, comments }: { orgId: number; poll: PollDetail; comments: CommentsToggle }) {
+function OpenPoll({ orgId, poll, comments, chat }: { orgId: number; poll: PollDetail; comments: CommentsToggle; chat: ReactNode }) {
   const { data: me } = useMe()
   const now = useNow(10_000)
   const vote = useVote(orgId, poll.id, me)
@@ -261,6 +271,8 @@ function OpenPoll({ orgId, poll, comments }: { orgId: number; poll: PollDetail; 
           <ResponseProgress poll={poll} />
         </Section>
 
+        {chat}
+
         <div className="flex flex-col items-center gap-2">
           <button
             type="button"
@@ -312,7 +324,7 @@ function ResponseProgress({ poll }: { poll: PollDetail }) {
   )
 }
 
-function ClosedPoll({ orgId, poll, comments }: { orgId: number; poll: PollDetail; comments: CommentsToggle }) {
+function ClosedPoll({ orgId, poll, comments, chat }: { orgId: number; poll: PollDetail; comments: CommentsToggle; chat: ReactNode }) {
   const { data: me } = useMe()
   const teams = confirmedTeams(poll)
   const myTeam = teams.find((t) => t.id === poll.myOptionId)
@@ -376,6 +388,8 @@ function ClosedPoll({ orgId, poll, comments }: { orgId: number; poll: PollDetail
 
       <aside className="space-y-4">
         {desktopMap}
+
+        {chat}
 
         {(poll.passed.length > 0 || poll.nonRespondents.length > 0) && (
           <section className="space-y-2 rounded-2xl bg-bg-muted p-4 text-sm">

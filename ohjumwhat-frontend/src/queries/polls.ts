@@ -39,6 +39,8 @@ export type PollDetail = {
   status: PollStatus
   opensAt: string
   closesAt: string
+  /** 채팅이 닫히는 시각(마감 1시간 뒤). 그 뒤에는 읽기만 한다 */
+  chatClosesAt: string
   scheduled: boolean
   memberCount: number
   options: PollOption[]

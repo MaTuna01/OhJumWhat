@@ -12,6 +12,7 @@ const base: PollDetail = {
   status: 'OPEN',
   opensAt: '2026-09-30T02:00:00Z',
   closesAt: '2026-09-30T02:50:00Z',
+  chatClosesAt: '2026-09-30T03:50:00Z',
   scheduled: false,
   memberCount: 2,
   options: [

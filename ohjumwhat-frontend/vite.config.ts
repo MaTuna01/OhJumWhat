@@ -31,7 +31,8 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': backend,
+      // 투표 채팅 받기(WebSocket, /api/polls/{id}/ws)도 같은 경로로 넘긴다.
+      '/api': { ...backend, ws: true },
       '/oauth2': backend,
       '/login/oauth2': backend,
       '/logout': backend,

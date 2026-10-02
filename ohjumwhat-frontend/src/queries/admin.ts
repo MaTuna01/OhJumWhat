@@ -1,5 +1,6 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api.ts'
+import type { ChatMessage, ChatPage } from './chat.ts'
 import type { MenuComment } from './comments.ts'
 import type { Notice } from './notices.ts'
 import type { PollDetail, PollStatus } from './polls.ts'
@@ -95,6 +96,7 @@ export const adminKeys = {
   org: (orgId: number) => ['admin', 'org', orgId] as const,
   poll: (pollId: number) => ['admin', 'poll', pollId] as const,
   comments: (optionId: number) => ['admin', 'comments', optionId] as const,
+  chat: (pollId: number) => ['admin', 'chat', pollId] as const,
   blocks: ['admin', 'blocks'] as const,
 }
 
@@ -189,6 +191,20 @@ export function useAdminOptionComments(optionId: number) {
 
 export const useDeleteMenuComment = () =>
   useAdminMutation((commentId: number) => api<MenuComment[]>(`/api/admin/menu-comments/${commentId}`, { method: 'DELETE' }))
+
+/** 투표 채팅(최신 50개부터, 「이전 메시지 더 보기」로 더 오래된 것을 받는다). 실시간으로 받지 않는다. */
+export function useAdminChat(pollId: number) {
+  return useInfiniteQuery({
+    queryKey: adminKeys.chat(pollId),
+    queryFn: ({ pageParam }) => api<ChatPage>(`/api/admin/polls/${pollId}/messages${pageParam ? `?before=${pageParam}` : ''}`),
+    initialPageParam: 0,
+    getNextPageParam: (last) => (last.hasMore ? last.messages[0]?.id : undefined),
+  })
+}
+
+/** 채팅 메시지 강제 삭제(채팅이 닫힌 뒤에도). 「삭제된 메시지예요」로 남는다. */
+export const useDeleteChatMessage = () =>
+  useAdminMutation((messageId: number) => api<ChatMessage>(`/api/admin/chat-messages/${messageId}`, { method: 'DELETE' }))
 
 export const useDeleteSchedule = () =>
   useAdminMutation((scheduleId: number) => api<void>(`/api/admin/schedules/${scheduleId}`, { method: 'DELETE' }))
