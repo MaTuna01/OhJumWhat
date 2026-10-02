@@ -10,6 +10,9 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 /** 그 밖의 예외는 Spring Boot 기본 에러 처리(500)에 맡긴다. */
 @Slf4j
@@ -42,5 +45,17 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(HttpMessageNotReadableException.class)
 	ResponseEntity<ErrorResponse> handleUnreadable(HttpMessageNotReadableException e) {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse("요청 형식이 올바르지 않아요."));
+	}
+
+	/** 업로드 한도(spring.servlet.multipart.max-file-size)를 넘은 파일. 브라우저는 줄여서 보내므로 거의 없다. */
+	@ExceptionHandler(MaxUploadSizeExceededException.class)
+	ResponseEntity<ErrorResponse> handleTooLarge(MaxUploadSizeExceededException e) {
+		return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE).body(new ErrorResponse("사진이 너무 커요."));
+	}
+
+	/** multipart가 아니거나 파일 파트가 없는 업로드 요청 */
+	@ExceptionHandler({ MultipartException.class, MissingServletRequestPartException.class })
+	ResponseEntity<ErrorResponse> handleMultipart(Exception e) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse("사진 파일을 보내 주세요."));
 	}
 }

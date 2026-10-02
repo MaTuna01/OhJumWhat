@@ -16,7 +16,7 @@ interface AdminRepository extends Repository<User, Long> {
 
 	@Query("""
 			select new com.ohjumwhat.admin.AdminResponses$UserRow(u.id, coalesce(u.nickname, u.name), u.name, u.email,
-				u.profileImageUrl, u.role, u.createdAt, u.lastLoginAt,
+				u.photoKey, u.profileImageUrl, u.role, u.createdAt, u.lastLoginAt,
 				(select count(m) from com.ohjumwhat.organization.Membership m where m.userId = u.id))
 			from User u
 			where :q = '' or lower(u.name) like lower(concat('%', :q, '%'))
@@ -27,7 +27,7 @@ interface AdminRepository extends Repository<User, Long> {
 
 	@Query("""
 			select new com.ohjumwhat.admin.AdminResponses$UserRow(u.id, coalesce(u.nickname, u.name), u.name, u.email,
-				u.profileImageUrl, u.role, u.createdAt, u.lastLoginAt,
+				u.photoKey, u.profileImageUrl, u.role, u.createdAt, u.lastLoginAt,
 				(select count(m) from com.ohjumwhat.organization.Membership m where m.userId = u.id))
 			from User u where u.id = :id""")
 	Optional<AdminResponses.UserRow> findUser(Long id);
@@ -72,7 +72,7 @@ interface AdminRepository extends Repository<User, Long> {
 	/** 조직 멤버(가입 순). 맨 위가 가장 먼저 들어온 사람(대개 만든 사람)이다. */
 	@Query("""
 			select new com.ohjumwhat.admin.AdminResponses$Member(u.id, coalesce(u.nickname, u.name), u.email,
-				u.profileImageUrl, u.role,
+				u.photoKey, u.profileImageUrl, u.role,
 				m.joinedAt, m.lastVisitedAt)
 			from com.ohjumwhat.organization.Membership m join User u on u.id = m.userId
 			where m.organizationId = :organizationId
