@@ -4,9 +4,9 @@ import Avatar from '../components/Avatar.tsx'
 import Button from '../components/Button.tsx'
 import CreateOrgModal from '../components/CreateOrgModal.tsx'
 import LeaveOrgDialog from '../components/LeaveOrgDialog.tsx'
-import NicknameModal from '../components/NicknameModal.tsx'
 import NoticeBanner from '../components/NoticeBanner.tsx'
 import { PageLoader, Section } from '../components/PageState.tsx'
+import ProfileModal from '../components/ProfileModal.tsx'
 import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { buttonClass, columnsClass } from '../lib/ui.ts'
 import { useLogout, useMe } from '../queries/me.ts'
@@ -18,7 +18,7 @@ export default function MyPage() {
   const logout = useLogout()
   const [creating, setCreating] = useState(false)
   const [leaving, setLeaving] = useState<MyOrganization | null>(null)
-  const [renaming, setRenaming] = useState(false)
+  const [editing, setEditing] = useState(false)
   useDocumentTitle('마이페이지')
 
   if (!me) return null
@@ -35,13 +35,13 @@ export default function MyPage() {
           title="내 정보"
           className="lg:col-start-2 lg:row-start-1"
           action={
-            <Button variant="secondary" onClick={() => setRenaming(true)} className="py-1.5">
-              이름 바꾸기
+            <Button variant="secondary" onClick={() => setEditing(true)} className="py-1.5">
+              프로필 수정
             </Button>
           }
         >
           <div className="flex items-center gap-3">
-            <Avatar name={me.name} imageUrl={me.profileImageUrl} />
+            <Avatar name={me.name} imageUrl={me.profileImageUrl} size="lg" />
             <div className="min-w-0">
               <p className="truncate font-medium">{me.name}</p>
               <p className="truncate text-sm text-text-tertiary">{me.email}</p>
@@ -103,7 +103,7 @@ export default function MyPage() {
 
       <CreateOrgModal open={creating} onClose={() => setCreating(false)} />
       <LeaveOrgDialog org={leaving} onClose={() => setLeaving(null)} />
-      <NicknameModal me={me} open={renaming} onClose={() => setRenaming(false)} />
+      <ProfileModal me={me} open={editing} onClose={() => setEditing(false)} />
     </div>
   )
 }

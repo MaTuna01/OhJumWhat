@@ -34,4 +34,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
 	@Modifying
 	@Query("update User u set u.noticesSeenAt = :seenAt where u.id = :id")
 	int markNoticesSeen(Long id, Instant seenAt);
+
+	/**
+	 * 올린 프로필 사진의 키만 바꾼다(null이면 구글 사진으로 돌아간다). User.photoKey는 엔티티 저장으로 쓰이지 않는 컬럼이라
+	 * 이 쿼리로만 바꾼다. 영속성 컨텍스트를 비우므로 바꾼 뒤에는 회원을 다시 읽는다.
+	 */
+	@Modifying(clearAutomatically = true)
+	@Query("update User u set u.photoKey = :photoKey where u.id = :id")
+	int updatePhotoKey(Long id, String photoKey);
 }

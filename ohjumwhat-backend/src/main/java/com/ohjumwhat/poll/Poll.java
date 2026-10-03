@@ -1,5 +1,6 @@
 package com.ohjumwhat.poll;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 
@@ -71,6 +72,19 @@ public class Poll {
 	/** 마감 처리는 별도 작업 없이, 현재 시각이 마감 시각 이후인지로 판단한다. */
 	public boolean isClosed(Instant now) {
 		return !now.isBefore(closesAt);
+	}
+
+	/** 채팅은 마감 뒤에도 이만큼 더 쓸 수 있다(결과를 보고 만날 곳을 정하는 시간). */
+	public static final Duration CHAT_GRACE = Duration.ofHours(1);
+
+	/** 채팅이 닫히는 시각: 마감 1시간 뒤. 「지금 마감」·마감 시간 수정을 따라 움직인다. */
+	public Instant getChatClosesAt() {
+		return closesAt.plus(CHAT_GRACE);
+	}
+
+	/** 채팅은 투표가 열린 때부터 마감 1시간 뒤까지 쓸 수 있다(그 뒤에는 읽기만). */
+	public boolean isChatOpen(Instant now) {
+		return now.isBefore(getChatClosesAt());
 	}
 
 	/** 진행 중인 투표의 제목·마감 시각 수정 */

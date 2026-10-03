@@ -7,6 +7,7 @@ import java.util.List;
 import com.ohjumwhat.poll.PollStatus;
 import com.ohjumwhat.schedule.ScheduleResponse;
 import com.ohjumwhat.user.Role;
+import com.ohjumwhat.user.User;
 
 /** 관리자 콘솔 응답. 목록 행은 AdminRepository의 JPQL에서 바로 만든다. */
 final class AdminResponses {
@@ -19,9 +20,19 @@ final class AdminResponses {
 			long newUserCount, long blockedCount) {
 	}
 
-	/** name은 화면 이름(별명, 없으면 구글 이름), googleName은 구글 계정 이름 */
-	record UserRow(Long id, String name, String googleName, String email, String profileImageUrl, Role role,
-			Instant createdAt, Instant lastLoginAt, long organizationCount) {
+	/**
+	 * name은 화면 이름(별명, 없으면 구글 이름), googleName은 구글 계정 이름.
+	 * profileImageUrl은 화면 사진(올린 사진, 없으면 구글 사진), customPhoto는 올린 사진이 있는지
+	 */
+	record UserRow(Long id, String name, String googleName, String email, String profileImageUrl,
+			boolean customPhoto, Role role, Instant createdAt, Instant lastLoginAt, long organizationCount) {
+
+		/** JPQL용: 올린 사진의 키와 구글 사진 주소로 화면 사진을 정한다. */
+		UserRow(Long id, String name, String googleName, String email, String photoKey, String googleUrl, Role role,
+				Instant createdAt, Instant lastLoginAt, long organizationCount) {
+			this(id, name, googleName, email, User.photoUrl(photoKey, googleUrl), photoKey != null, role, createdAt,
+					lastLoginAt, organizationCount);
+		}
 	}
 
 	/**
@@ -47,6 +58,12 @@ final class AdminResponses {
 
 	record Member(Long userId, String name, String email, String profileImageUrl, Role role, Instant joinedAt,
 			Instant lastVisitedAt) {
+
+		/** JPQL용: 올린 사진의 키와 구글 사진 주소로 화면 사진을 정한다. */
+		Member(Long userId, String name, String email, String photoKey, String googleUrl, Role role, Instant joinedAt,
+				Instant lastVisitedAt) {
+			this(userId, name, email, User.photoUrl(photoKey, googleUrl), role, joinedAt, lastVisitedAt);
+		}
 	}
 
 	/** 조직의 최근 투표. status는 서비스에서 지금 시각으로 정한다. */

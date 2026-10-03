@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
@@ -26,6 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.ohjumwhat.common.ApiException;
 import com.ohjumwhat.common.TimeConfig;
+import com.ohjumwhat.menu.MenuCommentCount;
+import com.ohjumwhat.menu.MenuCommentRepository;
 import com.ohjumwhat.menu.MenuOption;
 import com.ohjumwhat.menu.MenuOptionRepository;
 import com.ohjumwhat.organization.MemberResponse;
@@ -47,6 +50,8 @@ public class PollService {
 
 	private final MenuOptionRepository menuOptionRepository;
 
+	private final MenuCommentRepository menuCommentRepository;
+
 	private final VoteRepository voteRepository;
 
 	private final MembershipRepository membershipRepository;
@@ -55,17 +60,22 @@ public class PollService {
 
 	private final UserRepository userRepository;
 
+	private final ApplicationEventPublisher events;
+
 	private final Clock clock;
 
 	public PollService(PollRepository pollRepository, MenuOptionRepository menuOptionRepository,
-			VoteRepository voteRepository, MembershipRepository membershipRepository,
-			MembershipService membershipService, UserRepository userRepository, Clock clock) {
+			MenuCommentRepository menuCommentRepository, VoteRepository voteRepository,
+			MembershipRepository membershipRepository, MembershipService membershipService,
+			UserRepository userRepository, ApplicationEventPublisher events, Clock clock) {
 		this.pollRepository = pollRepository;
 		this.menuOptionRepository = menuOptionRepository;
+		this.menuCommentRepository = menuCommentRepository;
 		this.voteRepository = voteRepository;
 		this.membershipRepository = membershipRepository;
 		this.membershipService = membershipService;
 		this.userRepository = userRepository;
+		this.events = events;
 		this.clock = clock;
 	}
 
@@ -124,6 +134,7 @@ public class PollService {
 			throw ApiException.conflict("정기 투표는 삭제할 수 없어요. 대신 지금 마감해 주세요.");
 		}
 		pollRepository.delete(poll);
+		events.publishEvent(new PollDeletedEvent(pollId));
 		log.info("투표 삭제: pollId={}, organizationId={}, userId={}", pollId, poll.getOrganizationId(), userId);
 	}
 
@@ -224,6 +235,10 @@ public class PollService {
 			}
 		}
 
+		Map<Long, Long> commentCounts = options.isEmpty() ? Map.of()
+				: menuCommentRepository.countByOptionIds(options.stream().map(MenuOption::getId).toList()).stream()
+					.collect(Collectors.toMap(MenuCommentCount::optionId, MenuCommentCount::count));
+
 		List<PollDetailResponse.Option> optionResponses = options.stream().map(option -> {
 			List<PersonResponse> voters = votersByOption.getOrDefault(option.getId(), List.of());
 			// 추가한 사람이 강제 탈퇴로 삭제됐으면 createdBy는 null이다("탈퇴한 사용자").
@@ -231,7 +246,8 @@ public class PollService {
 			PersonResponse creator = option.getCreatedBy() == null ? null : people.get(option.getCreatedBy());
 			return new PollDetailResponse.Option(option.getId(), option.getName(), option.getLinkUrl(),
 					option.getPlaceName(), option.getPlaceAddress(), option.getKakaoPlaceId(), option.getPlaceQuery(),
-					creator, voters, mine, mine && voters.isEmpty() && !closed);
+					creator, voters, mine, mine && voters.isEmpty() && !closed,
+					commentCounts.getOrDefault(option.getId(), 0L));
 		}).toList();
 
 		Set<Long> responded = votes.stream().map(Vote::getUserId).collect(Collectors.toSet());
@@ -247,7 +263,7 @@ public class PollService {
 
 		return new PollDetailResponse(poll.getId(), poll.getOrganizationId(), poll.getTitle(),
 				closed ? PollStatus.CLOSED : PollStatus.OPEN, poll.getOpensAt(), poll.getClosesAt(),
-				poll.getScheduleId() != null, members.size(), optionResponses, myResponse,
+				poll.getChatClosesAt(), poll.getScheduleId() != null, members.size(), optionResponses, myResponse,
 				myVote == null ? null : myVote.getOptionId(), passed, nonRespondents, soloOptionIds);
 	}
 

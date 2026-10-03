@@ -68,6 +68,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - `application.yml`에는 `${DB_PASSWORD}` 같은 플레이스홀더만 둔다. `spring.config.import: optional:file:../.env[.properties]`로 로컬 `bootRun`이 루트 `.env`를 읽는다. 운영(Docker)에서는 compose의 `env_file`로 주입한다.
 - `ohjumwhat-backend/src/test/resources/application.yml`은 커밋된 테스트 전용 설정이다. 클래스패스에서 main의 `application.yml`보다 먼저 잡혀 이를 가린다. DB 연결은 `TestcontainersConfiguration`의 `@ServiceConnection`(postgres:18-alpine)으로 받는다.
 - 구글 OAuth 로컬 리디렉션 URI는 `http://localhost:5173/login/oauth2/code/google`이다(Vite 프록시 경유).
+- 프로필 사진 폴더는 `ohjumwhat.photos.dir`(`PHOTOS_DIR`)다. 로컬은 비어 있으면 `ohjumwhat-backend/data/photos`(gitignore), 운영은 이미지의 `/data/photos`(Docker 볼륨 `photos`), 테스트는 `build/test-photos`(`IntegrationTest`가 테스트마다 비운다)다.
 - 지도 키는 `ohjumwhat.maps`(`KAKAO_REST_KEY`, `NAVER_MAP_KEY_ID`)다. 비어 있으면 지도·거리를 끄고 링크 방식만 쓴다(테스트·로컬에서 키 없이도 뜬다). 네이버 지도 키는 프론트 빌드에 넣지 않고 `GET /api/config`로 받는다.
 
 ## 아키텍처
@@ -81,17 +82,22 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 로그인 버튼은 `/oauth2/authorization/google`로 이동한다. 로그인에 성공하면 서버는 항상 `/`로 보낸다.
 - 그다음 어디로 갈지는 프론트 `RootRedirect`가 정한다. `lib/entry.ts` 순서대로 sessionStorage에 기억해 둔 경로(초대 링크) → 최근 조직 → `/me`로 보낸다.
 - `GoogleOidcUserService`가 google_sub 기준으로 users를 upsert하고, 세션 principal로 `LoginUser`(users.id 포함)를 둔다. 컨트롤러에서는 `@AuthenticationPrincipal LoginUser`로 받는다.
-- 화면에 보이는 사람 이름은 **별명(`users.nickname`, V5), 없으면 구글 이름(`users.name`)**이다(`User.getDisplayName()`, JPQL은 `coalesce(u.nickname, u.name)`). 구글 이름은 로그인 때마다 갱신되고 별명은 그대로 둔다. 별명은 마이페이지 「이름 바꾸기」(`PUT /api/me/nickname`, 20자, 비우면 구글 이름)로 정한다. 사람 이름을 새로 내려주는 쿼리·응답을 만들 때도 이 규칙을 따른다(관리자 콘솔은 `googleName`도 함께 준다).
+- 화면에 보이는 사람 이름은 **별명(`users.nickname`, V5), 없으면 구글 이름(`users.name`)**이다(`User.getDisplayName()`, JPQL은 `coalesce(u.nickname, u.name)`). 구글 이름은 로그인 때마다 갱신되고 별명은 그대로 둔다. 별명은 마이페이지 「프로필 수정」(`PUT /api/me/nickname`, 20자, 비우면 구글 이름)으로 정한다. 사람 이름을 새로 내려주는 쿼리·응답을 만들 때도 이 규칙을 따른다(관리자 콘솔은 `googleName`도 함께 준다).
+- 사진도 같은 규칙이다: **올린 사진(`users.photo_key`, V10), 없으면 구글 사진(`users.profile_image_url`)**. 응답의 `profileImageUrl`은 보여줄 사진이고, `User.getPhotoUrl()`·`User.photoUrl(key, googleUrl)`이 만든다. JPQL은 `u.photoKey, u.profileImageUrl`을 함께 고르고 DTO의 보조 생성자가 주소를 만든다(예: `MemberResponse`, `AdminResponses.UserRow`). 사람 사진을 새로 내려주는 쿼리도 이렇게 한다.
+  - 사진 파일은 디스크(`ohjumwhat.photos.dir`)에 `{key}.jpg`(256px JPEG)로 두고, `GET /api/photos/{key}.jpg`(로그인 필요, `Cache-Control: private, immutable`)로 보낸다. 새로 올리면 키가 바뀐다.
+  - 올리기는 `POST /api/me/photo`(multipart `photo`), 되돌리기는 `DELETE /api/me/photo`다. 브라우저가 512px로 잘라 보내고, 서버(`ProfilePhotoImages`)가 2048px 이하 JPEG·PNG만 받아 256px JPEG로 다시 그린다(EXIF 제거).
+  - `photo_key`는 엔티티에서 `updatable=false`이고 `UserRepository.updatePhotoKey`로만 바꾼다. 로그인은 회원 행 전체를 다시 쓰므로, 그러지 않으면 같은 순간의 로그인이 옛 키를 되써서 사진이 깨진다.
+  - 새 파일은 DB를 바꾸기 전에 쓰고, 옛 파일은 커밋한 뒤에 지운다(`ProfilePhotoStorage.deleteAfterCommit`). DB가 없는 파일을 가리키는 일은 없고, 실패하면 아무도 가리키지 않는 파일만 남는다.
 - CSRF는 `csrf.spa()` 방식이다. `CsrfCookieFilter`가 매 응답에 `XSRF-TOKEN` 쿠키를 내리고, 프론트 `lib/api.ts`가 GET이 아닌 요청에 `X-XSRF-TOKEN` 헤더로 붙인다.
 - 로그아웃은 `POST /logout`이고 204를 준다.
 - 세션은 Spring Session JDBC로 DB(`spring_session` 테이블, Flyway V2)에 저장한다. 그래서 서버를 재시작·재배포해도 로그인이 유지된다. `SESSION` 쿠키의 유효기간은 30일이다.
 - request cache는 꺼 두었다(`NullRequestCache`). 로그인 후에는 항상 `/`로 가고, 로그인하지 않은 요청에는 세션을 만들지 않는다.
 
 **API 규칙**
-- 사용자에게 보여줄 오류는 `ApiException`(`notFound`/`badRequest`/`forbidden`/`conflict`)으로 던진다. `GlobalExceptionHandler`가 이를 `{"message": "..."}`로 응답하고, 요청 값 검증 실패(`@Valid`)도 같은 형식으로 준다. 프론트 `api()`는 이 `message`를 `ApiError.message`로 꺼낸다.
+- 사용자에게 보여줄 오류는 `ApiException`(`notFound`/`badRequest`/`forbidden`/`conflict`)으로 던진다. `GlobalExceptionHandler`가 이를 `{"message": "..."}`로 응답하고, 요청 값 검증 실패(`@Valid`)와 파일 올리기 오류(multipart 아님·파트 없음 400, 한도 초과 413)도 같은 형식으로 준다. 프론트 `api()`는 이 `message`를 `ApiError.message`로 꺼낸다.
 - 조직 하위 API는 먼저 `MembershipService.requireMember(orgId, userId)`를 호출한다. 멤버가 아니면 조직이 있는지도 알리지 않도록 404로 응답한다.
 - 조회용 DTO가 필요하면 JPQL `select new ...Record(...)`로 바로 만든다(예: `MembershipRepository.findMembers`).
-- 투표 관련 쓰기 API(메뉴 추가·삭제, 참여·패스)는 모두 최신 `PollDetailResponse`를 돌려준다. 프론트는 이 응답을 바로 쿼리 캐시에 넣는다.
+- 투표 관련 쓰기 API(메뉴 추가·삭제, 참여·패스)는 모두 최신 `PollDetailResponse`를 돌려준다. 프론트는 이 응답을 바로 쿼리 캐시에 넣는다. 메뉴 댓글 쓰기 API만 그 메뉴의 최신 댓글 목록을 돌려준다(아래 「메뉴 댓글」).
 - 투표 접근은 `PollService.getForMember`로 확인한다. 투표가 없거나 멤버가 아니면 404로 응답한다.
 - 진행 중인 투표에서만 쓰기가 되고, 이 확인은 `PollService.requireOpen`이 한다. 마감되면 409다.
 - 참여는 `VoteRepository.upsert`(native `ON CONFLICT`)로 한 사람 한 행을 유지한다.
@@ -143,6 +149,21 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 조직 안에는 관리자가 없고 모든 멤버의 권한이 같다(서비스 전체를 관리하는 관리자 콘솔은 아래 별도). 마지막 멤버가 탈퇴하면 조직을 삭제하고, 하위 데이터는 DB `ON DELETE CASCADE`로 함께 지운다. 정기 규칙을 삭제하면 `polls.schedule_id`만 NULL이 된다.
 - 멤버가 탈퇴하면 그 조직의 **진행 중인** 투표에서 그 사람의 votes만 지운다. 마감된 투표 기록은 남긴다.
 - 지난 투표(`GET /api/orgs/{id}/polls/history?page=`)는 `poll_date`가 오늘(한국) 이전인 투표를 최신순으로 10개씩 준다. 오늘 투표는 `/polls/today`가 맡는다. 메뉴·응답은 페이지 단위로 한 번에 읽는다(`findByPollIdIn`).
+- 메뉴 댓글(`menu/MenuComment*`, V11 `menu_comments`, Notion 「14. 투표별 채팅/댓글 기능 추가」 1단계)은 채팅과 독립된 REST 기능이다(실시간 아님).
+  - `GET/POST /api/polls/{pollId}/options/{optionId}/comments`, `PUT/DELETE …/{commentId}`. 멤버만(아니면 404), 쓰기·고치기·지우기는 **「마감 = 기록」 원칙대로 진행 중에만**(`requireOpen`, 마감 뒤 409) 하고, 고치기·지우기는 쓴 사람만(403). 마감된 투표의 댓글은 읽기만 한다. 쓰기 API는 그 메뉴의 최신 댓글 목록을 돌려준다.
+  - 본문은 `common/UserText`로 정리한다(앞뒤 공백 제거, 제어 문자 거절, 200자는 글자(코드 포인트) 수). 고치면 `edited_at`이 생겨 「수정됨」으로 보인다.
+  - 메뉴를 지우면 댓글도 CASCADE로 지워진다(메뉴 삭제 조건은 그대로). 강제 탈퇴로 회원이 지워지면 `user_id`만 NULL → 「탈퇴한 사용자」, 조직 탈퇴는 글을 남긴다.
+  - 투표 상세 응답의 메뉴에 `commentCount`가 있어 진행 중에는 3초 폴링으로 개수만 바뀐다. 목록은 펼칠 때·창이 다시 보일 때·내가 쓸 때 받는다(`queries/comments.ts`, 쓰면 상세 캐시의 개수도 맞춘다).
+  - 관리자는 `GET /api/admin/menu-options/{optionId}/comments`, `DELETE /api/admin/menu-comments/{commentId}`로 마감과 상관없이 지운다.
+- 투표 채팅(`chat` 패키지, V12 `chat_messages`, Notion 「14. 투표별 채팅/댓글 기능 추가」 2단계): **보내기·고치기·지우기는 REST, 받기만 WebSocket**(STOMP 없음).
+  - 기간: 투표 오픈 ~ **마감 + 1시간**(`Poll.getChatClosesAt`, 투표 상세 응답의 `chatClosesAt`). 마감처럼 요청 시각으로 판정하고 「지금 마감」·마감 시간 수정을 따라 움직인다. 닫힌 채팅은 읽기만 한다(지난 투표에서도 보인다).
+  - REST: `GET /api/polls/{pollId}/messages?before=`(50개씩, 오래된 → 최신), `POST`, `PUT/DELETE …/{id}`. 멤버만(404), 쓰기는 채팅이 열려 있을 때만(409 「채팅이 닫혔어요.」), 고치기·지우기는 쓴 사람만(403). 300자(줄바꿈 허용, `UserText`), 한 사람 10초 10개(429, `ChatRateLimiter`, 서버 메모리). 지우면 행은 남기고 본문만 비운다(「삭제된 메시지예요」). 로그에 본문을 남기지 않는다.
+  - WebSocket `/api/polls/*/ws`(`ChatSocketConfig`): `/api/**` 아래라 세션 쿠키 인증(아니면 401)을 그대로 받고, `ChatHandshakeInterceptor`가 멤버(404)·채팅 기간(409)·사용자·투표당 연결 3개(429)를 확인한다. 허용 출처는 기본값(같은 출처만, 프록시 뒤에서는 `X-Forwarded-*` 기준). 받기 전용이라 화면이 보내는 글은 무시한다.
+  - `ChatHub`가 연결을 서버 메모리에 든다(앱이 하나라 브로커가 필요 없다). 쓰기 트랜잭션이 커밋된 뒤(`@TransactionalEventListener`) 같은 투표의 연결로만 `{"type":"created|updated|deleted","message":{…}}`를 보낸다. 메시지에 "내 글인지"는 없고 화면이 `author`로 판단한다.
+  - 연결 끊기: 투표 삭제(`PollDeletedEvent`)·조직 탈퇴·멤버 제거·강제 탈퇴(`MembershipEndedEvent`)·조직 삭제(`OrganizationDeletedEvent`)는 커밋 후 이벤트로 바로, 로그아웃은 `SecurityConfig`의 `LogoutHandler`가 그 로그인(HTTP 세션)의 연결만 끊는다(4003). 30초마다 `ChatSweeper`가 닫힌 채팅(4001)·없어진 투표·멤버가 아닌 연결을 끊고 연결 확인 신호 `{"type":"ping"}`을 보낸다(브라우저 JS는 ping 프레임을 못 봐서 글로 보낸다). 테스트에서는 `ohjumwhat.scheduler.enabled=false`로 끄고 `ChatSweeper.sweep()`을 직접 부른다.
+  - 화면(`lib/chatSocket.ts openChatSocket`, `hooks/usePollChatSocket.ts`): 채팅이 열려 있고 탭이 보일 때만 연결한다. 끊기면 1초부터 두 배씩(최대 30초) 다시 연결하고, 4001·4003이면 멈춘다. 75초 동안 아무것도 받지 못하면(반쯤 끊긴 연결) 버리고 다시 연결한다. 연결될 때마다 목록을 다시 받아 놓친 메시지를 채운다(`queries/chat.ts`, `structuralSharing`으로 그 순간의 캐시와 합쳐 WebSocket으로 받은 것을 잃지 않는다, 합치기 규칙은 `lib/chat.ts mergeMessages`).
+  - 관리자: `GET /api/admin/polls/{pollId}/messages`, `DELETE /api/admin/chat-messages/{id}`(기간과 무관, 소프트 삭제 + 보고 있는 사람에게 전송).
+  - Spring 7은 SockJS 스케줄러를 `TaskScheduler` 빈으로 내놓지 않아 정기 투표 `@Scheduled`를 가로채지 않는다(`ChatIntegrationTest`가 고정). 실제 핸드셰이크(세션 쿠키·출처·프록시 헤더)는 `ChatSocketTest`(실제 포트)가 확인한다.
 - 메뉴 자동완성은 별도 테이블 없이 같은 조직 과거 투표의 `menu_options.name`을 중복 없이 조회해서 만든다. 항목마다 마지막으로 먹은 날을 붙이고, 최근 7일 안에 먹은 메뉴는 뒤로 보낸다.
 - 메뉴 통계·추천(`menu/MenuStatsService`, 네이티브 SQL)도 별도 테이블 없이 계산한다. "먹은 메뉴"는 **마감된 투표에서 참여자가 한 명 이상인 메뉴**이고(조직 기준), 이름은 소문자·띄어쓰기 제거로 묶는다("김치찌개" = "김치 찌개", 표시는 가장 최근 이름). 추천은 먹은 적이 있지만 최근 7일(오늘 포함) 안에는 먹지 않은 메뉴를 많이 먹은 순으로 준다. 조직 「통계」 탭(`/orgs/:orgId/stats`)과 메뉴 입력창(비운 채 누르면 추천)에서 쓴다.
 
@@ -155,6 +176,8 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 회원을 지우면 응답(votes)은 CASCADE로 지워지고, 올린 메뉴는 `menu_options.created_by`만 NULL이 된다. 응답·화면에서는 `createdBy: null` → "탈퇴한 사용자"로 보여준다.
   - 차단된 구글 계정의 로그인은 `GoogleOidcUserService`가 `OAuth2AuthenticationException("account_blocked")`로 거절하고, 실패 핸들러가 `/login?error=blocked`로 보낸다. 차단은 콘솔 「차단」 탭에서 풀 수 있다.
   - 자기 자신과 다른 관리자는 강제 탈퇴할 수 없다(409). 회원 행이 없어진 세션의 `/api/me`는 401이고 세션을 끝낸다.
+  - 강제 탈퇴하면 올린 프로필 사진 파일도 커밋한 뒤에 지운다.
+- 회원 상세의 「올린 사진 지우기」(`DELETE /api/admin/users/{id}/photo`, 204)는 부적절한 사진 대응용이다. 구글 사진으로 돌아가고, 올린 사진이 없으면 아무것도 하지 않는다.
 - `OrganizationService.leave`(본인 탈퇴, 없으면 404)와 `removeMember`(관리자용, 없으면 아무것도 안 함)는 같은 내부 로직을 쓴다. 같은 트랜잭션 안에서 예외를 내면 트랜잭션 전체가 롤백되므로 관리자 작업은 `removeMember`를 쓴다.
 - 진행 중인 정기 투표를 지우면 스케줄러가 1분 안에 다시 열기 때문에, 투표 삭제는 `withSchedule`로 규칙도 함께 지울 수 있다.
 - 조회 쿼리는 `admin/AdminRepository`(JPQL `select new AdminResponses$...`)에 모아 둔다. 목록은 검색어 `q`, 최대 100건이다.
@@ -175,7 +198,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 「새 소식」의 현재 버전도 화면 코드의 값이 아니라 `/version.json`의 버전이다(`useDeployedVersion`). 배포 전부터 열려 있던 탭도 배포된 버전을 보여준다. 못 읽으면(개발 서버) `__APP_VERSION__`을 쓴다.
 
 **투표 화면.**
-- 투표 상세(`PollDetailPage`)는 진행 중일 때 3초마다 폴링하고, 마감 응답을 받으면 결과 모드로 바뀌며 폴링을 멈춘다.
+- 투표 상세(`PollDetailPage`)는 진행 중일 때 3초마다 폴링하고, 마감 응답을 받으면 결과 모드로 바뀌며 폴링을 멈춘다. 채팅만 WebSocket으로 받고(위 「투표 채팅」), 받기 연결은 결과 모드로 바뀌어도 끊기지 않게 이 화면이 든다.
 - 참여·패스는 `lib/pollDetail.ts`의 `applyVote`로 먼저 화면에 반영(낙관적 업데이트)하고, 실패하면 되돌린다. 이 함수는 서버 `PollService.detail`과 같은 규칙으로 다시 계산하므로, 규칙을 바꿀 때는 둘을 함께 고친다.
 - 화면마다 `useDocumentTitle(...)`로 탭 제목을 붙인다(예: "점심 · 개발팀 · 오점왓"). 없는 경로는 `NotFoundPage`가, 예상하지 못한 렌더링 오류는 `RouteErrorPage`(라우터 errorElement)가 처리한다.
 - 마감 결과의 「결과 복사」는 `lib/share.ts`의 `resultText`(메신저에 붙일 글)와 `copyText`(클립보드, 안 되면 숨긴 입력창)로 한다.
@@ -199,12 +222,14 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 이미지를 만들 때 `application.example.yml`을 `application.yml`로 복사한다. 그래서 설정 키를 추가하면 예시 파일에도 반드시 넣어야 운영에 반영된다. 실제 값은 서버 `~/ohjumwhat/.env`(템플릿: `deploy/.env.example`)에 둔다.
 - Caddy가 HTTPS를 맡고, `X-Forwarded-*` 헤더로 원래 주소를 넘긴다. 그래서 앱은 https 리디렉션 URI를 만들고, `Secure` 쿠키를 쓴다.
 - 서버 설정, Secrets, 롤백, 백업·복원 방법은 `docs/DEPLOY.md`에 있다.
+- 올린 프로필 사진은 Docker 볼륨 `photos`(앱 컨테이너 `/data/photos`, 소유자 `app`)에 있다. `deploy/backup.sh`가 매일 DB와 함께 tar.gz로 백업하고, 복원도 같은 시각의 DB와 사진을 함께 한다.
 - `dev` → `main` 승격 하나가 릴리스 하나다. 승격 전에 버전(`build.gradle.kts`, `package.json`)을 올리고 `CHANGELOG.md`를 적는다. 배포 뒤에는 `vX.Y.Z` 태그와 GitHub Release를 만든다(`docs/DEPLOY.md` 「릴리스와 버전」).
   - 사용자에게 보이는 변경이 있으면 업데이트 글 `ohjumwhat-backend/src/main/resources/release-notes/X.Y.Z.md`도 함께 적는다. 배포되면 새 소식에 자동으로 올라간다. CHANGELOG는 개발자용, 업데이트 글은 사용자용이다(사용자 말투 3~5줄, DB·마이그레이션 같은 개발 용어는 쓰지 않는다).
 - 보안 헤더
   - HSTS·nosniff·X-Frame-Options는 Spring Security가 붙인다.
   - Referrer-Policy·Permissions-Policy·**CSP**는 `deploy/Caddyfile`이 붙인다. Caddyfile이 바뀌면 배포 스크립트가 검증 후 Caddy 컨테이너를 다시 만든다(단일 파일 마운트라 `up -d`만으로는 반영되지 않는다).
   - CSP가 허용하는 외부 출처는 Google Fonts, `*.googleusercontent.com`(프로필 사진), 네이버 지도뿐이다. 네이버 지도 스크립트(maps.js)는 **페이지 스킴에 따라 출처를 바꾼다**: https면 `*.pstatic.net`(타일 스타일 JSONP·타일·로고·커서), http면 `*.map.naver.net`·`static.naver.net`이고, 둘 다 `oapi.map.naver.com`(스크립트·인증)과 `kr-col-ext.nelo.navercorp.com`(오류 수집)을 쓴다. 네이버 출처는 스킴 없이 적어 운영은 https만 허용한다. 지도 스크립트가 style 속성을 직접 넣어서 `style-src-attr`만 `'unsafe-inline'`이다(`<style>` 태그·스크립트는 막는다). 새 외부 리소스(스크립트, 폰트, 이미지 CDN, 분석 도구)를 추가하면 CSP도 함께 고친다. 안 고치면 운영에서만 막힌다(개발 서버에는 CSP가 없다).
+  - 투표 채팅 받기(WebSocket)는 같은 출처의 `wss://`다. `'self'`가 wss를 포함하지 않는 브라우저(구형 Safari)가 있어 `connect-src`에 `wss://{$APP_DOMAIN}`을 따로 적었다. 배포(앱 재시작) 때 채팅 연결이 끊기고 화면이 스스로 다시 연결한다.
   - **CSP는 https로 확인한다.** http로만 확인했다가 v1.7.0 운영에서 지도 타일이 막혔다. 자체 서명 인증서로 https 서버를 띄워 Caddyfile의 CSP를 그대로 붙이고, 헤드리스 Chrome(`--ignore-certificate-errors`, CDP)에서 `securitypolicyviolation` 이벤트가 0건인지 본다(앱 내 브라우저는 자체 서명 https를 열지 않는다).
 - `Dockerfile`이나 `deploy/`를 바꾸면, 합치기 전에 로컬에서 `docker build`와 `deploy/docker-compose.yml`로 스택을 띄워 확인한다(도메인은 `localhost`).
 
@@ -214,9 +239,9 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 「디자인 시스템」 페이지
     - Foundations 프레임: 로고, 컨셉 컬러, 원색 팔레트, 의미 기반 토큰, 타이포그래피, 간격·둥글기·그림자
     - Components 프레임: Button, Badge, Avatar, OptionCard, Input, Logo, TopBar(「새 소식 점」 속성), UpdateToast, MapPin(지도 핀)
-  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 별명(`03-N` 마이페이지, `03-M2` 이름 바꾸기), 지난 투표(`04-H`), 새 소식 배너(`04-B`), 결과 복사(`05b-S`), 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제), 식당 붙이기(`05-L`, `05-M4` 식당 모달), 식당 찾기 모달(`05-F`), 투표 지도(`05-G`, 크게 보기 `05-G2`), 메뉴 추천(`05-R`, 지난 식당·고른 식당 칩 `05-R2`), 조직 위치(`07-L`, 조직 주소·반경·지도), `08 통계`, `09 새 소식`
-  - 「와이어프레임 · 데스크톱」 페이지: 같은 화면의 데스크톱(1440px) 버전(`D01`~`D07-M`, `D03-N`, `D04-H`, `D05-A`, `D05-G`, `D05-G2`, `D07-L`, `D08`, `D09`). 모달은 모바일 `-M` 프레임과 같다(큰 지도 모달 `D05-G2`만 넓다).
-  - 「관리자 콘솔」 페이지: 관리자 화면(모바일 `A01`~`A08`, 데스크톱 `DA01`~`DA08`, 강제 탈퇴 모달 `-M`, 공지 글쓰기 모달 `A08-M`, 차단된 로그인 `L01`)과 로컬 컴포넌트 StatCard·ListRow
+  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 별명·프로필 사진(`03-N` 마이페이지, `03-M2` 프로필 수정, `03-M3` 사진 맞추기), 지난 투표(`04-H`), 새 소식 배너(`04-B`), 결과 복사(`05b-S`), 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제), 식당 붙이기(`05-L`, `05-M4` 식당 모달), 식당 찾기 모달(`05-F`), 투표 지도(`05-G`, 크게 보기 `05-G2`), 메뉴 추천(`05-R`, 지난 식당·고른 식당 칩 `05-R2`), 메뉴 댓글(`05-K` 진행 중, `05b-K` 마감 결과 읽기 전용), 투표 채팅(`05-C` 하단 버튼, `05-C2` 채팅 시트, `05-C3` 닫힌 채팅), 조직 위치(`07-L`, 조직 주소·반경·지도), `08 통계`, `09 새 소식`
+  - 「와이어프레임 · 데스크톱」 페이지: 같은 화면의 데스크톱(1440px) 버전(`D01`~`D07-M`, `D03-N`, `D04-H`, `D05-A`, `D05-G`, `D05-G2`, `D05-K`, `D05-C`, `D07-L`, `D08`, `D09`). 모달은 모바일 `-M` 프레임과 같다(큰 지도 모달 `D05-G2`만 넓다).
+  - 「관리자 콘솔」 페이지: 관리자 화면(모바일 `A01`~`A08`, 데스크톱 `DA01`~`DA08`, 강제 탈퇴 모달 `-M`, 올린 사진 지우기 `A03-M2`, 공지 글쓰기 모달 `A08-M`, 메뉴 댓글 지우기 `A06-K`, 채팅 지우기 `A06-C`, 차단된 로그인 `L01`)과 로컬 컴포넌트 StatCard·ListRow
     - 콘텐츠 폭 1024px 가운데 정렬. 1024px 이상(`lg`)에서 본문 + 오른쪽 사이드(320px) 2단, 그보다 좁으면 모바일 레이아웃을 쓴다.
     - 로그인은 좌우 분할(왼쪽 브랜드 소개·투표 미리보기, 오른쪽 로그인), 모달은 폭 448px이다.
 - **새 화면이나 컴포넌트를 만들 때는 먼저 해당 Figma 프레임을 보고 그대로 구현한다.**
@@ -235,16 +260,18 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - **컴포넌트 대응**
   - Button → `components/Button.tsx`, `lib/ui.ts`의 `buttonClass`
   - Input → `lib/ui.ts`의 `inputClass`
-  - Avatar → `components/Avatar.tsx`
+  - Avatar → `components/Avatar.tsx`(Sm·Md·Lg·Xl, 사진을 불러오지 못하면 첫 글자)
   - Logo → `components/Logo.tsx`(`Logo`, `LogoMark`)
   - TopBar → `components/AppLayout.tsx`
   - Badge → `components/Badge.tsx`
-  - OptionCard → `components/OptionCard.tsx`(투표 상세의 메뉴 카드, 결과 모드 포함). Figma `Link` 속성(식당 줄)을 켜면 「식당 이름 · 네이버 지도 ↗」(이름이 없으면 「지도 · 서비스 ↗」, `lib/link.ts serviceLabel`)·「식당 고치기」가 보이고, `Distance` 속성은 조직 위치에서의 거리·도보 시간(「350m · 도보 약 7분」)이다. 식당 찾기 모달(05-F, 「근처에서 찾기」·「링크 붙이기」 탭, 메뉴 입력과 카드의 고치기 공용)은 `components/PlaceModal.tsx`, 근처에서 찾기(검색·분류 칩·지도·목록·더 보기)는 `components/PlaceFinder.tsx`, 링크 붙이기 입력(찾기·공유 링크·이름·주소, 조직 위치도 공용)은 `components/PlaceFields.tsx`
+  - OptionCard → `components/OptionCard.tsx`(투표 상세의 메뉴 카드, 결과 모드 포함). Figma `Link` 속성(식당 줄)을 켜면 「식당 이름 · 네이버 지도 ↗」(이름이 없으면 「지도 · 서비스 ↗」, `lib/link.ts serviceLabel`)·「식당 고치기」가 보이고, `Distance` 속성은 조직 위치에서의 거리·도보 시간(「350m · 도보 약 7분」)이다. 식당 찾기 모달(05-F, 「근처에서 찾기」·「링크 붙이기」 탭, 메뉴 입력과 카드의 고치기 공용)은 `components/PlaceModal.tsx`, 근처에서 찾기(검색·분류 칩·지도·목록·더 보기)는 `components/PlaceFinder.tsx`, 링크 붙이기 입력(찾기·공유 링크·이름·주소, 조직 위치도 공용)은 `components/PlaceFields.tsx`. `Comments` 속성은 카드 아래 「💬 댓글 N」 토글이다(댓글이 없으면 「댓글 달기」, 마감된 투표에서 댓글이 없으면 숨김, 카드 선택과 별개라 `stopPropagation`).
+  - MenuComments(펼친 메뉴 댓글, Open·Readonly·Empty) → `components/OptionComments.tsx`. 카드(`role="button"`) 안에 입력창을 넣지 않도록 카드 밖 바로 아래에 그린다. 펼친 메뉴는 `PollDetailPage`가 들고 있어 마감돼도 펼친 채 읽기 전용으로 바뀐다. 관리자 콘솔도 `CommentList`·`CommentRow`를 쓴다
+  - ChatMessage(Other·Mine·Deleted)·ChatPanel(Open·Closed) → `components/ChatPanel.tsx`(데스크톱 사이드 열 카드, 모바일 시트 안), 하단 「💬 채팅」 버튼·채팅 시트(05-C·05-C2) → `components/ChatSheet.tsx`(시트가 닫혀 있는 동안 받은 남의 메시지 수 「새 메시지 N」). 시트 안의 삭제 확인처럼 `<dialog>` 안에 `<dialog>`를 두면 React가 안쪽 `close`를 바깥 `onClose`로 올려 보내므로 `e.target === e.currentTarget`일 때만 닫는다
   - 투표 지도(05-G·D05-G) → `components/PollPlacesMap.tsx`(조직 위치·메뉴별 식당 핀, 모바일 접힘, 「⤢ 크게 보기」 → 큰 지도 모달 05-G2·D05-G2: 지도 + 목록, 목록을 누르면 지도가 그 식당으로 옮겨 간다), 지도 공용 → `components/NaverMap.tsx`
   - MapPin(지도 핀) → `NaverMap`의 `markerElement`: 물방울 핀 끝이 정확한 위치, 이름표는 핀 오른쪽. Tone(조직 위치·내 메뉴·그 밖), Number(식당 찾기 번호, 핀 머리), Show Label(식당 찾기는 고른 식당만 이름표)
   - 모달 크기: `Modal`의 `size="lg"`(폭 1024px, 큰 지도)와 `closable`(제목 옆 ✕). 기본은 448px
   - 멤버 카드(Figma 「멤버 N명」) → `components/MemberList.tsx`(조직 설정, 데스크톱 조직 홈 사이드)
-  - 이름 바꾸기 모달(03-M2) → `components/NicknameModal.tsx`
+  - 프로필 수정 모달(03-M2) → `components/ProfileModal.tsx`(사진·이름을 「저장」 한 번에, 사진을 먼저 저장), 사진 맞추기(03-M3) → `components/PhotoCropper.tsx`(계산은 `lib/photoCrop.ts`, 미리보기는 `data:` 주소: CSP가 `blob:` 이미지를 막는다)
   - 투표 관리 메뉴·모달(05-A, 05-M1~M3) → `components/PollManageMenu.tsx`. 제목·마감 시간 입력은 만들기(04-M)와 수정이 `components/PollForm.tsx`를 같이 쓴다.
   - StatCard·ListRow(관리자 콘솔) → `components/AdminParts.tsx`(`StatCard`, `ListRow`, `ActionRow`, `DangerZone`, `AdminSearch`)
   - TopBar 종 아이콘(「새 소식 점」) → `components/NoticeBell.tsx`, 새 소식 배너(04-B) → `components/NoticeBanner.tsx`, 새 소식 카드의 배지·본문 → `components/NoticeBadge.tsx`·`components/NoticeBody.tsx`

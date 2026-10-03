@@ -1,5 +1,7 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api.ts'
+import type { ChatMessage, ChatPage } from './chat.ts'
+import type { MenuComment } from './comments.ts'
 import type { Notice } from './notices.ts'
 import type { PollDetail, PollStatus } from './polls.ts'
 import type { Schedule } from './schedules.ts'
@@ -25,7 +27,10 @@ export type AdminUser = {
   /** 구글 계정 이름 */
   googleName: string
   email: string
+  /** 화면 사진(올린 사진, 없으면 구글 사진) */
   profileImageUrl: string | null
+  /** 직접 올린 사진이 있으면 true(관리자가 지울 수 있다) */
+  customPhoto: boolean
   role: Role
   createdAt: string
   lastLoginAt: string | null
@@ -93,6 +98,8 @@ export const adminKeys = {
   orgs: (q: string) => ['admin', 'orgs', q] as const,
   org: (orgId: number) => ['admin', 'org', orgId] as const,
   poll: (pollId: number) => ['admin', 'poll', pollId] as const,
+  comments: (optionId: number) => ['admin', 'comments', optionId] as const,
+  chat: (pollId: number) => ['admin', 'chat', pollId] as const,
   blocks: ['admin', 'blocks'] as const,
 }
 
@@ -160,6 +167,10 @@ function useAdminMutation<T, V>(mutationFn: (variables: V) => Promise<T>) {
 
 export const useWithdrawUser = () => useAdminMutation((userId: number) => api<void>(`/api/admin/users/${userId}`, { method: 'DELETE' }))
 
+/** 올린 프로필 사진 지우기(구글 사진으로 돌아간다) */
+export const useDeleteUserPhoto = () =>
+  useAdminMutation((userId: number) => api<void>(`/api/admin/users/${userId}/photo`, { method: 'DELETE' }))
+
 export const useUnblock = () => useAdminMutation((blockId: number) => api<void>(`/api/admin/blocks/${blockId}`, { method: 'DELETE' }))
 
 export const useDeleteOrg = () => useAdminMutation((orgId: number) => api<void>(`/api/admin/orgs/${orgId}`, { method: 'DELETE' }))
@@ -176,6 +187,31 @@ export const useDeletePoll = () =>
 
 export const useDeleteMenuOption = () =>
   useAdminMutation((optionId: number) => api<PollDetail>(`/api/admin/menu-options/${optionId}`, { method: 'DELETE' }))
+
+/** 메뉴의 댓글(마감과 무관하게 지울 수 있다) */
+export function useAdminOptionComments(optionId: number) {
+  return useQuery({
+    queryKey: adminKeys.comments(optionId),
+    queryFn: () => api<MenuComment[]>(`/api/admin/menu-options/${optionId}/comments`),
+  })
+}
+
+export const useDeleteMenuComment = () =>
+  useAdminMutation((commentId: number) => api<MenuComment[]>(`/api/admin/menu-comments/${commentId}`, { method: 'DELETE' }))
+
+/** 투표 채팅(최신 50개부터, 「이전 메시지 더 보기」로 더 오래된 것을 받는다). 실시간으로 받지 않는다. */
+export function useAdminChat(pollId: number) {
+  return useInfiniteQuery({
+    queryKey: adminKeys.chat(pollId),
+    queryFn: ({ pageParam }) => api<ChatPage>(`/api/admin/polls/${pollId}/messages${pageParam ? `?before=${pageParam}` : ''}`),
+    initialPageParam: 0,
+    getNextPageParam: (last) => (last.hasMore ? last.messages[0]?.id : undefined),
+  })
+}
+
+/** 채팅 메시지 강제 삭제(채팅이 닫힌 뒤에도). 「삭제된 메시지예요」로 남는다. */
+export const useDeleteChatMessage = () =>
+  useAdminMutation((messageId: number) => api<ChatMessage>(`/api/admin/chat-messages/${messageId}`, { method: 'DELETE' }))
 
 export const useDeleteSchedule = () =>
   useAdminMutation((scheduleId: number) => api<void>(`/api/admin/schedules/${scheduleId}`, { method: 'DELETE' }))

@@ -14,6 +14,8 @@ type Props = {
 /** 네이티브 <dialog> 모달. Esc와 바깥 클릭으로 닫힌다. 닫혀 있을 때는 내용을 렌더링하지 않아 입력 상태가 초기화된다. */
 export default function Modal({ open, onClose, title, children, size = 'md', closable = false }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
+  // 바깥에서 누르고 바깥에서 뗐을 때만 닫는다. 안에서 끌다가(사진 맞추기, 글자 선택) 바깥에서 떼도 닫히지 않게 한다.
+  const pressedOutside = useRef(false)
 
   useEffect(() => {
     const dialog = ref.current
@@ -26,8 +28,11 @@ export default function Modal({ open, onClose, title, children, size = 'md', clo
     <dialog
       ref={ref}
       onClose={onClose}
+      onPointerDown={(e) => {
+        pressedOutside.current = e.target === ref.current
+      }}
       onClick={(e) => {
-        if (e.target === ref.current) onClose()
+        if (e.target === ref.current && pressedOutside.current) onClose()
       }}
       aria-labelledby="modal-title"
       className={`m-auto w-[calc(100%-2rem)] ${size === 'lg' ? 'max-w-5xl' : 'max-w-md'} rounded-2xl bg-bg-surface p-0 text-text-primary shadow-xl backdrop:bg-bg-scrim`}

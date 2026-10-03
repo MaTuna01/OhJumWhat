@@ -8,6 +8,7 @@ import java.util.List;
 
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -19,9 +20,11 @@ import com.ohjumwhat.menu.MenuOptionRepository;
 import com.ohjumwhat.organization.LeaveResponse;
 import com.ohjumwhat.organization.MembershipRepository;
 import com.ohjumwhat.organization.Organization;
+import com.ohjumwhat.organization.OrganizationDeletedEvent;
 import com.ohjumwhat.organization.OrganizationRepository;
 import com.ohjumwhat.organization.OrganizationService;
 import com.ohjumwhat.poll.Poll;
+import com.ohjumwhat.poll.PollDeletedEvent;
 import com.ohjumwhat.poll.PollDetailResponse;
 import com.ohjumwhat.poll.PollRepository;
 import com.ohjumwhat.poll.PollService;
@@ -31,6 +34,7 @@ import com.ohjumwhat.schedule.PollScheduleRepository;
 import com.ohjumwhat.schedule.ScheduleResponse;
 import com.ohjumwhat.user.BlockedAccount;
 import com.ohjumwhat.user.BlockedAccountRepository;
+import com.ohjumwhat.user.ProfilePhotoStorage;
 import com.ohjumwhat.user.User;
 import com.ohjumwhat.user.UserRepository;
 import com.ohjumwhat.vote.VoteRepository;
@@ -77,6 +81,10 @@ public class AdminService {
 
 	private final JdbcTemplate jdbcTemplate;
 
+	private final ProfilePhotoStorage photoStorage;
+
+	private final ApplicationEventPublisher events;
+
 	private final Clock clock;
 
 	public AdminService(AdminRepository adminRepository, UserRepository userRepository,
@@ -84,7 +92,7 @@ public class AdminService {
 			MembershipRepository membershipRepository, OrganizationService organizationService,
 			PollRepository pollRepository, PollService pollService, MenuOptionRepository menuOptionRepository,
 			VoteRepository voteRepository, PollScheduleRepository scheduleRepository, JdbcTemplate jdbcTemplate,
-			Clock clock) {
+			ProfilePhotoStorage photoStorage, ApplicationEventPublisher events, Clock clock) {
 		this.adminRepository = adminRepository;
 		this.userRepository = userRepository;
 		this.blockedAccountRepository = blockedAccountRepository;
@@ -97,6 +105,8 @@ public class AdminService {
 		this.voteRepository = voteRepository;
 		this.scheduleRepository = scheduleRepository;
 		this.jdbcTemplate = jdbcTemplate;
+		this.photoStorage = photoStorage;
+		this.events = events;
 		this.clock = clock;
 	}
 
@@ -132,6 +142,7 @@ public class AdminService {
 	/**
 	 * 강제 탈퇴: 모든 조직에서 탈퇴(마지막 멤버였던 조직은 삭제) → 같은 구글 계정 차단 → 회원 삭제 → 로그인 세션 만료.
 	 * 회원을 지우면 그 사람의 응답은 모두 지워지고(CASCADE), 올린 메뉴는 작성자만 비운 채 남는다(SET NULL).
+	 * 올린 프로필 사진 파일은 커밋한 뒤에 지운다.
 	 */
 	@Transactional
 	public void withdraw(Long adminId, Long userId) {
@@ -149,6 +160,7 @@ public class AdminService {
 			}
 		}
 		BlockedAccount block = blockedAccountRepository.save(new BlockedAccount(user, adminId, Instant.now(clock)));
+		photoStorage.deleteAfterCommit(user.getPhotoKey());
 		userRepository.delete(user);
 		userRepository.flush();
 		// 세션 저장소 API는 별도 트랜잭션으로 커밋되므로, 같은 트랜잭션에서 지우도록 SQL을 쓴다.
@@ -156,6 +168,19 @@ public class AdminService {
 				block.getGoogleSub());
 		log.info("관리자 강제 탈퇴: adminId={}, userId={}, blockId={}, 삭제된 조직 수={}, 만료한 세션 수={}", adminId, userId,
 				block.getId(), deletedOrganizations, expiredSessions);
+	}
+
+	/** 올린 프로필 사진 지우기(부적절한 사진 대응). 구글 사진으로 돌아가고, 파일은 커밋한 뒤에 지운다. 올린 사진이 없으면 그대로 둔다. */
+	@Transactional
+	public void deleteUserPhoto(Long adminId, Long userId) {
+		User user = userRepository.findByIdForUpdate(userId).orElseThrow(() -> ApiException.notFound(USER_NOT_FOUND));
+		String photoKey = user.getPhotoKey();
+		if (photoKey == null) {
+			return;
+		}
+		userRepository.updatePhotoKey(userId, null);
+		photoStorage.deleteAfterCommit(photoKey);
+		log.info("관리자 프로필 사진 삭제: adminId={}, userId={}", adminId, userId);
 	}
 
 	@Transactional(readOnly = true)
@@ -205,6 +230,7 @@ public class AdminService {
 		Organization organization = organizationRepository.findByIdForUpdate(organizationId)
 			.orElseThrow(() -> ApiException.notFound(ORGANIZATION_NOT_FOUND));
 		organizationRepository.delete(organization);
+		events.publishEvent(new OrganizationDeletedEvent(organizationId));
 		log.info("관리자 조직 삭제: adminId={}, organizationId={}", adminId, organizationId);
 	}
 
@@ -239,6 +265,7 @@ public class AdminService {
 	public void deletePoll(Long adminId, Long pollId, boolean withSchedule) {
 		Poll poll = findPoll(pollId);
 		pollRepository.delete(poll);
+		events.publishEvent(new PollDeletedEvent(pollId));
 		if (withSchedule && poll.getScheduleId() != null) {
 			scheduleRepository.deleteById(poll.getScheduleId());
 		}

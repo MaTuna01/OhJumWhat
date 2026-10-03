@@ -36,6 +36,11 @@ public class ApiException extends RuntimeException {
 		return new ApiException(HttpStatus.CONFLICT, message);
 	}
 
+	/** 너무 자주 요청할 때(429) */
+	public static ApiException tooManyRequests(String message) {
+		return new ApiException(HttpStatus.TOO_MANY_REQUESTS, message);
+	}
+
 	/** 바깥 서비스(지도 검색 등)를 잠시 쓸 수 없을 때(503) */
 	public static ApiException unavailable(String message) {
 		return new ApiException(HttpStatus.SERVICE_UNAVAILABLE, message);

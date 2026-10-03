@@ -1,7 +1,8 @@
 import { Fragment } from 'react'
 import { type NoticeLine, parseNoticeBody } from '../lib/noticeBody.ts'
 
-function Line({ line }: { line: NoticeLine }) {
+/** 글자와 http(s) 링크(새 탭)로 나눈 한 줄. 메뉴 댓글도 이것으로 그린다. */
+export function LinkedLine({ line }: { line: NoticeLine }) {
   return (
     <>
       {line.map((segment, i) =>
@@ -32,7 +33,7 @@ export default function NoticeBody({ body }: { body: string }) {
           <ul key={i} className="list-disc space-y-1 pl-5 marker:text-text-tertiary">
             {block.items.map((item, j) => (
               <li key={j}>
-                <Line line={item} />
+                <LinkedLine line={item} />
               </li>
             ))}
           </ul>
@@ -41,7 +42,7 @@ export default function NoticeBody({ body }: { body: string }) {
             {block.lines.map((line, j) => (
               <Fragment key={j}>
                 {j > 0 && <br />}
-                <Line line={line} />
+                <LinkedLine line={line} />
               </Fragment>
             ))}
           </p>

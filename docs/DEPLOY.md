@@ -13,10 +13,10 @@
 
 | 파일 | 역할 |
 |---|---|
-| `Dockerfile` | 프론트 빌드 → `static/`에 복사 → Spring Boot jar → JRE 21 이미지(비루트 사용자, `MaxRAMPercentage=50`) |
-| `deploy/docker-compose.yml` | 운영 스택. DB는 외부 포트를 열지 않고, 80·443은 Caddy만 연다. |
+| `Dockerfile` | 프론트 빌드 → `static/`에 복사 → Spring Boot jar → JRE 21 이미지(비루트 사용자, `MaxRAMPercentage=50`, 프로필 사진 폴더 `/data/photos`) |
+| `deploy/docker-compose.yml` | 운영 스택. DB는 외부 포트를 열지 않고, 80·443은 Caddy만 연다. 볼륨은 `db-data`(DB), `photos`(올린 프로필 사진), `caddy-*`(인증서) |
 | `deploy/Caddyfile` | 인증서 자동 발급·갱신, 압축, 보안 헤더(CSP 등), 루트 도메인 → www 리디렉션. 바뀌면 배포 때 검증한 뒤 Caddy 컨테이너를 다시 만든다(파일 하나를 마운트해서 `up -d`만으로는 반영되지 않는다). |
-| `deploy/backup.sh` | `pg_dump` 일일 백업(14일 보관) |
+| `deploy/backup.sh` | `pg_dump`와 프로필 사진 폴더(tar.gz)의 일일 백업(14일 보관) |
 | `deploy/.env.example` | 서버 `.env` 템플릿 |
 | `.github/workflows/ci.yml` | PR과 `dev` push에서 백엔드 테스트, 프론트 린트·테스트·빌드 |
 | `.github/workflows/deploy.yml` | `main` push(또는 수동 실행) 시 CI → 이미지 → 배포 → 헬스 체크(2분) |
@@ -96,7 +96,7 @@ APP_APEX_DOMAIN=ohjumwhat.cloud
 APP_IMAGE=ghcr.io/matuna01/ohjumwhat:latest
 ```
 
-일일 백업을 등록한다(매일 04:00, 14일 보관).
+일일 백업을 등록한다(매일 04:00, DB와 프로필 사진, 14일 보관).
 ```bash
 ( crontab -l 2>/dev/null; echo "0 4 * * * $HOME/ohjumwhat/backup.sh >> $HOME/ohjumwhat/backup.log 2>&1" ) | crontab -
 ```
@@ -180,6 +180,8 @@ docker compose restart app           # 앱만 재시작
 ./backup.sh                          # 수동 백업 → backups/
 ```
 
+**투표 채팅 연결**: 채팅 받기(WebSocket)는 앱 메모리에 연결을 들고 있어서 배포·재시작 때 모두 끊긴다. 화면이 1초부터 두 배씩(최대 30초) 기다렸다 스스로 다시 연결하고 놓친 메시지를 다시 받으므로 따로 할 일은 없다. 앱을 두 대 이상 띄우면 메시지가 같은 앱에 연결된 사람에게만 가므로, 그때는 외부 브로커(Redis 등)가 필요하다.
+
 **롤백**: `.env`의 `APP_IMAGE`를 이전 커밋 태그로 바꾸고 다시 띄운다.
 ```bash
 sed -i 's|^APP_IMAGE=.*|APP_IMAGE=ghcr.io/matuna01/ohjumwhat:<이전 커밋 sha>|' .env
@@ -187,7 +189,11 @@ docker compose pull app && docker compose up -d
 ```
 다음 배포 전에 `APP_IMAGE`를 `:latest`로 되돌린다. DB 스키마(Flyway)는 앞으로만 적용되므로, 스키마가 바뀐 버전을 되돌릴 때는 호환 여부를 먼저 확인한다.
 
-**백업에서 복원**
+**백업에서 복원**: DB(`users.photo_key`)가 사진 파일을 가리키므로 같은 시각의 DB와 사진을 함께 복원한다.
 ```bash
 gunzip -c backups/ohjumwhat-YYYYMMDD-HHMM.sql.gz | docker compose exec -T db psql -U ohjumwhat -d ohjumwhat
+# 사진은 앱 컨테이너(app 사용자)로 풀어야 파일 소유자가 맞는다.
+docker compose exec -T app tar xzf - -C /data < backups/ohjumwhat-photos-YYYYMMDD-HHMM.tar.gz
 ```
+
+**프로필 사진**: 올린 사진은 `photos` 볼륨(앱 컨테이너 `/data/photos`)에 `{키}.jpg`로 있다. 한 장에 수 KB~수십 KB다. `docker compose down -v`는 볼륨까지 지우므로 사진(과 DB)이 사라진다. 볼륨을 남기려면 `down`만 쓴다.

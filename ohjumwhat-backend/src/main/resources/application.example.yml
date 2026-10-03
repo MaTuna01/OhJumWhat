@@ -16,6 +16,11 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+  servlet:
+    multipart:
+      # 프로필 사진 올리기. 브라우저가 512px JPEG(대개 100KB 안팎)로 줄여 보내므로 넉넉한 한도다.
+      max-file-size: 2MB
+      max-request-size: 3MB
   security:
     oauth2:
       client:
@@ -54,3 +59,7 @@ ohjumwhat:
     kakao-rest-key: ${KAKAO_REST_KEY:}
     # 네이버 지도(NCP Maps) Client ID. 브라우저가 지도 스크립트를 부를 때 쓰는 공개 값이고, NCP 콘솔에 등록한 도메인에서만 동작한다.
     naver-map-key-id: ${NAVER_MAP_KEY_ID:}
+  photos:
+    # 올린 프로필 사진({키}.jpg)을 두는 폴더. 운영은 Docker 볼륨(/data/photos, Dockerfile의 PHOTOS_DIR)이고,
+    # 로컬은 백엔드 폴더의 data/photos(gitignore 대상)다. 백업은 deploy/backup.sh가 DB와 함께 한다.
+    dir: ${PHOTOS_DIR:./data/photos}

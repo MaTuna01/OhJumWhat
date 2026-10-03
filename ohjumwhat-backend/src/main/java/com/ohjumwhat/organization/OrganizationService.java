@@ -11,6 +11,7 @@ import java.util.Set;
 
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,16 +36,20 @@ public class OrganizationService {
 
 	private final VoteRepository voteRepository;
 
+	private final ApplicationEventPublisher events;
+
 	private final Clock clock;
 
 	public OrganizationService(OrganizationRepository organizationRepository,
 			MembershipRepository membershipRepository, MembershipService membershipService,
-			PollRepository pollRepository, VoteRepository voteRepository, Clock clock) {
+			PollRepository pollRepository, VoteRepository voteRepository, ApplicationEventPublisher events,
+			Clock clock) {
 		this.organizationRepository = organizationRepository;
 		this.membershipRepository = membershipRepository;
 		this.membershipService = membershipService;
 		this.pollRepository = pollRepository;
 		this.voteRepository = voteRepository;
+		this.events = events;
 		this.clock = clock;
 	}
 
@@ -150,10 +155,13 @@ public class OrganizationService {
 		int deletedVotes = voteRepository.deleteInOpenPolls(organizationId, userId, Instant.now(clock));
 		membershipRepository.delete(membership);
 		membershipRepository.flush();
+		// 커밋 뒤에 그 사람이 열어 둔 이 조직의 채팅 연결을 끊는다.
+		events.publishEvent(new MembershipEndedEvent(organizationId, userId));
 		log.info("조직 탈퇴: organizationId={}, userId={}, 삭제한 응답 수={}", organizationId, userId, deletedVotes);
 
 		if (membershipRepository.countByOrganizationId(organizationId) == 0) {
 			organizationRepository.delete(organization);
+			events.publishEvent(new OrganizationDeletedEvent(organizationId));
 			log.info("마지막 멤버 탈퇴로 조직 삭제: organizationId={}", organizationId);
 			return true;
 		}

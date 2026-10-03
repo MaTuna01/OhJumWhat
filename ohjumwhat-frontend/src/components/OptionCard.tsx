@@ -1,4 +1,5 @@
 import type { KeyboardEvent } from 'react'
+import { commentToggleLabel, commentsPanelId } from '../lib/comments.ts'
 import { distanceLabel } from '../lib/distance.ts'
 import { withJosa } from '../lib/josa.ts'
 import { serviceLabel } from '../lib/link.ts'
@@ -23,6 +24,10 @@ type Props = {
   resolved?: { name: string; link: string }
   /** 지도에서 마커를 눌러 이 카드로 왔을 때 잠깐 강조한다. */
   highlighted?: boolean
+  /** 댓글이 펼쳐져 있는지. 펼친 댓글(OptionComments)은 쓰는 쪽이 카드 바로 아래에 그린다. */
+  commentsOpen?: boolean
+  /** 「💬 댓글 N」을 누르면(없으면 버튼을 숨긴다) */
+  onToggleComments?: () => void
 }
 
 /**
@@ -30,9 +35,10 @@ type Props = {
  * 상태: 기본 / 내 선택(오렌지 테두리) / 혼자(배지) / 비어 있음(내가 추가했으면 삭제) / 결과
  * 식당이 있으면 「식당 이름 · 네이버 지도 ↗」(이름이 없으면 「지도 · 서비스 ↗」, Figma OptionCard Link=true, 05-L)를 보여주고,
  * 위치를 찾았으면 조직 위치에서의 거리·도보 시간(Figma Distance=true, 05-G)을 함께 보여준다.
+ * 카드 아래 「💬 댓글 N」(Figma Comments=true, 05-K)을 누르면 댓글을 펼친다. 마감된 투표에서 댓글이 없으면 버튼을 숨긴다.
  * 지도 마커에서 찾아올 수 있게 id="option-{id}"를 둔다.
  */
-export default function OptionCard({ option, meId, result, selected, onSelect, onDelete, onEditLink, disabled, distance, resolved, highlighted }: Props) {
+export default function OptionCard({ option, meId, result, selected, onSelect, onDelete, onEditLink, disabled, distance, resolved, highlighted, commentsOpen, onToggleComments }: Props) {
   const count = option.voters.length
   const solo = count === 1
   const interactive = !result && !disabled
@@ -40,6 +46,7 @@ export default function OptionCard({ option, meId, result, selected, onSelect, o
   const creator = option.mine ? '내가 추가' : `${withJosa(option.createdBy?.name ?? '탈퇴한 사용자', '이/가')} 추가`
   const placeLink = resolved?.link ?? option.link
   const placeLabel = resolved?.name ?? option.placeName ?? '지도'
+  const commentLabel = onToggleComments ? commentToggleLabel(option.commentCount, result === true) : null
 
   const onKeyDown = (e: KeyboardEvent) => {
     if (interactive && (e.key === 'Enter' || e.key === ' ')) {
@@ -148,6 +155,26 @@ export default function OptionCard({ option, meId, result, selected, onSelect, o
         <p className="text-xs text-text-placeholder">
           아직 아무도 없어요{option.deletable && ' · 참여자가 없어서 삭제할 수 있어요'}
         </p>
+      )}
+      {commentLabel && (
+        <div>
+          <button
+            type="button"
+            aria-expanded={commentsOpen === true}
+            aria-controls={commentsOpen ? commentsPanelId(option.id) : undefined}
+            aria-label={`${option.name} ${commentLabel}${commentsOpen ? ' 접기' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleComments?.()
+            }}
+            onKeyDown={(e) => e.stopPropagation()}
+            className="inline-flex items-center gap-1 rounded-full border border-border-default bg-bg-surface px-2.5 py-1 text-xs font-medium text-text-secondary hover:border-border-strong hover:text-text-primary focus-visible:outline-2 focus-visible:outline-border-brand"
+          >
+            <span aria-hidden>💬</span>
+            {commentLabel}
+            <span aria-hidden>{commentsOpen ? '▴' : '▾'}</span>
+          </button>
+        </div>
       )}
     </div>
   )

@@ -15,6 +15,7 @@ const option = (id: number, name: string, voters: Person[], link: string | null 
   voters,
   mine: false,
   deletable: false,
+  commentCount: 0,
 })
 
 const base: PollDetail = {
@@ -24,6 +25,7 @@ const base: PollDetail = {
   status: 'CLOSED',
   opensAt: '2026-09-30T02:00:00Z',
   closesAt: '2026-09-30T02:50:00Z',
+  chatClosesAt: '2026-09-30T03:50:00Z',
   scheduled: true,
   memberCount: 6,
   options: [],

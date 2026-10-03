@@ -115,7 +115,8 @@ public class MenuService {
 			.toList();
 	}
 
-	private MenuOption findInPoll(Long pollId, Long optionId) {
+	/** 그 투표의 메뉴를 찾는다(다른 투표의 메뉴면 404). */
+	MenuOption findInPoll(Long pollId, Long optionId) {
 		return menuOptionRepository.findById(optionId)
 			.filter(o -> o.getPollId().equals(pollId))
 			.orElseThrow(() -> ApiException.notFound("메뉴를 찾을 수 없어요."));

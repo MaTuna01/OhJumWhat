@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.ohjumwhat"
-version = "1.7.2"
+version = "1.8.0"
 
 java {
 	toolchain {
@@ -32,6 +32,7 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-session-jdbc")
 	implementation("org.springframework.boot:spring-boot-starter-validation")
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
+	implementation("org.springframework.boot:spring-boot-starter-websocket")
 	implementation("org.flywaydb:flyway-database-postgresql")
 	compileOnly("org.projectlombok:lombok")
 	runtimeOnly("org.postgresql:postgresql")
@@ -44,6 +45,7 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-session-jdbc-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-validation-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
+	testImplementation("org.springframework.boot:spring-boot-starter-websocket-test")
 	testImplementation("org.springframework.boot:spring-boot-testcontainers")
 	testImplementation("org.testcontainers:testcontainers-junit-jupiter")
 	testImplementation("org.testcontainers:testcontainers-postgresql")
@@ -54,4 +56,6 @@ dependencies {
 
 tasks.withType<Test> {
 	useJUnitPlatform()
+	// 프로필 사진 테스트가 Java2D로 그림을 그린다. macOS에서 창(Dock 아이콘)을 띄우지 않게 헤드리스로 돌린다.
+	systemProperty("java.awt.headless", "true")
 }

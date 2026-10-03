@@ -3,7 +3,7 @@ import type { Me } from '../queries/me.ts'
 import type { PollDetail } from '../queries/polls.ts'
 import { applyVote, confirmedTeams } from './pollDetail.ts'
 
-const me: Me = { id: 1, name: '김철수', nickname: null, googleName: '김철수', email: 'kim@example.com', profileImageUrl: null, lastVisitedOrgId: 1, admin: false }
+const me: Me = { id: 1, name: '김철수', nickname: null, googleName: '김철수', email: 'kim@example.com', profileImageUrl: null, googleProfileImageUrl: null, customPhoto: false, lastVisitedOrgId: 1, admin: false }
 const lee = { userId: 2, name: '이영희', profileImageUrl: null }
 const base: PollDetail = {
   id: 10,
@@ -12,11 +12,12 @@ const base: PollDetail = {
   status: 'OPEN',
   opensAt: '2026-09-30T02:00:00Z',
   closesAt: '2026-09-30T02:50:00Z',
+  chatClosesAt: '2026-09-30T03:50:00Z',
   scheduled: false,
   memberCount: 2,
   options: [
-    { id: 100, name: '김치찌개', link: null, placeName: null, placeAddress: null, kakaoPlaceId: null, placeQuery: null, createdBy: lee, voters: [lee], mine: false, deletable: false },
-    { id: 101, name: '쌀국수', link: 'https://naver.me/x', placeName: null, placeAddress: null, kakaoPlaceId: null, placeQuery: null, createdBy: { userId: 1, name: '김철수', profileImageUrl: null }, voters: [], mine: true, deletable: true },
+    { id: 100, name: '김치찌개', link: null, placeName: null, placeAddress: null, kakaoPlaceId: null, placeQuery: null, createdBy: lee, voters: [lee], mine: false, deletable: false, commentCount: 0 },
+    { id: 101, name: '쌀국수', link: 'https://naver.me/x', placeName: null, placeAddress: null, kakaoPlaceId: null, placeQuery: null, createdBy: { userId: 1, name: '김철수', profileImageUrl: null }, voters: [], mine: true, deletable: true, commentCount: 2 },
   ],
   myResponse: 'NONE',
   myOptionId: null,
