@@ -42,4 +42,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
 	@Modifying(clearAutomatically = true)
 	@Query("update User u set u.photoKey = :photoKey where u.id = :id")
 	int updatePhotoKey(Long id, String photoKey);
+
+	/**
+	 * 한줄 소개와 좋아하는 음식만 바꾼다. 두 컬럼은 엔티티 저장으로 쓰이지 않아(로그인이 되쓰지 않게) 이 쿼리로만 바꾼다.
+	 * 영속성 컨텍스트를 비우므로 바꾼 뒤에는 회원을 다시 읽는다.
+	 */
+	@Modifying(clearAutomatically = true)
+	@Query("update User u set u.bio = :bio, u.foodTags = :foodTags where u.id = :id")
+	int updateIntro(Long id, String bio, String[] foodTags);
 }

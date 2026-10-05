@@ -1,6 +1,7 @@
 package com.ohjumwhat.user;
 
 import java.time.Instant;
+import java.util.List;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -46,6 +47,17 @@ public class User {
 	 */
 	@Column(insertable = false, updatable = false, length = 32)
 	private String photoKey;
+
+	/**
+	 * 한줄 소개(없으면 null). 같은 조직 멤버가 프로필에서 본다. UserRepository.updateIntro로만 바꾼다.
+	 * photoKey처럼 엔티티를 저장할 때 쓰지 않는 컬럼이라, 같은 순간의 로그인이 옛 소개를 되써서 지워지는 일이 없다.
+	 */
+	@Column(insertable = false, updatable = false, length = 50)
+	private String bio;
+
+	/** 좋아하는 음식(직접 적는 태그, 최대 3개, 없으면 빈 배열). bio와 함께 UserRepository.updateIntro로만 바꾼다. */
+	@Column(insertable = false, updatable = false)
+	private String[] foodTags;
 
 	// DB 기본값은 Hibernate가 INSERT에 컬럼을 넣으므로 쓰이지 않는다. 여기서 기본값을 둔다.
 	@Enumerated(EnumType.STRING)
@@ -153,6 +165,20 @@ public class User {
 	/** 올린 사진은 {@code /api/photos/{key}.jpg}(ProfilePhotoController)로 보낸다. 없으면 구글 사진 주소(없으면 null). */
 	public static String photoUrl(String photoKey, String googleUrl) {
 		return photoKey == null ? googleUrl : PHOTO_PATH + photoKey + ".jpg";
+	}
+
+	public String getBio() {
+		return bio;
+	}
+
+	/** 좋아하는 음식(적은 순서). 가입 직후 엔티티처럼 아직 읽지 않았으면 빈 목록 */
+	public List<String> getFoodTags() {
+		return foodTags(foodTags);
+	}
+
+	/** DB 배열을 목록으로. JPQL로 u.foodTags를 고르는 DTO도 이것으로 바꾼다. */
+	public static List<String> foodTags(String[] foodTags) {
+		return foodTags == null ? List.of() : List.of(foodTags);
 	}
 
 	public Role getRole() {

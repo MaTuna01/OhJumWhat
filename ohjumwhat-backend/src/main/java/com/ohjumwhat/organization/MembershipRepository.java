@@ -27,7 +27,7 @@ public interface MembershipRepository extends JpaRepository<Membership, Long> {
 
 	@Query("""
 			select new com.ohjumwhat.organization.MemberResponse(u.id, coalesce(u.nickname, u.name), u.photoKey,
-				u.profileImageUrl, m.joinedAt)
+				u.profileImageUrl, u.bio, u.foodTags, m.joinedAt)
 			from Membership m join com.ohjumwhat.user.User u on u.id = m.userId
 			where m.organizationId = :organizationId
 			order by m.joinedAt, m.id""")
