@@ -12,10 +12,20 @@ export function letterLength(body: string): number {
   return [...body.replace(/\r\n/g, '\n').trim()].length
 }
 
+/** 신고 사유: 한 줄로 받으므로(서버는 줄바꿈을 거절한다) 줄바꿈·연속 공백을 공백 하나로 합친다. 비면 null */
+export function reportReason(raw: string): string | null {
+  return raw.replace(/\s+/g, ' ').trim() || null
+}
+
 /** 상대 이름: 숨겼으면 「익명」, 탈퇴했으면 「탈퇴한 사용자」 */
 export function counterpartLabel(letter: Pick<Letter, 'counterpart' | 'counterpartHidden'>): string {
   if (letter.counterpartHidden) return '익명'
   return letter.counterpart?.name ?? '탈퇴한 사용자'
+}
+
+/** 받은 쪽지에 「차단」을 보여줄지: 실명으로 보낸 사람이 탈퇴했으면 더 받을 쪽지가 없다. 익명 쪽지는 탈퇴했는지 드러나지 않게 늘 보여준다. */
+export function canBlock(letter: Pick<Letter, 'counterpart' | 'counterpartHidden'>): boolean {
+  return letter.counterpartHidden || letter.counterpart !== null
 }
 
 /** 조직 이름(없어졌으면 「삭제된 조직」) */

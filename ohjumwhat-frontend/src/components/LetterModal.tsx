@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useLetterComposer } from '../hooks/useLetterComposer.ts'
 import { useNow } from '../hooks/useNow.ts'
 import { ApiError } from '../lib/api.ts'
-import { counterpartLabel, organizationLabel, REPORT_REASON_MAX, letterLength } from '../lib/letters.ts'
-import { formatClock, formatDayTime } from '../lib/time.ts'
+import { canBlock, counterpartLabel, organizationLabel, REPORT_REASON_MAX, reportReason } from '../lib/letters.ts'
+import { formatDayTime } from '../lib/time.ts'
 import { inputClass } from '../lib/ui.ts'
 import { type Letter, useBlockLetterSender, useDeleteLetter, useMarkLetterRead, useReportLetter } from '../queries/letters.ts'
 import AnonymousAvatar from './AnonymousAvatar.tsx'
@@ -19,6 +19,7 @@ type Dialog = 'delete' | 'block' | 'report' | null
 /**
  * 쪽지 보기(Figma 10-M2 받은 쪽지, 10-M2b 익명 쪽지, 10-M2c 보낸 쪽지). 받은 쪽지는 열 때 읽음으로 바꾼다.
  * 확인 창(지우기·차단 10-M5·신고 10-M3)은 이 모달 밖에 그린다(<dialog> 안의 <dialog>는 닫힘 이벤트가 바깥으로 올라온다).
+ * 쪽지함은 쪽지마다 key를 바꿔 그려서 확인 창·오류가 다른 쪽지로 넘어가지 않는다.
  */
 export default function LetterModal({ letter, onClose }: { letter: Letter | null; onClose: () => void }) {
   const [dialog, setDialog] = useState<Dialog>(null)
@@ -51,7 +52,11 @@ export default function LetterModal({ letter, onClose }: { letter: Letter | null
               onClose()
               compose({ kind: 'reply', letter })
             }}
-            onDialog={setDialog}
+            onDialog={(next) => {
+              remove.reset()
+              block.reset()
+              setDialog(next)
+            }}
           />
         )}
       </Modal>
@@ -70,7 +75,7 @@ export default function LetterModal({ letter, onClose }: { letter: Letter | null
       <ConfirmDialog
         open={dialog === 'block'}
         onClose={() => setDialog(null)}
-        title="이 사람을 차단할까요?"
+        title={letter?.anonymous ? '익명 쪽지를 차단할까요?' : '이 사람을 차단할까요?'}
         confirmLabel="차단"
         danger
         pending={block.isPending}
@@ -85,7 +90,11 @@ export default function LetterModal({ letter, onClose }: { letter: Letter | null
           })
         }
       >
-        <p>차단하면 이 사람의 쪽지를 더는 받지 않아요. 지금까지 받은 쪽지도 목록에서 숨겨져요.</p>
+        <p>
+          {letter?.anonymous
+            ? '차단하면 이 쪽지를 목록에서 숨기고, 이 쪽지를 보낸 사람의 익명 쪽지를 더는 받지 않아요.'
+            : '차단하면 이 사람의 쪽지를 더는 받지 않아요. 지금까지 받은 쪽지도 목록에서 숨겨져요.'}
+        </p>
         <p className="mt-3 rounded-xl bg-bg-subtle px-3.5 py-3 text-xs">보낸 사람에게는 알리지 않아요. 「차단한 사람 관리」에서 언제든 풀 수 있어요.</p>
       </ConfirmDialog>
       {letter && (
@@ -122,7 +131,7 @@ function LetterView({ letter, onReply, onDialog }: { letter: Letter; onReply: ()
       </div>
       {!received && (
         <div className="flex flex-wrap gap-1">
-          {letter.readAt ? <Badge tone="success">읽음 · {formatClock(letter.readAt)}</Badge> : <Badge tone="neutral">안 읽음</Badge>}
+          {letter.readAt ? <Badge tone="success">읽음 · {formatDayTime(letter.readAt, now)}</Badge> : <Badge tone="neutral">안 읽음</Badge>}
           {letter.anonymous && <Badge tone="brand">익명으로 보냄</Badge>}
         </div>
       )}
@@ -138,9 +147,11 @@ function LetterView({ letter, onReply, onDialog }: { letter: Letter; onReply: ()
       <div className="flex items-center gap-2 border-t border-border-default pt-3">
         {received && (
           <div className="flex flex-1 items-center gap-3.5">
-            <button type="button" onClick={() => onDialog('block')} className="rounded text-sm font-medium text-text-secondary hover:underline focus-visible:outline-2 focus-visible:outline-border-brand">
-              차단
-            </button>
+            {canBlock(letter) && (
+              <button type="button" onClick={() => onDialog('block')} className="rounded text-sm font-medium text-text-secondary hover:underline focus-visible:outline-2 focus-visible:outline-border-brand">
+                차단
+              </button>
+            )}
             {letter.reported ? (
               <span className="text-sm font-medium text-text-tertiary">신고함</span>
             ) : (
@@ -174,8 +185,9 @@ function ReportDialog({ letter, open, onClose, onReported }: { letter: Letter; o
 function ReportForm({ letter, onClose, onReported }: { letter: Letter; onClose: () => void; onReported: () => void }) {
   const report = useReportLetter()
   const [reason, setReason] = useState('')
-  const [block, setBlock] = useState(true)
-  const length = letterLength(reason)
+  const [block, setBlock] = useState(canBlock(letter))
+  // 사유는 한 줄로 보낸다(줄바꿈은 공백으로 합친다).
+  const length = [...(reportReason(reason) ?? '')].length
   const now = useNow(60_000)
 
   return (
@@ -212,15 +224,17 @@ function ReportForm({ letter, onClose, onReported }: { letter: Letter; onClose: 
           {length}/{REPORT_REASON_MAX}
         </p>
       </div>
-      <div>
-        <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
-          <input type="checkbox" checked={block} onChange={(e) => setBlock(e.target.checked)} className="size-4 accent-bg-brand" />
-          보낸 사람 차단하기
-        </label>
-        <p className="mt-1 text-xs text-text-tertiary">
-          이 사람의 {letter.anonymous ? '익명 ' : ''}쪽지를 더는 받지 않아요. 「차단한 사람 관리」에서 풀 수 있어요.
-        </p>
-      </div>
+      {canBlock(letter) && (
+        <div>
+          <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+            <input type="checkbox" checked={block} onChange={(e) => setBlock(e.target.checked)} className="size-4 accent-bg-brand" />
+            보낸 사람 차단하기
+          </label>
+          <p className="mt-1 text-xs text-text-tertiary">
+            이 사람의 {letter.anonymous ? '익명 ' : ''}쪽지를 더는 받지 않아요. 「차단한 사람 관리」에서 풀 수 있어요.
+          </p>
+        </div>
+      )}
       {report.error && (
         <p role="alert" className="text-sm text-text-danger">
           {report.error instanceof ApiError ? report.error.message : '신고하지 못했어요. 연결을 확인하고 다시 시도해 주세요.'}

@@ -1,7 +1,7 @@
 import type { InfiniteData } from '@tanstack/react-query'
 import { describe, expect, it } from 'vitest'
 import type { Letter, LetterPage } from '../queries/letters.ts'
-import { counterpartLabel, letterLength, organizationLabel, unreadLetterLabel, updateLetterInPages } from './letters.ts'
+import { counterpartLabel, letterLength, organizationLabel, reportReason, unreadLetterLabel, updateLetterInPages } from './letters.ts'
 
 const letter: Letter = {
   id: 1,
@@ -36,6 +36,13 @@ describe('letterLength', () => {
   it('앞뒤 공백을 빼고 코드 포인트로 센다', () => {
     expect(letterLength('  안녕\r\n하세요  ')).toBe(6)
     expect(letterLength('😀😀')).toBe(2)
+  })
+})
+
+describe('reportReason', () => {
+  it('줄바꿈·연속 공백을 공백 하나로 합치고, 비면 null', () => {
+    expect(reportReason('  기분 나쁜\n\n말이   있어요 \r\n')).toBe('기분 나쁜 말이 있어요')
+    expect(reportReason(' \n ')).toBeNull()
   })
 })
 

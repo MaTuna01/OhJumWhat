@@ -75,14 +75,15 @@ abstract class LetterTestBase extends IntegrationTest {
 		return ((Number) JsonPath.read(json, "$.id")).longValue();
 	}
 
-	ResultActions reply(User from, long letterId, String body, boolean anonymous) throws Exception {
+	/** 답장(익명 여부는 서버가 정한다) */
+	ResultActions reply(User from, long letterId, String body) throws Exception {
 		return mockMvc.perform(post("/api/letters/" + letterId + "/reply").with(loginAs(from)).with(xsrf())
 			.contentType(MediaType.APPLICATION_JSON)
-			.content("{\"body\": \"%s\", \"anonymous\": %s}".formatted(body, anonymous)));
+			.content("{\"body\": \"%s\"}".formatted(body)));
 	}
 
-	long replyOk(User from, long letterId, String body, boolean anonymous) throws Exception {
-		String json = reply(from, letterId, body, anonymous).andExpect(status().isCreated())
+	long replyOk(User from, long letterId, String body) throws Exception {
+		String json = reply(from, letterId, body).andExpect(status().isCreated())
 			.andReturn()
 			.getResponse()
 			.getContentAsString();

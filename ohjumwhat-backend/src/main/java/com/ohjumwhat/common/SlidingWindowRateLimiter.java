@@ -35,25 +35,31 @@ public class SlidingWindowRateLimiter {
 	/** 할 수 있으면 기록하고, 너무 잦으면 429 */
 	public void acquire(Long userId) {
 		Instant now = Instant.now(clock);
-		Deque<Instant> userTimes = times.computeIfAbsent(userId, id -> new ArrayDeque<>());
-		synchronized (userTimes) {
-			dropOld(userTimes, now);
-			if (userTimes.size() >= limit) {
-				throw ApiException.tooManyRequests(message);
+		boolean[] allowed = { false };
+		// 기록을 compute 안에서 바꿔 prune이 같은 사람의 기록을 맵에서 빼는 것과 겹치지 않게 한다.
+		times.compute(userId, (id, userTimes) -> {
+			Deque<Instant> recent = userTimes == null ? new ArrayDeque<>() : userTimes;
+			dropOld(recent, now);
+			if (recent.size() < limit) {
+				recent.addLast(now);
+				allowed[0] = true;
 			}
-			userTimes.addLast(now);
+			return recent.isEmpty() ? null : recent;
+		});
+		if (!allowed[0]) {
+			throw ApiException.tooManyRequests(message);
 		}
 	}
 
 	/** 기간이 지난 기록을 지운다(주기적으로 호출). */
 	public void prune() {
 		Instant now = Instant.now(clock);
-		times.values().removeIf(userTimes -> {
-			synchronized (userTimes) {
+		for (Long userId : times.keySet()) {
+			times.computeIfPresent(userId, (id, userTimes) -> {
 				dropOld(userTimes, now);
-				return userTimes.isEmpty();
-			}
-		});
+				return userTimes.isEmpty() ? null : userTimes;
+			});
+		}
 	}
 
 	/** 테스트: 기록을 비운다(회원 ID가 테스트마다 1부터 다시 시작한다). */

@@ -15,12 +15,14 @@ import org.springframework.data.jpa.repository.Query;
 public interface LetterRepository extends JpaRepository<Letter, Long> {
 
 	/**
-	 * 받은 쪽지함에 보이는 쪽지(쿼리의 :userId가 받은 사람): 지우지 않았고, 같은 범위(익명 여부)로 차단한 보낸 사람이 아니다.
-	 * 목록·안 읽은 수·한 통 조회가 함께 쓴다.
+	 * 받은 쪽지함에 보이는 쪽지(쿼리의 :userId가 받은 사람): 지우지 않았고, 차단하지 않았다. 실명 쪽지는 보낸 사람을 실명으로
+	 * 차단했으면 숨기고, 익명 쪽지는 그 쪽지를 차단했을 때만 숨긴다(같은 사람의 다른 익명 쪽지까지 숨기면 같은 사람이 썼다는 것이
+	 * 드러난다). 목록·안 읽은 수·한 통 조회가 함께 쓴다.
 	 */
 	String VISIBLE_RECEIVED = " l.recipientId = :userId and l.recipientDeletedAt is null"
-			+ " and not exists (select b.id from LetterBlock b where b.userId = :userId"
-			+ " and b.blockedUserId = l.senderId and b.anonymous = l.anonymous) ";
+			+ " and not exists (select b.id from LetterBlock b where b.userId = :userId and ("
+			+ "(l.anonymous = false and b.anonymous = false and b.blockedUserId = l.senderId)"
+			+ " or (l.anonymous = true and b.anonymous = true and b.letterId = l.id))) ";
 
 	String RECEIVED_ROW = """
 			select new com.ohjumwhat.letter.LetterRow(l.id, l.organizationId, o.name, u.id, coalesce(u.nickname, u.name),
