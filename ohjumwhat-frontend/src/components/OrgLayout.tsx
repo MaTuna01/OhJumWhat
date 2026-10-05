@@ -4,6 +4,7 @@ import { ApiError } from '../lib/api.ts'
 import { buttonClass } from '../lib/ui.ts'
 import { useOrganization } from '../queries/orgs.ts'
 import { PageLoader, PageMessage } from './PageState.tsx'
+import { ProfileViewerProvider } from './ProfileViewer.tsx'
 
 const tabs = [
   { to: '', label: '투표', end: true },
@@ -37,32 +38,38 @@ export default function OrgLayout() {
   }
 
   if (onPollDetail) {
-    return <Outlet />
+    return (
+      <ProfileViewerProvider orgId={orgId}>
+        <Outlet />
+      </ProfileViewerProvider>
+    )
   }
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">{org.data.name}</h1>
-        <p className="mt-1 text-sm text-text-tertiary">멤버 {org.data.memberCount}명</p>
-        <nav className="mt-4 flex gap-1 border-b border-border-default" aria-label="조직 메뉴">
-          {tabs.map((tab) => (
-            <NavLink
-              key={tab.label}
-              to={tab.to === '' ? `/orgs/${orgId}` : `/orgs/${orgId}/${tab.to}`}
-              end={tab.end}
-              className={({ isActive }) =>
-                `-mb-px border-b-2 px-3 py-2 text-sm font-medium ${
-                  isActive ? 'border-border-brand text-text-brand' : 'border-transparent text-text-tertiary hover:text-text-primary'
-                }`
-              }
-            >
-              {tab.label}
-            </NavLink>
-          ))}
-        </nav>
+    <ProfileViewerProvider orgId={orgId}>
+      <div>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold tracking-tight">{org.data.name}</h1>
+          <p className="mt-1 text-sm text-text-tertiary">멤버 {org.data.memberCount}명</p>
+          <nav className="mt-4 flex gap-1 border-b border-border-default" aria-label="조직 메뉴">
+            {tabs.map((tab) => (
+              <NavLink
+                key={tab.label}
+                to={tab.to === '' ? `/orgs/${orgId}` : `/orgs/${orgId}/${tab.to}`}
+                end={tab.end}
+                className={({ isActive }) =>
+                  `-mb-px border-b-2 px-3 py-2 text-sm font-medium ${
+                    isActive ? 'border-border-brand text-text-brand' : 'border-transparent text-text-tertiary hover:text-text-primary'
+                  }`
+                }
+              >
+                {tab.label}
+              </NavLink>
+            ))}
+          </nav>
+        </div>
+        <Outlet />
       </div>
-      <Outlet />
-    </div>
+    </ProfileViewerProvider>
   )
 }

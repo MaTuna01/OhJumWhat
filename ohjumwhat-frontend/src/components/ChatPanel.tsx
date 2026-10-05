@@ -11,6 +11,7 @@ import Avatar from './Avatar.tsx'
 import Button from './Button.tsx'
 import ConfirmDialog from './ConfirmDialog.tsx'
 import { LinkedLine } from './NoticeBody.tsx'
+import { ProfileButton } from './ProfileViewer.tsx'
 
 type Props = {
   pollId: number
@@ -219,10 +220,14 @@ function MessageItem({ message, mine, onEdit, onDelete }: { message: ChatMessage
   }
   return (
     <div className="flex gap-2 pr-8">
-      <Avatar name={name} imageUrl={message.author?.profileImageUrl} size="sm" />
+      <ProfileButton person={message.author} focusable={false} className="h-fit shrink-0 rounded-full">
+        <Avatar name={name} imageUrl={message.author?.profileImageUrl} size="sm" />
+      </ProfileButton>
       <div className="flex min-w-0 flex-col items-start gap-1">
         <div className="flex items-baseline gap-1.5 text-xs">
-          <span className="font-medium text-text-primary">{name}</span>
+          <ProfileButton person={message.author} className="rounded font-medium text-text-primary hover:underline">
+            {name}
+          </ProfileButton>
           {time}
         </div>
         {bubble}

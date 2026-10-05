@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useRef } from 'react'
+import { type ReactNode, useEffect, useId, useRef } from 'react'
 
 type Props = {
   open: boolean
@@ -16,6 +16,8 @@ export default function Modal({ open, onClose, title, children, size = 'md', clo
   const ref = useRef<HTMLDialogElement>(null)
   // 바깥에서 누르고 바깥에서 뗐을 때만 닫는다. 안에서 끌다가(사진 맞추기, 글자 선택) 바깥에서 떼도 닫히지 않게 한다.
   const pressedOutside = useRef(false)
+  // 모달 두 개가 함께 열릴 수 있어서(채팅 시트 위의 프로필 등) 제목 id를 모달마다 따로 만든다.
+  const titleId = useId()
 
   useEffect(() => {
     const dialog = ref.current
@@ -34,13 +36,13 @@ export default function Modal({ open, onClose, title, children, size = 'md', clo
       onClick={(e) => {
         if (e.target === ref.current && pressedOutside.current) onClose()
       }}
-      aria-labelledby="modal-title"
+      aria-labelledby={titleId}
       className={`m-auto w-[calc(100%-2rem)] ${size === 'lg' ? 'max-w-5xl' : 'max-w-md'} rounded-2xl bg-bg-surface p-0 text-text-primary shadow-xl backdrop:bg-bg-scrim`}
     >
       {open && (
         <div className="p-5">
           <div className="flex items-start justify-between gap-3">
-            <h2 id="modal-title" className="text-lg font-bold">
+            <h2 id={titleId} className="text-lg font-bold">
               {title}
             </h2>
             {closable && (
