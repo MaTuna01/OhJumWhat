@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import Avatar from '../components/Avatar.tsx'
 import Button from '../components/Button.tsx'
 import CreateOrgModal from '../components/CreateOrgModal.tsx'
+import FoodTags from '../components/FoodTags.tsx'
 import LeaveOrgDialog from '../components/LeaveOrgDialog.tsx'
 import NoticeBanner from '../components/NoticeBanner.tsx'
 import { PageLoader, Section } from '../components/PageState.tsx'
@@ -48,6 +49,27 @@ export default function MyPage() {
               {me.nickname && <p className="truncate text-xs text-text-tertiary">구글 이름 {me.googleName}</p>}
             </div>
           </div>
+          {me.bio || me.foodTags.length > 0 ? (
+            <div className="mt-4 space-y-2">
+              {me.bio && <p className="text-sm break-words text-text-secondary">{me.bio}</p>}
+              <FoodTags tags={me.foodTags} />
+            </div>
+          ) : (
+            // 처음 가입하면 이 화면으로 오므로 가입 단계 대신 여기서 소개를 채우게 안내한다(Figma 03-N2).
+            <div className="mt-4 flex items-center gap-3 rounded-xl bg-bg-subtle px-3.5 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">한줄 소개를 써 보세요</p>
+                <p className="mt-0.5 text-xs text-text-tertiary">좋아하는 음식과 함께 같은 조직 멤버에게 보여요.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="shrink-0 rounded text-sm font-medium text-text-brand hover:underline focus-visible:outline-2 focus-visible:outline-border-brand"
+              >
+                소개 쓰기
+              </button>
+            </div>
+          )}
         </Section>
 
         <Section

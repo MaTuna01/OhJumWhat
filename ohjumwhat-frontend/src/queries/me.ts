@@ -17,6 +17,10 @@ export type Me = {
   googleProfileImageUrl: string | null
   /** 직접 올린 사진이 있으면 true */
   customPhoto: boolean
+  /** 한줄 소개. 없으면 null */
+  bio: string | null
+  /** 좋아하는 음식(적은 순서, 최대 3개). 없으면 빈 배열 */
+  foodTags: string[]
   lastVisitedOrgId: number | null
   /** 관리자면 프로필 메뉴에 관리자 콘솔이 보인다 */
   admin: boolean
@@ -45,7 +49,7 @@ export function useLogout() {
 }
 
 /**
- * 프로필(이름·사진)을 바꾼 응답을 반영한다. 이름과 사진은 멤버 목록·투표 명단 등 여러 화면에 나오므로
+ * 프로필(이름·사진·소개)을 바꾼 응답을 반영한다. 이름과 사진은 멤버 목록·투표 명단 등 여러 화면에 나오므로
  * 내 정보는 응답으로 바로 바꾸고 나머지 쿼리는 다시 불러온다.
  */
 function applyMe(queryClient: QueryClient, me: Me) {
@@ -58,6 +62,16 @@ export function useChangeNickname() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (nickname: string | null) => api<Me>('/api/me/nickname', { method: 'PUT', body: { nickname } }),
+    onSuccess: (me) => applyMe(queryClient, me),
+  })
+}
+
+/** 한줄 소개와 좋아하는 음식 정하기(통째로 바꾼다. bio가 null이면 소개를, 빈 배열이면 음식을 지운다) */
+export function useChangeIntro() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (intro: { bio: string | null; foodTags: string[] }) =>
+      api<Me>('/api/me/profile', { method: 'PUT', body: intro }),
     onSuccess: (me) => applyMe(queryClient, me),
   })
 }

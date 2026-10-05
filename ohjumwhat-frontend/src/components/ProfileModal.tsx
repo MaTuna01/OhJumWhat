@@ -1,7 +1,12 @@
 import { type ChangeEvent, type FormEvent, useRef, useState } from 'react'
 import { ApiError } from '../lib/api.ts'
 import {
+  addFoodTags,
+  BIO_MAX_LENGTH,
   canRevertPhoto,
+  FOOD_TAG_MAX_LENGTH,
+  FOOD_TAGS_MAX,
+  introChange,
   NICKNAME_MAX_LENGTH,
   nicknameChange,
   type PendingPhoto,
@@ -11,17 +16,18 @@ import {
   revertPhoto,
 } from '../lib/profile.ts'
 import { inputClass } from '../lib/ui.ts'
-import { type Me, useChangeNickname, useChangePhoto } from '../queries/me.ts'
+import { type Me, useChangeIntro, useChangeNickname, useChangePhoto } from '../queries/me.ts'
 import Avatar from './Avatar.tsx'
 import Button from './Button.tsx'
+import FoodTagInput, { type FoodTagState } from './FoodTagInput.tsx'
 import Modal from './Modal.tsx'
 import PhotoCropper from './PhotoCropper.tsx'
 
 type View = 'profile' | 'crop'
 
 /**
- * 프로필 수정(Figma 03-M2): 사진과 이름을 한 번에 저장한다. 「사진 올리기」로 고른 사진은 같은 모달의
- * 「사진 맞추기」(03-M3)에서 맞춘다. 저장 전에는 아무것도 보내지 않으므로 취소하면 그대로다.
+ * 프로필 수정(Figma 03-M2): 사진·이름·한줄 소개·좋아하는 음식을 한 번에 저장한다. 「사진 올리기」로 고른 사진은
+ * 같은 모달의 「사진 맞추기」(03-M3)에서 맞춘다. 저장 전에는 아무것도 보내지 않으므로 취소하면 그대로다.
  */
 export default function ProfileModal({ me, open, onClose }: { me: Me; open: boolean; onClose: () => void }) {
   const [view, setView] = useState<View>('profile')
@@ -44,14 +50,20 @@ function ProfileEditor({ me, view, onViewChange, onClose }: EditorProps) {
   const [pending, setPending] = useState<PendingPhoto>({ kind: 'none' })
   const [source, setSource] = useState<HTMLImageElement | null>(null)
   const [pickError, setPickError] = useState<string | null>(null)
+  const [bio, setBio] = useState(me.bio ?? '')
+  const [food, setFood] = useState<FoodTagState>({ tags: me.foodTags, draft: '', error: null })
   const fileInput = useRef<HTMLInputElement>(null)
   const photo = useChangePhoto()
   const nickname = useChangeNickname()
+  const intro = useChangeIntro()
 
   const nameChange = nicknameChange(me, name)
   const change = photoChange(pending)
-  const saving = photo.isPending || nickname.isPending
-  const saveError = photo.error ?? nickname.error
+  // 아직 태그로 더하지 않은 글도 저장할 음식에 넣는다(적고 바로 「저장」을 눌러도 빠지지 않게). 이미 있는 음식은 건너뛴다.
+  const pendingFood = food.draft.trim() ? addFoodTags(food.tags, food.draft) : { tags: food.tags, error: null }
+  const introUpdate = introChange(me, bio, pendingFood.tags)
+  const saving = photo.isPending || nickname.isPending || intro.isPending
+  const saveError = photo.error ?? nickname.error ?? intro.error
 
   const pick = () => fileInput.current?.click()
 
@@ -76,16 +88,26 @@ function ProfileEditor({ me, view, onViewChange, onClose }: EditorProps) {
 
   const save = async (e: FormEvent) => {
     e.preventDefault()
+    if (pendingFood.error) {
+      setFood({ ...food, error: pendingFood.error })
+      return
+    }
     photo.reset()
     nickname.reset()
+    intro.reset()
     try {
-      // 사진을 먼저 저장한다. 이름 저장만 실패하면 사진은 저장된 채로 남고, 다시 저장하면 이름만 보낸다.
+      // 사진 → 이름 → 소개 순서로 저장한다. 뒤의 것만 실패하면 앞의 것은 저장된 채로 남고,
+      // 다시 저장하면 바뀐 것만 보낸다(me가 응답으로 바뀌므로).
       if (change) {
         await photo.mutateAsync(change)
         setPending({ kind: 'none' })
       }
       if (nameChange.changed) {
         await nickname.mutateAsync(nameChange.nickname)
+      }
+      if (introUpdate.changed) {
+        await intro.mutateAsync({ bio: introUpdate.bio, foodTags: introUpdate.foodTags })
+        setFood({ tags: introUpdate.foodTags, draft: '', error: null })
       }
       onClose()
     } catch {
@@ -160,6 +182,41 @@ function ProfileEditor({ me, view, onViewChange, onClose }: EditorProps) {
             </p>
           </div>
 
+          <div>
+            <label htmlFor="bio" className="text-sm font-medium">
+              한줄 소개
+            </label>
+            <input
+              id="bio"
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder="예: 점심은 국물 요리가 좋아요"
+              className={`${inputClass} mt-1.5`}
+            />
+            <p className={`mt-1.5 text-xs ${introUpdate.bioLength > BIO_MAX_LENGTH ? 'text-text-danger' : 'text-text-tertiary'}`}>
+              멤버가 내 프로필을 열면 보여요. {BIO_MAX_LENGTH}자까지 쓸 수 있어요.
+              {introUpdate.bioLength > BIO_MAX_LENGTH && ` (지금 ${introUpdate.bioLength}자)`}
+            </p>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <label htmlFor="food-tag" className="text-sm font-medium">
+                좋아하는 음식
+              </label>
+              <span className="text-xs text-text-tertiary">
+                {food.tags.length}/{FOOD_TAGS_MAX}
+              </span>
+            </div>
+            <FoodTagInput id="food-tag" value={food} onChange={setFood} disabled={saving} />
+            <p role={food.error ? 'alert' : undefined} className={`mt-1.5 text-xs ${food.error ? 'text-text-danger' : 'text-text-tertiary'}`}>
+              {food.error ??
+                (food.tags.length >= FOOD_TAGS_MAX
+                  ? `${FOOD_TAGS_MAX}개를 다 적었어요. 바꾸려면 ✕로 지워 주세요.`
+                  : `Enter나 쉼표로 추가해요. 한 개에 ${FOOD_TAG_MAX_LENGTH}자까지 적을 수 있어요.`)}
+            </p>
+          </div>
+
           {saveError && (
             <p role="alert" className="text-sm text-text-danger">
               {saveError instanceof ApiError ? saveError.message : '저장하지 못했어요. 연결을 확인하고 다시 시도해 주세요.'}
@@ -171,7 +228,12 @@ function ProfileEditor({ me, view, onViewChange, onClose }: EditorProps) {
             </Button>
             <Button
               type="submit"
-              disabled={saving || (!change && !nameChange.changed) || nameChange.length > NICKNAME_MAX_LENGTH}
+              disabled={
+                saving ||
+                (!change && !nameChange.changed && !introUpdate.changed) ||
+                nameChange.length > NICKNAME_MAX_LENGTH ||
+                introUpdate.bioLength > BIO_MAX_LENGTH
+              }
             >
               저장
             </Button>

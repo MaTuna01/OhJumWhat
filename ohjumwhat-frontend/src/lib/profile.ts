@@ -49,3 +49,61 @@ export function photoFileError(file: { type: string; size: number }): string | n
   if (file.size > PHOTO_MAX_BYTES) return '20MB보다 작은 사진을 골라 주세요.'
   return null
 }
+
+export const BIO_MAX_LENGTH = 50
+export const FOOD_TAG_MAX_LENGTH = 10
+export const FOOD_TAGS_MAX = 3
+
+/** 앞뒤 공백을 지우고 연속 공백은 하나로(서버 ProfileIntro와 같다) */
+function singleLine(text: string) {
+  return text.trim().replace(/\s+/g, ' ')
+}
+
+/** 글자 수는 서버처럼 코드 포인트로 센다(이모지도 한 글자). */
+function charCount(text: string) {
+  return [...text].length
+}
+
+/** 음식 태그 하나 정리: 앞뒤 공백과 앞의 #을 지우고 공백을 하나로. 비면 빈 문자열 */
+export function normalizeFoodTag(raw: string): string {
+  return singleLine(raw.trim().replace(/^#+/, ''))
+}
+
+/** 띄어쓰기·대소문자만 다른 음식은 같은 음식이다(「김치찌개 = 김치 찌개」). */
+function foodTagKey(tag: string) {
+  return tag.replace(/ /g, '').toLowerCase()
+}
+
+/**
+ * 입력한 글을 태그로 더한다. 쉼표로 나눠 여러 개를 한 번에 붙여 넣을 수도 있다.
+ * 너무 길거나 3개가 넘으면 거기서 멈추고 error를 준다. 이미 있는 음식은 건너뛰고, 더한 것 없이 건너뛰기만 했으면
+ * duplicate다(저장은 막지 않고 안내만 한다).
+ */
+export function addFoodTags(tags: string[], raw: string): { tags: string[]; error: string | null; duplicate: boolean } {
+  let next = tags
+  let skipped = false
+  for (const part of raw.split(/[,，]/)) {
+    const tag = normalizeFoodTag(part)
+    if (!tag) continue
+    if (charCount(tag) > FOOD_TAG_MAX_LENGTH) {
+      return { tags: next, error: `음식 이름은 ${FOOD_TAG_MAX_LENGTH}자 이하로 입력해 주세요.`, duplicate: false }
+    }
+    if (next.some((t) => foodTagKey(t) === foodTagKey(tag))) {
+      skipped = true
+      continue
+    }
+    if (next.length >= FOOD_TAGS_MAX) {
+      return { tags: next, error: `좋아하는 음식은 ${FOOD_TAGS_MAX}개까지 적을 수 있어요.`, duplicate: false }
+    }
+    next = [...next, tag]
+  }
+  return { tags: next, error: null, duplicate: skipped && next === tags }
+}
+
+/** 한줄 소개·좋아하는 음식 입력을 저장할 값으로. 소개를 비우면 null이고, 둘 다 지금과 같으면 바뀌지 않은 것이다. */
+export function introChange(me: Me, bioInput: string, foodTags: string[]) {
+  const trimmed = singleLine(bioInput)
+  const bio = trimmed || null
+  const tagsChanged = foodTags.length !== me.foodTags.length || foodTags.some((tag, i) => tag !== me.foodTags[i])
+  return { bio, foodTags, changed: bio !== me.bio || tagsChanged, bioLength: charCount(trimmed) }
+}

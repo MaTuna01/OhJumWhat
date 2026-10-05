@@ -39,6 +39,10 @@ export type AdminUser = {
 
 export type AdminUserDetail = {
   user: AdminUser
+  /** 한줄 소개(없으면 null) */
+  bio: string | null
+  /** 좋아하는 음식(없으면 빈 배열) */
+  foodTags: string[]
   /** 세션의 마지막 요청 시각(최근 접속) */
   lastAccessAt: string | null
   organizations: { id: number; name: string; memberCount: number; joinedAt: string; lastVisitedAt: string | null }[]
