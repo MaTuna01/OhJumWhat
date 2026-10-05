@@ -1,6 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import type { ChatMessage } from '../queries/chat.ts'
-import { chatLength, chatSocketUrl, mergeChatPage, mergeMessages, parseChatPush, reconnectDelay, unseenCount } from './chat.ts'
+import {
+  arrivals,
+  chatLength,
+  chatSocketUrl,
+  dividerAnchor,
+  firstLine,
+  mayHaveOlderUnread,
+  mergeChatPage,
+  mergeMessages,
+  parseChatPush,
+  reconnectDelay,
+  unreadCount,
+  unreadLabel,
+} from './chat.ts'
 
 const kim = { userId: 1, name: '김철수', profileImageUrl: null }
 const lee = { userId: 2, name: '이영희', profileImageUrl: null }
@@ -35,13 +48,21 @@ describe('mergeMessages', () => {
 
 describe('mergeChatPage', () => {
   it('최신 페이지를 다시 받아도 이전 메시지와 WebSocket으로 받은 메시지를 지우지 않는다', () => {
-    const old = { messages: [message(1), message(2), message(5)], hasMore: false }
-    const fresh = { messages: [message(2), message(3), message(4)], hasMore: true }
+    const old = { messages: [message(1), message(2), message(5)], hasMore: false, lastReadId: 0 }
+    const fresh = { messages: [message(2), message(3), message(4)], hasMore: true, lastReadId: 0 }
     const merged = mergeChatPage(old, fresh)
     expect(merged.messages.map((m) => m.id)).toEqual([1, 2, 3, 4, 5])
     // 더 오래된 것까지 받아 둔 쪽의 hasMore
     expect(merged.hasMore).toBe(false)
     expect(mergeChatPage(undefined, fresh)).toBe(fresh)
+  })
+
+  it('읽은 위치는 큰 쪽을 남긴다(화면에서 먼저 올린 값·다른 기기에서 읽은 값)', () => {
+    const page = (lastReadId: number) => ({ messages: [message(1), message(2)], hasMore: false, lastReadId })
+    expect(mergeChatPage(page(2), page(1)).lastReadId).toBe(2)
+    expect(mergeChatPage(page(1), page(2)).lastReadId).toBe(2)
+    // 예전 형식(읽은 위치 없음)이 섞여도 NaN이 되지 않는다
+    expect(mergeChatPage({ messages: [], hasMore: false } as never, page(1)).lastReadId).toBe(1)
   })
 })
 
@@ -60,11 +81,63 @@ describe('reconnectDelay', () => {
   })
 })
 
-describe('unseenCount', () => {
-  it('본 뒤에 온 남의 메시지만 센다(내 글·지운 글 제외)', () => {
-    const messages = [message(1), message(2, { author: kim }), message(3), message(4, { deleted: true, body: null })]
-    expect(unseenCount(messages, 1, kim.userId)).toBe(1)
-    expect(unseenCount(messages, 0, kim.userId)).toBe(2)
+describe('unreadCount', () => {
+  it('읽은 위치 뒤의 남의 메시지만 센다(내 글·지운 글 제외, 탈퇴한 사용자의 글은 센다)', () => {
+    const messages = [message(1), message(2, { author: kim }), message(3), message(4, { deleted: true, body: null }), message(5, { author: null })]
+    expect(unreadCount(messages, 1, kim.userId)).toBe(2)
+    expect(unreadCount(messages, 0, kim.userId)).toBe(3)
+    expect(unreadCount(messages, 5, kim.userId)).toBe(0)
+  })
+
+  it('내 정보를 모르면 세지 않는다(내 글을 남의 글로 세지 않게)', () => {
+    expect(unreadCount([message(1)], 0, undefined)).toBe(0)
+  })
+})
+
+describe('mayHaveOlderUnread·unreadLabel', () => {
+  it('받은 것보다 앞부터 안 읽었으면 더 있을 수 있다', () => {
+    expect(mayHaveOlderUnread({ messages: [message(51), message(52)], hasMore: true, lastReadId: 10 })).toBe(true)
+    expect(mayHaveOlderUnread({ messages: [message(51), message(52)], hasMore: true, lastReadId: 51 })).toBe(false)
+    expect(mayHaveOlderUnread({ messages: [message(51), message(52)], hasMore: false, lastReadId: 0 })).toBe(false)
+  })
+
+  it('배지 글자', () => {
+    expect(unreadLabel(0)).toBe('')
+    expect(unreadLabel(3)).toBe('3')
+    expect(unreadLabel(99)).toBe('99')
+    expect(unreadLabel(100)).toBe('99+')
+    expect(unreadLabel(50, true)).toBe('50+')
+    expect(unreadLabel(120, true)).toBe('99+')
+  })
+})
+
+describe('dividerAnchor', () => {
+  it('보이기 시작할 때 안 읽었던 범위의 첫 남의 메시지(내 글·지운 글은 건너뛴다)', () => {
+    const messages = [message(1), message(2, { author: kim }), message(3, { deleted: true, body: null }), message(4), message(5)]
+    expect(dividerAnchor(messages, 1, 5, kim.userId, false)).toBe(4)
+    expect(dividerAnchor(messages, 0, 5, kim.userId, false)).toBe(1)
+  })
+
+  it('보는 동안 온 메시지(upTo 뒤)에는 긋지 않는다', () => {
+    expect(dividerAnchor([message(1), message(2)], 1, 1, kim.userId, false)).toBeNull()
+  })
+
+  it('안 읽은 첫 메시지를 아직 받지 않았으면(이전 메시지) 긋지 않는다', () => {
+    const messages = [message(51), message(52)]
+    expect(dividerAnchor(messages, 10, 52, kim.userId, true)).toBeNull()
+    expect(dividerAnchor(messages, 51, 52, kim.userId, true)).toBe(52)
+  })
+})
+
+describe('arrivals·firstLine', () => {
+  it('afterId 뒤에 온 남의 메시지만(내 글·지운 글·이전 메시지 제외)', () => {
+    const messages = [message(1), message(2), message(3, { author: kim }), message(4, { deleted: true, body: null }), message(5)]
+    expect(arrivals(messages, 2, kim.userId).map((m) => m.id)).toEqual([5])
+  })
+
+  it('미리보기는 빈 줄을 건너뛴 첫 줄', () => {
+    expect(firstLine('\n  김치찌개 집 웨이팅 길대요  \n둘째 줄')).toBe('김치찌개 집 웨이팅 길대요')
+    expect(firstLine(null)).toBe('')
   })
 })
 

@@ -1,25 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
+import { useChatUnread } from '../hooks/useChatUnread.ts'
 import type { ChatConnection } from '../hooks/usePollChatSocket.ts'
-import { unseenCount } from '../lib/chat.ts'
-import { useChatMessages } from '../queries/chat.ts'
-import { useMe } from '../queries/me.ts'
 import ChatPanel from './ChatPanel.tsx'
+import { ChatButton } from './ChatUnread.tsx'
 
 type Props = { pollId: number; chatClosesAt: string; connection: ChatConnection }
 
 /**
- * Figma 05-C·05-C2: 모바일 투표 상세의 하단 고정 「💬 채팅」 버튼과 아래에서 올라오는 채팅 시트.
- * 시트가 닫혀 있는 동안 받은 남의 메시지 수를 「새 메시지 N」으로 보여주고, 열면 지운다(처음 받은 목록은 새 메시지로 치지 않는다).
+ * Figma 05-C·05-C4·05-C2: 모바일 투표 상세의 하단 고정 「💬 채팅」 버튼과 아래에서 올라오는 채팅 시트.
+ * 버튼 오른쪽 위에 안 읽은 메시지 수(빨간 배지, 읽은 위치는 서버에 있어 다시 와도 남는다)를 두고,
+ * 시트가 닫혀 있는 동안 남의 새 메시지가 오면 버튼 위에 4초 동안 미리보기를 띄운다. 읽음은 시트 안의 ChatPanel이 올린다.
  */
 export default function ChatSheet({ pollId, chatClosesAt, connection }: Props) {
-  const { data: me } = useMe()
-  const { data } = useChatMessages(pollId)
   const ref = useRef<HTMLDialogElement>(null)
   const [open, setOpen] = useState(false)
-  const [seenId, setSeenId] = useState<number | null>(null)
-  const latestId = data?.messages.at(-1)?.id ?? 0
-  if (data && (seenId === null || (open && seenId < latestId))) setSeenId(latestId)
-  const unseen = !open && data && seenId !== null ? unseenCount(data.messages, seenId, me?.id) : 0
+  const { count, label, preview } = useChatUnread(pollId, !open)
 
   useEffect(() => {
     const dialog = ref.current
@@ -30,17 +25,16 @@ export default function ChatSheet({ pollId, chatClosesAt, connection }: Props) {
 
   return (
     <>
-      <div className="pointer-events-none fixed inset-x-0 bottom-4 z-20 flex justify-center px-4 lg:hidden">
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          aria-haspopup="dialog"
-          className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-bg-brand px-5 py-3 text-sm font-bold text-text-on-brand shadow-lg hover:bg-bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-brand"
-        >
-          <span aria-hidden>💬</span> 채팅
-          {unseen > 0 && <span className="rounded-full bg-bg-surface px-1.5 text-xs text-text-brand">새 메시지 {unseen}</span>}
-        </button>
-      </div>
+      <ChatButton
+        ariaLabel={count > 0 ? `채팅, 안 읽은 메시지 ${label}개` : '채팅'}
+        unreadLabel={label}
+        preview={preview}
+        onClick={() => setOpen(true)}
+        opensDialog
+        className="inset-x-0 bottom-4 flex items-center px-4 lg:hidden"
+      >
+        <span aria-hidden>💬</span> 채팅
+      </ChatButton>
       <dialog
         ref={ref}
         // React는 안쪽 <dialog>(삭제 확인)의 close 이벤트도 여기로 올려 보내므로 시트 자신이 닫힐 때만 받는다.

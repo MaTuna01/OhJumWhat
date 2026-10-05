@@ -56,6 +56,8 @@ export type PollSummary = {
   title: string
   status: PollStatus
   closesAt: string
+  /** 채팅이 닫히는 시각(마감 1시간 뒤) */
+  chatClosesAt: string
   memberCount: number
   respondedCount: number
   passCount: number
@@ -63,6 +65,8 @@ export type PollSummary = {
   teamCount: number
   myResponse: MyResponse
   myOptionName: string | null
+  /** 내가 안 읽은 채팅 메시지 수 */
+  unreadMessages: number
 }
 
 /** 지난 투표 한 줄. teams는 참여자가 있는 메뉴(인원 많은 순) */
@@ -110,11 +114,13 @@ export const pollKeys = {
 /** 진행 중인 투표는 3초마다 다시 불러온다(백그라운드 탭에서는 멈춘다). */
 const POLL_INTERVAL = 3000
 
+/** 오늘 투표 카드. 진행 중이거나 채팅이 열린(마감 1시간 뒤까지) 투표가 있으면 15초마다 다시 받는다(안 읽은 채팅 수). */
 export function useTodayPolls(orgId: number) {
   return useQuery({
     queryKey: pollKeys.today(orgId),
     queryFn: () => api<PollSummary[]>(`/api/orgs/${orgId}/polls/today`),
-    refetchInterval: (query) => (query.state.data?.some((p) => p.status === 'OPEN') ? 15_000 : false),
+    refetchInterval: (query) =>
+      query.state.data?.some((p) => p.status === 'OPEN' || Date.parse(p.chatClosesAt) > Date.now()) ? 15_000 : false,
   })
 }
 
