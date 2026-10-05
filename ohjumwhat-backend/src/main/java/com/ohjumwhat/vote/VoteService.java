@@ -44,4 +44,16 @@ public class VoteService {
 		log.info("참여: pollId={}, userId={}, optionId={}", pollId, userId, optionId == null ? "패스" : optionId);
 		return pollService.detail(poll, userId);
 	}
+
+	/**
+	 * 참여·패스를 취소해 미응답으로 돌아간다(응답 행을 지운다). 마감 전에만 되고, 응답이 없어도 그대로 성공한다.
+	 */
+	@Transactional
+	public PollDetailResponse cancel(Long pollId, Long userId) {
+		Poll poll = pollService.getForMember(pollId, userId);
+		pollService.requireOpen(poll);
+		int deleted = voteRepository.deleteByPollIdAndUserId(pollId, userId);
+		log.info("응답 취소: pollId={}, userId={}, deleted={}", pollId, userId, deleted);
+		return pollService.detail(poll, userId);
+	}
 }

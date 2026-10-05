@@ -29,6 +29,11 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
 			do update set option_id = excluded.option_id, updated_at = now()""", nativeQuery = true)
 	void upsert(Long pollId, Long userId, Long optionId);
 
+	/** 응답 취소: 행이 없으면 미응답이다. */
+	@Modifying(clearAutomatically = true)
+	@Query("delete from Vote v where v.pollId = :pollId and v.userId = :userId")
+	int deleteByPollIdAndUserId(Long pollId, Long userId);
+
 	/** 탈퇴한 멤버의 응답 중 아직 마감되지 않은 투표의 것만 지운다. 마감된 투표 기록은 남긴다. */
 	@Modifying
 	@Query("""

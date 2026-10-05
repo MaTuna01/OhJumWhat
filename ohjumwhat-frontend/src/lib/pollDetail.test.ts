@@ -45,12 +45,36 @@ describe('applyVote', () => {
   })
 
   it('패스하면 모든 명단에서 빠지고 패스 목록에 들어간다', () => {
-    const next = applyVote(applyVote(base, me, 101), me, null)
+    const next = applyVote(applyVote(base, me, 101), me, 'PASS')
     expect(next.options[1].voters).toEqual([])
     expect(next.options[1].deletable).toBe(true)
     expect(next.passed.map((p) => p.name)).toEqual(['김철수'])
     expect(next.myResponse).toBe('PASS')
     expect(next.myOptionId).toBeNull()
+  })
+
+  it('참여를 취소하면 명단에서 빠지고 처음처럼 미응답으로 돌아간다', () => {
+    const next = applyVote(applyVote(base, me, 101), me, 'NONE')
+    expect(next.options[1].voters).toEqual([])
+    expect(next.options[1].deletable).toBe(true)
+    expect(next.soloOptionIds).toEqual([100])
+    expect(next.nonRespondents.map((p) => p.name)).toEqual(['김철수'])
+    expect(next.passed).toEqual([])
+    expect(next.myResponse).toBe('NONE')
+    expect(next.myOptionId).toBeNull()
+  })
+
+  it('패스를 취소하면 패스 목록에서 빠지고 미응답으로 돌아간다', () => {
+    const next = applyVote(applyVote(base, me, 'PASS'), me, 'NONE')
+    expect(next.passed).toEqual([])
+    expect(next.nonRespondents.map((p) => p.name)).toEqual(['김철수'])
+    expect(next.myResponse).toBe('NONE')
+  })
+
+  it('미응답에서 취소해도 내가 미응답에 한 번만 있다', () => {
+    const next = applyVote(base, me, 'NONE')
+    expect(next.nonRespondents.map((p) => p.name)).toEqual(['김철수'])
+    expect(next.options[0].voters.map((v) => v.name)).toEqual(['이영희'])
   })
 })
 
