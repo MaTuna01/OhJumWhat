@@ -1,6 +1,6 @@
 import { type InfiniteData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api.ts'
-import { updateLetterInPages } from '../lib/letters.ts'
+import { reportReason, updateLetterInPages } from '../lib/letters.ts'
 import type { Person } from './polls.ts'
 
 export type LetterBox = 'RECEIVED' | 'SENT'
@@ -69,7 +69,8 @@ export function useUnreadLetters() {
 
 export type SendLetter =
   | { kind: 'new'; organizationId: number; recipientId: number; body: string; anonymous: boolean }
-  | { kind: 'reply'; letterId: number; body: string; anonymous: boolean }
+  /** 답장의 익명 여부는 서버가 정한다(내가 익명으로 시작한 대화에 다시 답할 때만 익명) */
+  | { kind: 'reply'; letterId: number; body: string }
 
 /** 보내기·답장. 보낸 쪽지함을 다시 받는다. */
 export function useSendLetter() {
@@ -83,7 +84,7 @@ export function useSendLetter() {
           })
         : api<Letter>(`/api/letters/${letter.letterId}/reply`, {
             method: 'POST',
-            body: { body: letter.body, anonymous: letter.anonymous },
+            body: { body: letter.body },
           }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: letterKeys.box('SENT') }),
   })
@@ -92,17 +93,23 @@ export function useSendLetter() {
 /** 받은 쪽지를 열었다: 응답을 기다리지 않고 읽음으로 바꾸고 배지를 줄인다. */
 export function useMarkLetterRead() {
   const queryClient = useQueryClient()
+  const markInCache = (letterId: number) =>
+    queryClient.setQueryData<InfiniteData<LetterPage>>(letterKeys.box('RECEIVED'), (data) =>
+      updateLetterInPages(data, letterId, (l) => (l.readAt ? l : { ...l, readAt: new Date().toISOString() })),
+    )
   return useMutation({
     mutationFn: (letterId: number) => api<void>(`/api/letters/${letterId}/read`, { method: 'PUT' }),
     onMutate: async (letterId) => {
       await queryClient.cancelQueries({ queryKey: letterKeys.unread })
-      queryClient.setQueryData<InfiniteData<LetterPage>>(letterKeys.box('RECEIVED'), (data) =>
-        updateLetterInPages(data, letterId, (l) => (l.readAt ? l : { ...l, readAt: new Date().toISOString() })),
-      )
+      markInCache(letterId)
       queryClient.setQueryData<{ count: number }>(letterKeys.unread, (data) =>
         data ? { count: Math.max(0, data.count - 1) } : data,
       )
     },
+    // 보내는 동안 받은 쪽지함 요청이 옛 값(안 읽음)으로 덮었을 수 있어 한 번 더 바꾼다.
+    onSuccess: (_, letterId) => markInCache(letterId),
+    // 실패하면 서버 값으로 되돌린다.
+    onError: () => queryClient.invalidateQueries({ queryKey: letterKeys.box('RECEIVED') }),
     onSettled: () => queryClient.invalidateQueries({ queryKey: letterKeys.unread }),
   })
 }
@@ -116,7 +123,7 @@ export function useDeleteLetter() {
   })
 }
 
-/** 보낸 사람 차단(그 쪽지의 익명 여부 범위로). 받은 쪽지함에서 그 사람의 쪽지가 사라진다. */
+/** 보낸 사람 차단. 실명 쪽지는 그 사람의 실명 쪽지가, 익명 쪽지는 그 쪽지 한 통이 받은 쪽지함에서 사라진다. */
 export function useBlockLetterSender() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -130,7 +137,7 @@ export function useReportLetter() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ letterId, reason, block }: { letterId: number; reason: string; block: boolean }) =>
-      api<void>(`/api/letters/${letterId}/report`, { method: 'POST', body: { reason: reason.trim() || null, block } }),
+      api<void>(`/api/letters/${letterId}/report`, { method: 'POST', body: { reason: reportReason(reason), block } }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: letterKeys.all }),
   })
 }

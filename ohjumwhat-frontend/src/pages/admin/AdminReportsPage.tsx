@@ -13,6 +13,9 @@ import { type AdminLetterReport, useAdminLetterReports, useResolveLetterReport }
 
 type Status = 'open' | 'all'
 
+/** 서버가 한 번에 주는 신고 수(LetterService.ADMIN_REPORT_LIMIT) */
+const REPORT_LIMIT = 100
+
 /**
  * Figma A09·DA09 쪽지 신고: 받은 사람이 신고한 쪽지만 본다(신고되지 않은 쪽지는 관리자도 볼 수 없다).
  * 익명 쪽지도 실제 보낸 사람이 보이고, 「보낸 사람 보기」에서 강제 탈퇴할 수 있다.
@@ -42,9 +45,9 @@ export default function AdminReportsPage() {
             </button>
           ))}
         </div>
-        {reports.data && (
+        {reports.data && !reports.isPlaceholderData && (
           <p className="text-xs font-medium text-text-tertiary">
-            {status === 'open' ? '처리 전' : '전체'} 신고 {reports.data.length}개 · 최근 순
+            {status === 'open' ? '처리 전' : '전체'} 신고 {reports.data.length >= REPORT_LIMIT ? `최근 ${REPORT_LIMIT}개` : `${reports.data.length}개 · 최근 순`}
           </p>
         )}
       </div>

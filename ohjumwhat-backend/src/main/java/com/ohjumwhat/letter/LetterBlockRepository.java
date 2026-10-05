@@ -10,6 +10,9 @@ public interface LetterBlockRepository extends JpaRepository<LetterBlock, Long> 
 
 	boolean existsByUserIdAndBlockedUserIdAndAnonymous(Long userId, Long blockedUserId, boolean anonymous);
 
+	/** 익명 쪽지 한 통을 차단했는지 */
+	boolean existsByUserIdAndLetterIdAndAnonymousTrue(Long userId, Long letterId);
+
 	boolean existsByUserIdAndBlockedUserId(Long userId, Long blockedUserId);
 
 	Optional<LetterBlock> findByIdAndUserId(Long id, Long userId);

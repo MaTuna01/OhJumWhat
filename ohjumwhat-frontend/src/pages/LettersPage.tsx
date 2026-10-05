@@ -28,7 +28,8 @@ export default function LettersPage() {
   const unread = useUnreadLetters()
   const blocks = useLetterBlocks(true)
   const { compose } = useLetterComposer()
-  const [openId, setOpenId] = useState<number | null>(null)
+  // 연 쪽지: 목록이 다시 받아져 그 쪽지가 빠져도(새 쪽지에 밀림, 다른 탭에서 지움) 보기 창이 갑자기 닫히지 않게 열 때의 값을 둔다.
+  const [openLetter, setOpenLetter] = useState<Letter | null>(null)
   const [managingBlocks, setManagingBlocks] = useState(false)
   const queryClient = useQueryClient()
   const now = useNow(60_000)
@@ -36,14 +37,16 @@ export default function LettersPage() {
 
   // 보고 있는 동안 새 쪽지가 오면(안 읽은 수가 늘면) 받은 쪽지함을 다시 받는다.
   const unreadCount = unread.data?.count ?? 0
-  const lastUnread = useRef(unreadCount)
+  const lastUnread = useRef<number | null>(null)
   useEffect(() => {
-    if (unreadCount > lastUnread.current) queryClient.invalidateQueries({ queryKey: letterKeys.box('RECEIVED') })
-    lastUnread.current = unreadCount
-  }, [unreadCount, queryClient])
+    if (unread.data === undefined) return
+    const count = unread.data.count
+    if (lastUnread.current !== null && count > lastUnread.current) queryClient.invalidateQueries({ queryKey: letterKeys.box('RECEIVED') })
+    lastUnread.current = count
+  }, [unread.data, queryClient])
 
   const all = letters.data?.pages.flatMap((page) => page.letters) ?? []
-  const opened = all.find((l) => l.id === openId) ?? null
+  const opened = openLetter ? (all.find((l) => l.id === openLetter.id) ?? openLetter) : null
   const blockCount = blocks.data?.length ?? 0
 
   return (
@@ -90,7 +93,7 @@ export default function LettersPage() {
             <ul className="divide-y divide-border-default rounded-2xl border border-border-default bg-bg-surface px-5 py-1">
               {all.map((letter) => (
                 <li key={letter.id}>
-                  <LetterItem letter={letter} now={now} onOpen={() => setOpenId(letter.id)} />
+                  <LetterItem letter={letter} now={now} onOpen={() => setOpenLetter(letter)} />
                 </li>
               ))}
             </ul>
@@ -122,7 +125,7 @@ export default function LettersPage() {
         </aside>
       </div>
 
-      <LetterModal letter={opened} onClose={() => setOpenId(null)} />
+      <LetterModal key={opened?.id ?? 'none'} letter={opened} onClose={() => setOpenLetter(null)} />
       <LetterBlocksModal open={managingBlocks} onClose={() => setManagingBlocks(false)} />
     </div>
   )
@@ -157,13 +160,20 @@ function LetterItem({ letter, now, onOpen }: { letter: Letter; now: number; onOp
       {letter.counterpartHidden ? <AnonymousAvatar /> : <Avatar name={name} imageUrl={letter.counterpart?.profileImageUrl} size="lg" />}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <span className={`truncate text-sm ${unread ? 'font-bold' : 'font-medium'} ${letter.counterpart || letter.counterpartHidden ? '' : 'text-text-secondary'}`}>
+          {/* 이름이 조직 이름보다 먼저 보이게: 이름은 줄이지 않고(최대 절반), 조직 이름을 줄인다. */}
+          <span
+            className={`max-w-[50%] shrink-0 truncate text-sm ${unread ? 'font-bold' : 'font-medium'} ${letter.counterpart || letter.counterpartHidden ? '' : 'text-text-secondary'}`}
+          >
             {name}
           </span>
-          <span className="shrink-0 text-xs text-text-tertiary">{organizationLabel(letter)}</span>
+          <span className="min-w-0 truncate text-xs text-text-tertiary">{organizationLabel(letter)}</span>
           <span className="flex-1" />
           <span className="shrink-0 text-xs text-text-tertiary">{today ? formatClock(letter.createdAt) : formatDay(letter.createdAt, now)}</span>
-          {unread && <span className="size-2 shrink-0 rounded-full bg-bg-brand" aria-label="안 읽음" />}
+          {unread && (
+            <span className="size-2 shrink-0 rounded-full bg-bg-brand">
+              <span className="sr-only">안 읽음</span>
+            </span>
+          )}
         </div>
         <p className={`mt-0.5 truncate text-sm ${unread ? 'text-text-primary' : 'text-text-secondary'}`}>{firstLine(letter.body)}</p>
         {!received && (

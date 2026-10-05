@@ -58,7 +58,7 @@ class LetterController {
 	@ResponseStatus(HttpStatus.CREATED)
 	LetterResponse reply(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long letterId,
 			@Valid @RequestBody ReplyRequest request) {
-		return letterService.reply(loginUser.getUserId(), letterId, request.body(), Boolean.TRUE.equals(request.anonymous()));
+		return letterService.reply(loginUser.getUserId(), letterId, request.body());
 	}
 
 	@PutMapping("/{letterId}/read")
@@ -107,7 +107,8 @@ class LetterController {
 			@Size(max = 2000, message = "500자 이하로 입력해 주세요.") String body, Boolean anonymous) {
 	}
 
-	record ReplyRequest(@Size(max = 2000, message = "500자 이하로 입력해 주세요.") String body, Boolean anonymous) {
+	/** 답장의 익명 여부는 서버가 정한다(LetterService.reply). */
+	record ReplyRequest(@Size(max = 2000, message = "500자 이하로 입력해 주세요.") String body) {
 	}
 
 	record ReportRequest(@Size(max = 400, message = "100자 이하로 입력해 주세요.") String reason, Boolean block) {

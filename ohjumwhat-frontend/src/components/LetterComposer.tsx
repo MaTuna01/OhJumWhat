@@ -1,4 +1,4 @@
-import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { type ComposeTarget, LetterComposerContext } from '../hooks/useLetterComposer.ts'
 import { ApiError } from '../lib/api.ts'
 import { counterpartLabel, LETTER_MAX, letterLength, organizationLabel } from '../lib/letters.ts'
@@ -27,14 +27,16 @@ export function LetterComposerProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(timer)
   }, [toast])
 
-  const notify = (message: string) => setToast({ message, key: Date.now() })
+  const notify = useCallback((message: string) => setToast({ message, key: Date.now() }), [])
+  const value = useMemo(() => ({ compose: setTarget, notify }), [notify])
 
   return (
-    <LetterComposerContext value={{ compose: setTarget, notify }}>
+    <LetterComposerContext value={value}>
       {children}
       <Modal open={target !== null} onClose={() => setTarget(null)} title={target?.kind === 'reply' ? '답장 쓰기' : '쪽지 쓰기'} closable>
         {target && (
           <ComposeForm
+            key={target.kind === 'reply' ? `reply-${target.letter.id}` : `new-${target.organizationId ?? ''}-${target.recipient?.userId ?? ''}`}
             target={target}
             onCancel={() => setTarget(null)}
             onSent={() => {
@@ -44,16 +46,30 @@ export function LetterComposerProvider({ children }: { children: ReactNode }) {
           />
         )}
       </Modal>
-      {toast && (
-        <div
-          key={toast.key}
-          role="status"
-          className="fixed inset-x-0 bottom-6 z-50 mx-auto w-fit max-w-[calc(100%-2rem)] rounded-full bg-bg-inverse px-4 py-2 text-sm font-medium text-text-on-brand shadow-lg"
-        >
-          {toast.message}
-        </div>
-      )}
+      {toast && <Toast key={toast.key} message={toast.message} />}
     </LetterComposerContext>
+  )
+}
+
+/**
+ * 「쪽지를 보냈어요」 같은 짧은 안내. 채팅 시트(모달 <dialog>) 위에서 보냈어도 보이게 popover로 top layer에 올린다
+ * (그냥 fixed로 두면 모달 아래에 가려진다). popover를 지원하지 않는 브라우저에서는 fixed로 보인다.
+ */
+function Toast({ message }: { message: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (el && typeof el.showPopover === 'function' && !el.matches(':popover-open')) el.showPopover()
+  }, [])
+  return (
+    <div
+      ref={ref}
+      popover="manual"
+      role="status"
+      className="fixed inset-x-0 top-auto bottom-6 z-50 mx-auto my-0 h-fit w-fit max-w-[calc(100%-2rem)] overflow-visible rounded-full border-0 bg-bg-inverse px-4 py-2 text-sm font-medium text-text-on-brand shadow-lg"
+    >
+      {message}
+    </div>
   )
 }
 
@@ -65,14 +81,18 @@ function ComposeForm({ target, onCancel, onSent }: { target: ComposeTarget; onCa
   const [organizationId, setOrganizationId] = useState<number | null>(
     target.kind === 'new' ? (target.organizationId ?? me?.lastVisitedOrgId ?? null) : null,
   )
-  const [recipientId, setRecipientId] = useState<number | null>(null)
+  // 고른 받는 사람은 그 조직과 함께 둔다(조직 목록이 바뀌어 다른 조직으로 넘어가면 받는 사람도 비운다).
+  const [recipient, setRecipient] = useState<{ organizationId: number; userId: number } | null>(null)
   const [body, setBody] = useState('')
+  // 답장의 익명 여부는 서버가 정한다: 내가 익명으로 보낸 쪽지에 온 답장에 다시 답할 때만 익명(체크를 잠가 보여준다).
+  // 그 밖의 답장은 상대가 누구에게 보냈는지 알아서 익명이 될 수 없어 체크를 보여주지 않는다.
   const lockedAnonymous = target.kind === 'reply' && target.letter.replyAnonymous
   const [anonymous, setAnonymous] = useState(lockedAnonymous)
 
   // 고르는 경우: 기억해 둔 조직이 지금 내 조직이 아니면 첫 조직으로
   const orgList = orgs.data ?? []
   const pickedOrgId = organizationId != null && orgList.some((o) => o.id === organizationId) ? organizationId : (orgList[0]?.id ?? null)
+  const recipientId = recipient && recipient.organizationId === pickedOrgId ? recipient.userId : null
   const length = letterLength(body)
   const hasRecipient = target.kind === 'reply' || fixed !== null || recipientId !== null
   const canSend = hasRecipient && length > 0 && length <= LETTER_MAX && !send.isPending
@@ -82,7 +102,7 @@ function ComposeForm({ target, onCancel, onSent }: { target: ComposeTarget; onCa
     if (!canSend) return
     const request =
       target.kind === 'reply'
-        ? ({ kind: 'reply', letterId: target.letter.id, body, anonymous } as const)
+        ? ({ kind: 'reply', letterId: target.letter.id, body } as const)
         : ({
             kind: 'new',
             organizationId: fixed ? fixed.organizationId : (pickedOrgId as number),
@@ -130,7 +150,7 @@ function ComposeForm({ target, onCancel, onSent }: { target: ComposeTarget; onCa
                 value={pickedOrgId ?? ''}
                 onChange={(e) => {
                   setOrganizationId(Number(e.target.value))
-                  setRecipientId(null)
+                  setRecipient(null)
                 }}
                 className={`${inputClass} mt-1.5`}
               >
@@ -141,7 +161,9 @@ function ComposeForm({ target, onCancel, onSent }: { target: ComposeTarget; onCa
                 ))}
               </select>
             )}
-            {pickedOrgId != null && <MemberPicker orgId={pickedOrgId} myId={me?.id} value={recipientId} onChange={setRecipientId} />}
+            {pickedOrgId != null && (
+              <MemberPicker orgId={pickedOrgId} myId={me?.id} value={recipientId} onChange={(userId) => setRecipient({ organizationId: pickedOrgId, userId })} />
+            )}
           </>
         )}
       </div>
@@ -164,25 +186,30 @@ function ComposeForm({ target, onCancel, onSent }: { target: ComposeTarget; onCa
         </p>
       </div>
 
-      <div>
-        <label className={`flex items-center gap-2 text-sm font-medium ${lockedAnonymous ? 'opacity-60' : 'cursor-pointer'}`}>
-          <input
-            type="checkbox"
-            checked={anonymous}
-            disabled={lockedAnonymous}
-            onChange={(e) => setAnonymous(e.target.checked)}
-            className="size-4 accent-bg-brand"
-            aria-describedby="letter-anonymous-help"
-          />
-          익명으로 보내기
-        </label>
-        <p id="letter-anonymous-help" className="mt-1 text-xs text-text-tertiary">
-          {lockedAnonymous
-            ? '익명으로 보낸 쪽지에 온 답장이라 계속 익명으로 보내요. 상대에게는 「익명」으로 보여요.'
-            : '받는 사람에게 내 이름과 사진이 보이지 않아요. 신고되면 서비스 관리자는 보낸 사람을 확인할 수 있어요.'}
+      {target.kind === 'new' || lockedAnonymous ? (
+        <div>
+          <label className={`flex items-center gap-2 text-sm font-medium ${lockedAnonymous ? 'opacity-60' : 'cursor-pointer'}`}>
+            <input
+              type="checkbox"
+              checked={anonymous}
+              disabled={lockedAnonymous}
+              onChange={(e) => setAnonymous(e.target.checked)}
+              className="size-4 accent-bg-brand"
+              aria-describedby="letter-anonymous-help"
+            />
+            익명으로 보내기
+          </label>
+          <p id="letter-anonymous-help" className="mt-1 text-xs text-text-tertiary">
+            {lockedAnonymous
+              ? '익명으로 보낸 쪽지에 온 답장이라 계속 익명으로 보내요. 상대에게는 「익명」으로 보여요.'
+              : '받는 사람에게 내 이름과 사진이 보이지 않아요. 신고되면 서비스 관리자는 보낸 사람을 확인할 수 있어요.'}
+          </p>
+        </div>
+      ) : (
+        <p className="rounded-lg bg-bg-subtle px-3 py-2.5 text-xs text-text-tertiary">
+          답장은 내 이름으로 보내요. 상대는 자기가 이 쪽지를 누구에게 보냈는지 알고 있어서 답장은 익명이 되지 않아요.
         </p>
-      </div>
-
+      )}
       {send.error && (
         <p role="alert" className="text-sm text-text-danger">
           {send.error instanceof ApiError ? send.error.message : '보내지 못했어요. 연결을 확인하고 다시 시도해 주세요.'}

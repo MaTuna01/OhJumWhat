@@ -11,7 +11,8 @@ import jakarta.persistence.Table;
 
 /**
  * 받은 사람이 보낸 사람을 차단한 것. 익명 쪽지에서 한 차단(anonymous)과 실명 쪽지에서 한 차단을 나눈다.
- * 익명 차단은 그 사람의 익명 쪽지만, 실명 차단은 실명 쪽지만 숨긴다(차단 때문에 익명이 드러나지 않게).
+ * 실명 차단은 사람 단위로 그 사람의 실명 쪽지를 숨기고, 익명 차단은 쪽지 한 통(letterId) 단위로 그 쪽지만 숨긴다
+ * (차단 때문에 익명이 드러나지 않게). 새로 오는 익명 쪽지는 그 사람에게 걸린 차단이 하나라도 있으면 받지 않는다.
  */
 @Entity
 @Table(name = "letter_blocks")
@@ -24,7 +25,7 @@ public class LetterBlock {
 	@Column(nullable = false)
 	private Long userId;
 
-	@Column(nullable = false)
+	/** 보낸 사람이 강제 탈퇴하면 null(차단은 남는다) */
 	private Long blockedUserId;
 
 	private Long letterId;

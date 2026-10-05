@@ -27,13 +27,16 @@ import com.ohjumwhat.poll.PersonResponse;
  * <p>익명 보호 규칙
  * <ul>
  * <li>받은 익명 쪽지의 응답에는 보낸 사람의 id·이름·사진이 없다(LetterRepository가 고르지 않는다).
- * <li>익명 쪽지에 답장하면 그 답장의 받는 사람을 답장한 사람에게 숨기고(recipientHidden), 익명으로 보낸 사람이 다시 답하면
- * 익명이 강제된다.
- * <li>차단은 익명 여부로 나눈다. 받은 쪽지함에서는 같은 범위의 쪽지만 숨기고, 새로 오는 익명 쪽지는 어느 범위로든 차단돼 있으면
- * 받지 않는다(보낸 사람에게는 보낸 것으로 보인다).
- * <li>답장할 수 없는 이유는 한 문구로 알린다(상대가 조직을 떠났는지는 확인하지 않는다).
+ * <li>익명 쪽지에 답장하면 그 답장의 받는 사람을 답장한 사람에게 숨긴다(recipientHidden). 답장의 익명 여부는 서버가 정한다:
+ * 익명으로 시작한 사람이 다시 답할 때만 익명이다(답장은 원래 보낸 사람에게 가고, 그 사람은 누구에게 보냈는지 알기 때문에
+ * 그 밖의 답장은 익명이 될 수 없다).
+ * <li>차단은 익명 여부로 나눈다. 실명 차단은 그 사람의 실명 쪽지를, 익명 차단은 차단한 쪽지 한 통만 숨긴다(같은 사람의 다른
+ * 익명 쪽지까지 숨기면 같은 사람이 썼다는 것이 드러난다). 새로 오는 익명 쪽지는 그 사람에게 걸린 차단이 하나라도 있으면 받지
+ * 않는다(보낸 사람에게는 보낸 것으로 보인다).
+ * <li>답장할 수 없는 이유는 한 문구로 알린다(상대가 조직을 떠났는지는 확인하지 않는다). 받은 익명 쪽지의 canReply는 보낸
+ * 사람 계정이 있는지 보지 않는다(강제 탈퇴와 함께 바뀌면 누가 보냈는지 짐작하게 한다).
  * </ul>
- * 로그에는 본문을 남기지 않는다.
+ * 로그에는 본문을 남기지 않고, 익명 쪽지는 보낸 사람·받는 사람도 남기지 않는다.
  */
 @Slf4j
 @Service
@@ -108,17 +111,22 @@ public class LetterService {
 		rateLimiter.acquire(userId);
 		Letter letter = deliver(new Letter(organizationId, userId, recipientId, null, anonymous, false, body,
 				Instant.now(clock)));
-		log.info("쪽지 보내기: letterId={}, organizationId={}, senderId={}, recipientId={}, anonymous={}", letter.getId(),
-				organizationId, userId, recipientId, anonymous);
+		if (anonymous) {
+			log.info("쪽지 보내기: letterId={}, organizationId={}, anonymous=true", letter.getId(), organizationId);
+		}
+		else {
+			log.info("쪽지 보내기: letterId={}, organizationId={}, senderId={}, recipientId={}", letter.getId(),
+					organizationId, userId, recipientId);
+		}
 		return sentResponse(userId, letter.getId());
 	}
 
 	/**
 	 * 받은 쪽지에 답장한다(원래 보낸 사람에게). 익명 쪽지에 쓴 답장은 받는 사람을 숨기고, 내가 익명으로 보낸 쪽지에 온 답장에
-	 * 다시 답하면 익명으로 보낸다.
+	 * 다시 답할 때만 익명으로 보낸다. 그 밖의 답장은 실명이다(상대는 자기 쪽지를 누구에게 보냈는지 안다).
 	 */
 	@Transactional
-	public LetterResponse reply(Long userId, Long letterId, String rawBody, boolean anonymous) {
+	public LetterResponse reply(Long userId, Long letterId, String rawBody) {
 		String body = UserText.normalize(rawBody, MAX_LENGTH, true);
 		Letter original = letterRepository.findVisibleReceived(letterId, userId)
 			.orElseThrow(() -> ApiException.notFound(LETTER_NOT_FOUND));
@@ -127,10 +135,15 @@ public class LetterService {
 			throw ApiException.conflict(CANNOT_REPLY);
 		}
 		rateLimiter.acquire(userId);
+		boolean anonymous = original.isRecipientHidden();
 		Letter letter = deliver(new Letter(original.getOrganizationId(), userId, original.getSenderId(),
-				original.getId(), anonymous || original.isRecipientHidden(), original.isAnonymous(), body,
-				Instant.now(clock)));
-		log.info("쪽지 답장: letterId={}, replyToId={}, senderId={}", letter.getId(), original.getId(), userId);
+				original.getId(), anonymous, original.isAnonymous(), body, Instant.now(clock)));
+		if (anonymous) {
+			log.info("쪽지 답장: letterId={}, anonymous=true", letter.getId());
+		}
+		else {
+			log.info("쪽지 답장: letterId={}, replyToId={}, senderId={}", letter.getId(), original.getId(), userId);
+		}
 		return sentResponse(userId, letter.getId());
 	}
 
@@ -158,7 +171,7 @@ public class LetterService {
 		log.info("쪽지 지우기: letterId={}, userId={}", letterId, userId);
 	}
 
-	/** 받은 쪽지의 보낸 사람을 차단한다(그 쪽지의 익명 여부 범위로). 이미 차단했으면 그대로 둔다. */
+	/** 받은 쪽지의 보낸 사람을 차단한다(실명 쪽지는 사람, 익명 쪽지는 그 쪽지 한 통). 이미 차단했으면 그대로 둔다. */
 	@Transactional
 	public void block(Long userId, Long letterId) {
 		Letter letter = letterRepository.findReceivedIncludingBlocked(letterId, userId)
@@ -220,12 +233,15 @@ public class LetterService {
 	}
 
 	private void block(Long userId, Letter letter) {
-		if (letter.getSenderId() == null) {
-			// 보낸 사람이 탈퇴해서 더 받을 쪽지가 없다.
+		if (letter.getSenderId() == null && !letter.isAnonymous()) {
+			// 보낸 사람이 탈퇴해서 더 받을 쪽지가 없다(화면에서도 차단을 보여주지 않는다). 익명 쪽지는 탈퇴했는지 드러나지 않게
+			// 그대로 그 쪽지를 차단한다.
 			return;
 		}
-		if (!blockRepository.existsByUserIdAndBlockedUserIdAndAnonymous(userId, letter.getSenderId(),
-				letter.isAnonymous())) {
+		boolean blocked = letter.isAnonymous()
+				? blockRepository.existsByUserIdAndLetterIdAndAnonymousTrue(userId, letter.getId())
+				: blockRepository.existsByUserIdAndBlockedUserIdAndAnonymous(userId, letter.getSenderId(), false);
+		if (!blocked) {
 			LetterBlock block = blockRepository.save(new LetterBlock(userId, letter.getSenderId(), letter.getId(),
 					letter.isAnonymous(), Instant.now(clock)));
 			log.info("쪽지 차단: blockId={}, userId={}, letterId={}", block.getId(), userId, letter.getId());
@@ -283,9 +299,11 @@ public class LetterService {
 					: new LetterResponse.OrganizationRef(row.organizationId(), row.organizationName());
 			LetterResponse.ReplyRef replyTo = row.replyToId() == null ? null
 					: new LetterResponse.ReplyRef(row.replyToId(), LetterPreview.of(replyBodies.get(row.replyToId())));
+			// 받은 익명 쪽지는 보낸 사람 계정이 있는지 보지 않는다(답장하면 같은 문구의 409).
+			boolean replyable = received
+					&& canReply(row.organizationId(), row.anonymous() || row.senderPresent(), myOrganizationIds);
 			return new LetterResponse(row.id(), box, organization, counterpart, hidden, row.anonymous(), row.body(),
-					row.createdAt(), row.readAt(), replyTo,
-					received && canReply(row.organizationId(), row.senderPresent(), myOrganizationIds),
+					row.createdAt(), row.readAt(), replyTo, replyable,
 					received && row.recipientHidden(), reported.contains(row.id()));
 		}).toList();
 	}

@@ -132,7 +132,7 @@ class LetterIntegrationTest extends LetterTestBase {
 	void 답장은_원래_보낸_사람에게_가고_원래_쪽지의_첫_줄을_보여준다() throws Exception {
 		long id = sendOk(kim, devId, lee, "\\n  오늘 점심 같이 가요! 마라탕 어때요? 국물이 시원하고 맵기도 고를 수 있어요 정말로\\n두 번째 줄", false);
 
-		reply(lee, id, "좋아요", false).andExpect(status().isCreated())
+		reply(lee, id, "좋아요").andExpect(status().isCreated())
 			.andExpect(jsonPath("$.counterpart.name").value("김철수"))
 			.andExpect(jsonPath("$.replyTo.id").value(id))
 			.andExpect(jsonPath("$.replyTo.preview").value("오늘 점심 같이 가요! 마라탕 어때요? 국물이 시원하고 맵기도 고를 수 …"));
@@ -140,7 +140,7 @@ class LetterIntegrationTest extends LetterTestBase {
 			.andExpect(jsonPath("$.letters[0].counterpart.name").value("이영희"))
 			.andExpect(jsonPath("$.letters[0].replyTo.id").value(id));
 		// 보낸 쪽지에는 답장할 수 없다.
-		reply(kim, id, "내 쪽지에 답장", false).andExpect(status().isNotFound());
+		reply(kim, id, "내 쪽지에 답장").andExpect(status().isNotFound());
 	}
 
 	@Test
@@ -150,7 +150,7 @@ class LetterIntegrationTest extends LetterTestBase {
 
 		received(lee).andExpect(jsonPath("$.letters[0].canReply").value(false))
 			.andExpect(jsonPath("$.letters[0].organization.name").value("개발팀"));
-		reply(lee, id, "답장", false).andExpect(status().isConflict())
+		reply(lee, id, "답장").andExpect(status().isConflict())
 			.andExpect(jsonPath("$.message").value("답장할 수 없는 쪽지예요."));
 
 		// 조직이 없어져도 쪽지는 남고 「삭제된 조직」(organization null)이다.
@@ -168,7 +168,7 @@ class LetterIntegrationTest extends LetterTestBase {
 		organizationService.leave(devId, park.getId());
 
 		received(lee).andExpect(jsonPath("$.letters[0].canReply").value(true));
-		reply(lee, id, "그동안 고마웠어요", false).andExpect(status().isCreated());
+		reply(lee, id, "그동안 고마웠어요").andExpect(status().isCreated());
 		received(park).andExpect(jsonPath("$.letters[0].body").value("그동안 고마웠어요"));
 	}
 
@@ -178,18 +178,25 @@ class LetterIntegrationTest extends LetterTestBase {
 		admin.promote();
 		admin = userRepository.save(admin);
 		long fromPark = sendOk(park, devId, lee, "박이 보낸 쪽지", false);
+		long anonymousFromPark = sendOk(park, devId, lee, "박이 익명으로 보낸 쪽지", true);
 		sendOk(lee, devId, park, "박에게 보낸 쪽지", false);
 
 		mockMvc.perform(delete("/api/admin/users/" + park.getId()).with(loginAs(admin)).with(xsrf()))
 			.andExpect(status().isNoContent());
 
-		received(lee).andExpect(jsonPath("$.letters", hasSize(1)))
-			.andExpect(jsonPath("$.letters[0].id").value(fromPark))
-			.andExpect(jsonPath("$.letters[0].counterpart").value(nullValue()))
-			.andExpect(jsonPath("$.letters[0].counterpartHidden").value(false))
-			.andExpect(jsonPath("$.letters[0].canReply").value(false));
+		received(lee).andExpect(jsonPath("$.letters", hasSize(2)))
+			.andExpect(jsonPath("$.letters[1].id").value(fromPark))
+			.andExpect(jsonPath("$.letters[1].counterpart").value(nullValue()))
+			.andExpect(jsonPath("$.letters[1].counterpartHidden").value(false))
+			.andExpect(jsonPath("$.letters[1].canReply").value(false))
+			// 익명 쪽지는 보낸 사람이 탈퇴해도 canReply가 바뀌지 않는다(바뀌면 누가 보냈는지 짐작하게 한다). 답장하면 같은 문구다.
+			.andExpect(jsonPath("$.letters[0].id").value(anonymousFromPark))
+			.andExpect(jsonPath("$.letters[0].counterpartHidden").value(true))
+			.andExpect(jsonPath("$.letters[0].canReply").value(true));
 		sent(lee).andExpect(jsonPath("$.letters", hasSize(0)));
-		reply(lee, fromPark, "답장", false).andExpect(status().isConflict())
+		reply(lee, fromPark, "답장").andExpect(status().isConflict())
+			.andExpect(jsonPath("$.message").value("답장할 수 없는 쪽지예요."));
+		reply(lee, anonymousFromPark, "답장").andExpect(status().isConflict())
 			.andExpect(jsonPath("$.message").value("답장할 수 없는 쪽지예요."));
 	}
 
