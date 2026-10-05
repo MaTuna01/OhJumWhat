@@ -1,7 +1,0 @@
-{
-  "tool_name": "mcp__Claude_Browser__browser_batch",
-  "tool_input_preview": "{\"actions\":[{\"name\":\"computer\",\"input\":{\"action\":\"left_click\",\"ref\":\"ref_89\",\"tabId\":\"tab-1\",\"action_summary\":\"Adds the 등산 hobby suggestion\"}},{\"name\":\"computer\",\"input\":{\"action\":\"left_click\",\"ref\":\"...",
-  "error": "[computer:left_click] left_click at (352, 541) [ref_89]\n\n\nTab Context:\n- Executed on tabId: tab-1\n- Available tabs:\n  • tabId tab-1: \"마이페이지 · 오점왓\" (\"http://localhost:5173/me\")\n[computer:left_click] left_click at (421, 465) [ref_69]\n\n\nTab Context:\n- Executed on tabId: tab-1\n- Available tabs:\n  • tabId tab-1: \"마이페이지 · 오점왓\" (\"http://localhost:5173/me\")\n[computer:type] typed 4 chars\n\n\nTab Context:\n- Executed on tabId: tab-1\n- Available tabs:\n  • tabId tab-1: \"마이페이지 · 오점왓\" (\"http://localhost:5173/me\"...",
-  "timestamp": "2026-10-05T07:59:40.385Z",
-  "retry_count": 1
-}
