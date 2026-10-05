@@ -2,6 +2,21 @@
 
 버전은 `vMAJOR.MINOR.PATCH`로 붙인다. 릴리스 절차는 [docs/DEPLOY.md](docs/DEPLOY.md#릴리스와-버전)에 있다.
 
+## v1.9.0 — 2026-10-05
+
+- 메뉴 선택 해제(#64, #65): 진행 중인 투표에서 고른 메뉴 카드나 「✓ 오늘은 패스했어요」를 다시 누르면 확인 창 없이 응답을 취소해 미응답으로 돌아간다(Notion 「14. 메뉴 선택 해제 기능 추가」).
+  - `DELETE /api/polls/{pollId}/vote` → 최신 `PollDetailResponse`(`votes` 행을 지운다, 진행 중·멤버만). 화면은 `applyVote`의 `VoteChoice`(메뉴 ID·`'PASS'`·`'NONE'`)로 먼저 반영하고, `useVote`가 같은 투표의 요청을 mutation `scope`로 묶어 보낸 순서대로 처리한다.
+- 프로필 한줄 소개·좋아하는 음식(#66, #67): 마이페이지 「프로필 수정」에서 한줄 소개(50자)와 좋아하는 음식(직접 적는 태그, 최대 3개)을 정한다(Notion 「17. 프로필 항목 추가」).
+  - `PUT /api/me/profile {bio, foodTags}`, `MeResponse`·`MemberResponse`에 `bio`·`foodTags`. 정리 규칙은 서버 `ProfileIntro`와 화면 `lib/profile.ts`가 같다. 로그인이 옛 값을 되쓰지 않게 `UserRepository.updateIntro`로만 바꾼다.
+  - 멤버 프로필 모달: 멤버 목록·참여자·미응답자 칩·댓글·채팅 작성자를 누르면 연다(`ProfileViewerProvider`·`ProfileButton`). 소개가 비어 있으면 「내 정보」에 채우기 안내. 관리자 회원 상세에도 보인다.
+- 채팅 안 읽은 메시지 알림(#68, #69): 좁은 화면에서 새 메시지가 왔는지 알기 어렵다는 피드백에 따라 화면 안에서 알린다(Notion 「18. 채팅에 메시지가 오면 알림」).
+  - 읽은 위치를 서버에 저장한다(V14 `chat_reads`, 기기 간 동기화). `PUT /api/polls/{pollId}/messages/read`(뒤로 가지 않는 upsert), 목록 응답 `lastReadId`, 보내면 보낸 메시지까지 읽음. 오늘 투표 요약에 `unreadMessages`·`chatClosesAt`.
+  - 모바일 「💬 채팅」 버튼에 빨간 숫자 배지와 4초 도착 미리보기, 채팅을 열면 「여기부터 새 메시지」, 위로 올려 읽는 중이면 「새 메시지 N ↓」, 데스크톱에서 채팅 카드가 화면 밖이면 떠 있는 「💬 새 메시지」, 조직 홈 카드에 「💬 N」.
+  - 읽음은 목록이 화면에 보이고 맨 아래일 때만 올리고, 서버에는 1초에 한 번·떠날 때 `keepalive`로 보낸다. 안 읽음 규칙은 서버 `countUnread`와 화면 `unreadCount`가 같다. 처음 여는 투표는 남의 메시지가 모두 안 읽음이라 배포 당일에는 지난 채팅도 한 번 안 읽음으로 보인다.
+  - 「이전 메시지 더 보기」가 채팅 캐시의 다른 필드를 지우던 문제를 고쳤다.
+- 작업 규칙(#62, #63): 작업을 마치면 개발에 쓴 브랜치를 정리한다(`CLAUDE.md` 「작업 규칙」).
+- DB: V13(`users.bio`·`users.food_tags`), V14(`chat_reads`) 마이그레이션. 새 설정 키는 없다.
+
 ## v1.8.0 — 2026-10-03
 
 - 메뉴 댓글(#54, #55): 메뉴 카드의 「💬 댓글 N」을 누르면 카드 아래로 댓글이 펼쳐진다(Notion 「14. 투표별 채팅/댓글 기능 추가」 1단계).
