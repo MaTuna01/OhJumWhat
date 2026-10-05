@@ -6,6 +6,7 @@ import java.util.List;
  * 채팅 한 페이지(오래된 → 최신).
  *
  * @param hasMore 이보다 오래된 메시지가 더 있는지(「이전 메시지 더 보기」)
+ * @param lastReadId 내가 마지막으로 본 메시지 ID(없으면 0, 관리자 조회는 0)
  */
-public record ChatMessagesResponse(List<ChatMessageResponse> messages, boolean hasMore) {
+public record ChatMessagesResponse(List<ChatMessageResponse> messages, boolean hasMore, long lastReadId) {
 }

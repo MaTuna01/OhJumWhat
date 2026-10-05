@@ -48,7 +48,7 @@ public abstract class IntegrationTest {
 		chatRateLimiter.clear();
 		jdbcTemplate.execute("""
 				TRUNCATE users, organizations, memberships, poll_schedules, polls, menu_options, menu_comments, votes,
-					chat_messages, spring_session, blocked_accounts, notices
+					chat_messages, chat_reads, spring_session, blocked_accounts, notices
 				RESTART IDENTITY CASCADE""");
 		try (Stream<Path> files = Files.list(photoStorage.dir())) {
 			for (Path file : files.toList()) {

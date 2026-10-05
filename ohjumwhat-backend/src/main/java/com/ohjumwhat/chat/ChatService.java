@@ -33,6 +33,8 @@ public class ChatService {
 
 	private final ChatMessageRepository chatMessageRepository;
 
+	private final ChatReadRepository chatReadRepository;
+
 	private final PollService pollService;
 
 	private final PollRepository pollRepository;
@@ -43,9 +45,11 @@ public class ChatService {
 
 	private final Clock clock;
 
-	public ChatService(ChatMessageRepository chatMessageRepository, PollService pollService,
-			PollRepository pollRepository, ChatRateLimiter rateLimiter, ApplicationEventPublisher events, Clock clock) {
+	public ChatService(ChatMessageRepository chatMessageRepository, ChatReadRepository chatReadRepository,
+			PollService pollService, PollRepository pollRepository, ChatRateLimiter rateLimiter,
+			ApplicationEventPublisher events, Clock clock) {
 		this.chatMessageRepository = chatMessageRepository;
+		this.chatReadRepository = chatReadRepository;
 		this.pollService = pollService;
 		this.pollRepository = pollRepository;
 		this.rateLimiter = rateLimiter;
@@ -53,13 +57,14 @@ public class ChatService {
 		this.clock = clock;
 	}
 
-	/** before(메시지 ID)보다 오래된 메시지 50개(없으면 최신 50개)를 오래된 → 최신 순으로 */
+	/** before(메시지 ID)보다 오래된 메시지 50개(없으면 최신 50개)를 오래된 → 최신 순으로. 내가 마지막으로 본 위치도 함께 준다. */
 	@Transactional(readOnly = true)
 	public ChatMessagesResponse list(Long pollId, Long userId, Long before) {
 		pollService.getForMember(pollId, userId);
-		return page(pollId, before);
+		return page(pollId, before, chatReadRepository.findLastReadId(pollId, userId).orElse(0L));
 	}
 
+	/** 보내면 내 메시지까지 읽은 것으로 한다(그 앞의 남의 메시지도 보고 쓴 것이다). */
 	@Transactional
 	public ChatMessageResponse send(Long pollId, Long userId, String rawBody) {
 		Poll poll = pollService.getForMember(pollId, userId);
@@ -67,6 +72,7 @@ public class ChatService {
 		String body = UserText.normalize(rawBody, MAX_LENGTH, true);
 		rateLimiter.acquire(userId);
 		ChatMessage message = chatMessageRepository.save(new ChatMessage(pollId, userId, body, Instant.now(clock)));
+		chatReadRepository.markRead(pollId, userId, message.getId());
 		ChatMessageResponse response = response(message.getId());
 		events.publishEvent(ChatEvent.created(pollId, response));
 		log.info("채팅 보내기: pollId={}, messageId={}, userId={}", pollId, message.getId(), userId);
@@ -102,13 +108,26 @@ public class ChatService {
 		return softDelete(message, "채팅 지우기: pollId={}, messageId={}, userId={}", userId);
 	}
 
-	/** 관리자 콘솔: 투표의 채팅(조직·기간과 무관) */
+	/**
+	 * 「lastReadId까지 봤다」. 위치는 뒤로 가지 않고 그 투표의 마지막 메시지를 넘지 않는다({@link ChatReadRepository#markRead}).
+	 * 채팅이 닫힌 뒤에도 된다(지난 투표의 채팅도 읽는다).
+	 */
+	@Transactional
+	public void markRead(Long pollId, Long userId, long lastReadId) {
+		pollService.getForMember(pollId, userId);
+		if (lastReadId > 0) {
+			chatReadRepository.markRead(pollId, userId, lastReadId);
+		}
+		log.debug("채팅 읽음: pollId={}, userId={}, lastReadId={}", pollId, userId, lastReadId);
+	}
+
+	/** 관리자 콘솔: 투표의 채팅(조직·기간과 무관). 관리자에게는 읽은 위치가 없다(0). */
 	@Transactional(readOnly = true)
 	public ChatMessagesResponse listForAdmin(Long pollId, Long before) {
 		if (!pollRepository.existsById(pollId)) {
 			throw ApiException.notFound("투표를 찾을 수 없어요.");
 		}
-		return page(pollId, before);
+		return page(pollId, before, 0L);
 	}
 
 	/** 관리자 콘솔: 부적절한 메시지 지우기(채팅이 닫힌 뒤에도) */
@@ -142,13 +161,13 @@ public class ChatService {
 			.orElseThrow(() -> ApiException.notFound(MESSAGE_NOT_FOUND));
 	}
 
-	private ChatMessagesResponse page(Long pollId, Long before) {
+	private ChatMessagesResponse page(Long pollId, Long before, long lastReadId) {
 		List<ChatMessageRow> rows = chatMessageRepository.findPage(pollId, before == null ? Long.MAX_VALUE : before,
 				PageRequest.of(0, PAGE_SIZE + 1));
 		boolean hasMore = rows.size() > PAGE_SIZE;
 		List<ChatMessageResponse> messages = rows.stream().limit(PAGE_SIZE).map(ChatMessageResponse::of).toList()
 			.reversed();
-		return new ChatMessagesResponse(messages, hasMore);
+		return new ChatMessagesResponse(messages, hasMore, lastReadId);
 	}
 
 	private ChatMessageResponse response(Long messageId) {

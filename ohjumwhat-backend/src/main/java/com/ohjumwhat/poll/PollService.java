@@ -25,6 +25,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ohjumwhat.chat.ChatReadRepository;
+import com.ohjumwhat.chat.ChatUnreadCount;
 import com.ohjumwhat.common.ApiException;
 import com.ohjumwhat.common.TimeConfig;
 import com.ohjumwhat.menu.MenuCommentCount;
@@ -54,6 +56,8 @@ public class PollService {
 
 	private final VoteRepository voteRepository;
 
+	private final ChatReadRepository chatReadRepository;
+
 	private final MembershipRepository membershipRepository;
 
 	private final MembershipService membershipService;
@@ -66,12 +70,14 @@ public class PollService {
 
 	public PollService(PollRepository pollRepository, MenuOptionRepository menuOptionRepository,
 			MenuCommentRepository menuCommentRepository, VoteRepository voteRepository,
-			MembershipRepository membershipRepository, MembershipService membershipService,
-			UserRepository userRepository, ApplicationEventPublisher events, Clock clock) {
+			ChatReadRepository chatReadRepository, MembershipRepository membershipRepository,
+			MembershipService membershipService, UserRepository userRepository, ApplicationEventPublisher events,
+			Clock clock) {
 		this.pollRepository = pollRepository;
 		this.menuOptionRepository = menuOptionRepository;
 		this.menuCommentRepository = menuCommentRepository;
 		this.voteRepository = voteRepository;
+		this.chatReadRepository = chatReadRepository;
 		this.membershipRepository = membershipRepository;
 		this.membershipService = membershipService;
 		this.userRepository = userRepository;
@@ -147,14 +153,19 @@ public class PollService {
 		return closesAt;
 	}
 
+	/** 오늘(한국 날짜)의 투표 카드. 안 읽은 채팅 메시지 수는 투표들을 한 번에 센다. */
 	@Transactional(readOnly = true)
 	public List<PollSummaryResponse> today(Long organizationId, Long userId) {
 		membershipService.requireMember(organizationId, userId);
 		Instant now = Instant.now(clock);
 		int memberCount = (int) membershipRepository.countByOrganizationId(organizationId);
-		return pollRepository.findByOrganizationIdAndPollDateOrderByOpensAtAscIdAsc(organizationId, LocalDate.now(clock))
-			.stream()
-			.map(poll -> summary(poll, userId, memberCount, now))
+		List<Poll> polls = pollRepository.findByOrganizationIdAndPollDateOrderByOpensAtAscIdAsc(organizationId,
+				LocalDate.now(clock));
+		Map<Long, Long> unreadByPoll = polls.isEmpty() ? Map.of()
+				: chatReadRepository.countUnread(polls.stream().map(Poll::getId).toList(), userId).stream()
+					.collect(Collectors.toMap(ChatUnreadCount::pollId, ChatUnreadCount::count));
+		return polls.stream()
+			.map(poll -> summary(poll, userId, memberCount, now, unreadByPoll.getOrDefault(poll.getId(), 0L).intValue()))
 			.toList();
 	}
 
@@ -288,7 +299,7 @@ public class PollService {
 				votes.size(), passCount, teams, myResponse, myOptionName);
 	}
 
-	private PollSummaryResponse summary(Poll poll, Long userId, int memberCount, Instant now) {
+	private PollSummaryResponse summary(Poll poll, Long userId, int memberCount, Instant now, int unreadMessages) {
 		List<Vote> votes = voteRepository.findByPollIdOrderByUpdatedAtAscIdAsc(poll.getId());
 		Map<Long, MenuOption> options = menuOptionRepository.findByPollIdOrderByIdAsc(poll.getId()).stream()
 			.collect(Collectors.toMap(MenuOption::getId, Function.identity()));
@@ -298,7 +309,8 @@ public class PollService {
 		MyResponse myResponse = myVote == null ? MyResponse.NONE : myVote.isPass() ? MyResponse.PASS : MyResponse.OPTION;
 		String myOptionName = myResponse == MyResponse.OPTION ? options.get(myVote.getOptionId()).getName() : null;
 		return new PollSummaryResponse(poll.getId(), poll.getTitle(),
-				poll.isClosed(now) ? PollStatus.CLOSED : PollStatus.OPEN, poll.getClosesAt(), memberCount,
-				votes.size(), passCount, options.size(), teamCount, myResponse, myOptionName);
+				poll.isClosed(now) ? PollStatus.CLOSED : PollStatus.OPEN, poll.getClosesAt(), poll.getChatClosesAt(),
+				memberCount, votes.size(), passCount, options.size(), teamCount, myResponse, myOptionName,
+				unreadMessages);
 	}
 }
