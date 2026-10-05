@@ -8,6 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - 기획서(요구사항·화면 7개·ERD·삭제 규칙의 원본): Notion 「점심메뉴 선정」 https://app.notion.com/p/3eb11d838f8d802e81dbfcd702c34692
   기획서에는 서비스명이 가칭 "밥팟"으로 적혀 있지만, 정식 이름은 **오점왓**이다. 코드·설정·화면에서는 오점왓/ohjumwhat을 쓴다.
+- 이후 PM을 영입해 협업하기 위해 기획서를 https://app.notion.com/p/92bf482da589416c88ce1307aa8be911?source=copy_link 로 옮겨 진행한다.
 - 구현 계획·진행 현황·남은 단계는 [docs/PLAN.md](docs/PLAN.md)에 있다. 단계를 마치면 이 문서의 진행 현황도 갱신한다.
 - 진행 단계는 같은 페이지의 Tasks DB에 7단계로 등록되어 있다. 단계를 마치면 해당 작업의 상태를 갱신한다.
 - git에 올리지 않는 파일(`.env`, `application.yml`, OAuth JSON, 서버 pem 키)의 실제 내용은 Notion 「개발 필요 파일」 페이지(기획서 하위)에 있다.
@@ -36,7 +37,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 3. **커밋 메시지 첫 줄에 이슈 번호를 꼭 적는다.** 형식은 `[#이슈 번호] - 요약`이다(예: `[#2] - 기능개발`, `[#12] - 근처 식당 찾기 API 추가`). 본문에는 무엇을 왜 바꿨는지 적는다. 이슈 번호를 붙일 수 없는 작업이면 이슈부터 만든다.
 4. **PR은 `dev`로 연다**(`gh pr create --base dev`). 제목은 커밋과 같은 `[#이슈 번호] - 요약`이고, 본문 첫 줄에 `이슈: #이슈 번호`를 적는다.
-   - `dev`에 머지하는 것은 Claude가 직접 해도 된다. 단, 백엔드·프론트 테스트와 빌드를 통과하고 동작 확인을 마친 뒤 PR 체크리스트를 채우고 머지한다. 머지 커밋도 컨벤션을 따르게 제목을 정한다: `gh pr merge --merge --subject "[#이슈 번호] - 요약 (#PR 번호)"`.
+   - `dev`에 머지하는 것은 반드시 검토 후 개발자가 직접 진행하며, 백엔드·프론트 테스트와 빌드를 통과하고 동작 확인을 마친 뒤 PR 체크리스트를 채우고 머지한다. 머지 커밋도 컨벤션을 따르게 제목을 정한다: `gh pr merge --merge --subject "[#이슈 번호] - 요약 (#PR 번호)"`.
    - 머지하면 이슈를 닫는다(`gh issue close <번호> --comment "#<PR 번호>로 dev에 머지"`). `dev`는 기본 브랜치가 아니라 `Closes #N`으로는 닫히지 않는다.
 5. **`dev` → `main` 승격(릴리스)은 사용자가 결정한다.** 릴리스도 이슈(`[release] vX.Y.Z`)를 만들고 `release/vX.Y.Z` 브랜치에서 버전·CHANGELOG·업데이트 글을 준비한다. 승격 PR 제목은 `[#이슈 번호] - 릴리스 vX.Y.Z: 요약`이고, 본문에 포함한 이슈·PR을 적는다. 릴리스 이슈는 배포·태그까지 마치고 닫는다.
    - 운영 버그를 고치는 승격은 제목 앞에 `[hotfix]`를 붙이고(`[hotfix] [#이슈 번호] - 릴리스 v1.7.1: …`, 라벨 `hotfix`·`bug`), 사용자가 버그 수정으로 알 수 있게 업데이트 글도 적는다.
@@ -92,7 +93,12 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 프로필 소개는 **한줄 소개(`users.bio`, 50자)와 좋아하는 음식(`users.food_tags`, `VARCHAR(10)[]`, 직접 적는 태그 최대 3개)**다(V13, Notion 「17. 프로필 항목 추가」). 같은 조직 멤버가 프로필 모달에서 보고, 응답은 `MeResponse`·`MemberResponse`의 `bio`·`foodTags`(없으면 null·빈 배열)다.
   - `PUT /api/me/profile {bio, foodTags}`로 통째로 바꾼다(비우면 지운다). 정리 규칙은 `user/ProfileIntro`와 화면의 `lib/profile.ts`가 같다: 앞뒤·연속 공백 정리, 태그 앞의 `#` 제거, 제어 문자 거절, 글자(코드 포인트) 수, 띄어쓰기·대소문자만 다른 태그는 먼저 적은 것만 남긴다.
   - 두 컬럼도 `photo_key`처럼 엔티티에서 `insertable/updatable=false`이고 `UserRepository.updateIntro`로만 바꾼다(로그인이 옛 소개를 되써서 지우지 않게).
-  - 가입 단계는 없다. 처음 가입하면 마이페이지로 가므로, 소개가 비어 있으면 「내 정보」에 채우기 안내(Figma `03-N2`)를 보여준다.
+  - 가입 단계는 없다. 처음 가입하면 마이페이지로 가므로, 「내 정보」에 채우기 안내를 보여준다(상세 프로필이 비었으면 `03-N4`, 상세 프로필은 채웠고 소개만 비었으면 `03-N2`).
+- 상세 프로필은 **MBTI·퍼스널컬러·취미·나이·직급**(`users.mbti`·`personal_color`·`hobbies VARCHAR(10)[]`·`age SMALLINT`·`job_title`, V15, Notion 「22. 프로필 항목 추가」)이다. 같은 조직 멤버가 프로필 모달에서 보고, 응답은 `MeResponse`·`MemberResponse`·관리자 회원 상세의 `details`(채우지 않았으면 null)다.
+  - **다섯 항목 모두 필수**이고 지우는 기능은 없다. DB CHECK(`ck_users_profile_details`)가 「모두 비었거나 모두 채워졌거나」만 받는다. 「프로필 수정」 모달 안에 있어서, 다 채우기 전에는 사진·이름만 바꿔도 「저장」이 비활성이다(Figma `03-M2E`, 버튼 위에 남은 항목 안내).
+  - `PUT /api/me/profile/details {mbti, personalColor, hobbies, age, jobTitle}`로 통째로 바꾼다(소개 `PUT /api/me/profile`과 따로). 규칙은 `user/ProfileDetails`와 화면의 `lib/profileDetails.ts`가 같다: MBTI는 E/I·S/N·T/F·J/P 4글자(대문자로 저장), 퍼스널컬러는 `PersonalColor` enum(봄 웜·여름 쿨·가을 웜·겨울 쿨, 기획서의 「봄 워터」는 오타로 봤다), 취미는 좋아하는 음식과 같은 태그 규칙(`ProfileText.tags` ↔ `lib/profile.ts addTags`)으로 1~5개·10자, 나이는 1~120 정수, 직급은 1~15자. 오류 문구는 기획서 그대로이고 화면 입력 순서대로 확인해 처음 걸린 항목의 문구로 답한다.
+  - 다섯 컬럼도 엔티티에서 `insertable/updatable=false`이고 `UserRepository.updateDetails`로만 바꾼다(로그인이 옛 값을 되써서 지우지 않게).
+  - 화면의 오류는 그 항목에서 포커스가 벗어난 뒤에만 보인다(MBTI·취미는 묶음 밖으로 벗어날 때). 취미는 아직 태그로 더하지 않은 글도 저장에 넣는다.
 - CSRF는 `csrf.spa()` 방식이다. `CsrfCookieFilter`가 매 응답에 `XSRF-TOKEN` 쿠키를 내리고, 프론트 `lib/api.ts`가 GET이 아닌 요청에 `X-XSRF-TOKEN` 헤더로 붙인다.
 - 로그아웃은 `POST /logout`이고 204를 준다.
 - 세션은 Spring Session JDBC로 DB(`spring_session` 테이블, Flyway V2)에 저장한다. 그래서 서버를 재시작·재배포해도 로그인이 유지된다. `SESSION` 쿠키의 유효기간은 30일이다.
@@ -176,6 +182,14 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
     - 전송(`queries/chat.ts useMarkChatRead`): 캐시의 `lastReadId`는 바로 올리고(`mergeChatPage`가 큰 쪽으로 합친다), 서버에는 1초에 한 번 가장 뒤의 위치만, 떠날 때·탭을 숨길 때는 `keepalive`로 바로 보낸다. 성공하면 오늘 투표 카드를 다시 받는다. `setQueryData`는 같은 값도 `structuralSharing`(`mergeChatPage`)으로 새 객체를 만들어 다시 그리므로, 바뀌지 않으면 업데이터가 `undefined`를 돌려 캐시를 건드리지 않는다(아니면 읽음 effect가 끝없이 돈다).
     - 버튼(`hooks/useChatUnread.ts`): 모바일 「💬 채팅」(시트가 닫혀 있을 때)과 데스크톱 「💬 새 메시지」(채팅 카드가 화면 밖일 때)에 빨간 배지(99+, 최신 50개보다 앞부터 안 읽었으면 「50+」)를 두고, 남의 새 메시지가 오면 4초 미리보기를 띄운다(처음 받은 목록은 미리보기하지 않는다).
   - Spring 7은 SockJS 스케줄러를 `TaskScheduler` 빈으로 내놓지 않아 정기 투표 `@Scheduled`를 가로채지 않는다(`ChatIntegrationTest`가 고정). 실제 핸드셰이크(세션 쿠키·출처·프록시 헤더)는 `ChatSocketTest`(실제 포트)가 확인한다.
+- 쪽지(`letter` 패키지, V16 `letters`·`letter_blocks`·`letter_reports`, 프론트 `/letters`, Notion 「21. 같은 조직에 추가된 사용자들끼리 쪽지 주고받기 기능」): 같은 조직 멤버끼리 한 통씩 주고받는다(채팅처럼 이어지는 대화가 아니다). 투표와 상관없고, 실시간 연결 없이 상단 바가 안 읽은 수를 30초마다·창으로 돌아올 때 받는다(`queries/letters.ts useUnreadLetters`). 코드 이름은 `NoticeKind.NOTE`(개발자 노트)와 헷갈리지 않게 `letter`다.
+  - API: `GET /api/letters?box=received|sent&before=`(20통씩), `GET /api/letters/unread`, `POST /api/letters {organizationId, recipientId, body, anonymous}`, `POST /api/letters/{id}/reply {body, anonymous}`, `PUT …/{id}/read`, `DELETE …/{id}`(내 쪽에서만), `POST …/{id}/block`, `GET /api/letters/blocks`, `DELETE /api/letters/blocks/{id}`, `POST …/{id}/report {reason, block}`. 참·거짓 값은 `Boolean`으로 받는다(Jackson 3은 빠진 `boolean`을 오류로 본다).
+  - 규칙: 보낸 사람·받는 사람 모두 그 조직 멤버여야 하고(아니면 404), 나에게는 못 보낸다(400). 본문 500자(`UserText`, 줄바꿈 허용), 한 사람이 10분에 10통(답장 포함, `LetterRateLimiter` → `common/SlidingWindowRateLimiter`, 채팅 `ChatRateLimiter`도 이것을 쓴다). 사용자는 행을 지우지 않고 쪽마다 소프트 삭제(`sender_deleted_at`·`recipient_deleted_at`)라 신고가 쪽지를 잃지 않는다. 로그에는 본문을 남기지 않는다.
+  - **익명 보호**: 익명 쪽지도 `sender_id`를 저장하지만 받은 사람의 응답에는 보낸 사람의 id·이름·사진이 없다(`LetterRepository`가 사람 join 조건에서 빼서 아예 고르지 않는다, `canReply`·`reported`도 발신자 id 없이 계산). 익명 쪽지에 답장하면 그 답장의 `recipient_hidden`으로 답장한 사람에게도 받는 사람을 숨긴다. **답장의 익명 여부는 서버가 정한다**: 익명으로 시작한 사람이 다시 답할 때만 익명이고(받은 쪽지의 `replyAnonymous`, 화면은 체크를 잠가 보여준다), 그 밖의 답장은 실명이다. 답장은 원래 보낸 사람에게 가고 그 사람은 누구에게 보냈는지 알기 때문에 익명이 될 수 없다(답장 요청에는 `anonymous`가 없고, 화면은 체크 대신 안내를 보여준다). 답장할 수 없는 이유는 모두 「답장할 수 없는 쪽지예요.」이고, 상대가 조직을 떠났는지는 확인하지 않는다(조직이 있고, 내가 멤버이고, 보낸 사람 계정이 있으면 된다). 받은 익명 쪽지의 `canReply`는 보낸 사람 계정을 보지 않는다(강제 탈퇴와 함께 바뀌면 누가 보냈는지 짐작하게 한다, 답장하면 같은 409). 익명 쪽지는 로그에도 보낸 사람·받는 사람을 남기지 않는다.
+  - **차단**은 익명 여부로 나눈다(V17). 실명 차단은 사람 단위(`uk_letter_blocks_named`)로 그 사람의 실명 쪽지를 숨기고, **익명 차단은 쪽지 한 통 단위**(`uk_letter_blocks_anonymous`)로 그 쪽지만 숨긴다(`LetterRepository.VISIBLE_RECEIVED`, 목록·안 읽은 수·한 통 조회가 공유). 익명 차단을 사람 단위로 두면 같은 사람의 다른 익명 쪽지까지 사라지고 차단 목록 줄 수도 늘지 않아 「같은 사람이 썼다」가 드러난다(#77). 새로 오는 쪽지는 보낼 때 버린다(`recipient_deleted_at`, 보낸 사람에게는 보낸 것으로 보인다): 익명 쪽지는 그 사람에게 걸린 차단이 하나라도 있으면, 실명 쪽지는 실명 차단이 있을 때만. 차단을 풀면 차단 전에 받은 쪽지만 돌아온다. 익명 차단 목록에는 이름 없이 차단한 쪽지의 첫 줄만 준다. 보낸 사람이 강제 탈퇴해도 차단은 남고(`blocked_user_id`만 NULL, 사라지면 차단한 익명 쪽지가 다시 보여 탈퇴가 드러난다), 탈퇴한 사람의 익명 쪽지도 차단할 수 있다(실명 쪽지는 화면에서 「차단」을 감춘다). 차단·신고는 다시 눌러도 그대로다(차단으로 숨긴 쪽지도 찾는다). 신고 사유는 한 줄이라 화면이 줄바꿈을 공백으로 합쳐 보낸다(`lib/letters.ts reportReason`).
+  - **신고**: 받은 사람만, 한 쪽지는 한 번(사유 선택 100자, `block`이면 함께 차단). 관리자는 신고된 쪽지만 본다(`GET /api/admin/letter-reports?status=open|all`, 익명이어도 실제 보낸 사람, `POST …/{id}/resolve`, 개요 `Stats.openReportCount`). 강제 탈퇴하면 그 사람이 보낸 쪽지의 열린 신고를 처리 완료로 바꾼 뒤 회원을 지운다.
+  - 지워질 때: 보낸 사람이 강제 탈퇴하면 `sender_id`만 NULL(「탈퇴한 사용자」, 답장 불가), 받은 사람이 강제 탈퇴해도 쪽지는 지우지 않고 `recipient_id`만 NULL(V18: 보낸 쪽지함에는 「탈퇴한 사용자」, 숨긴 상대는 계속 「익명」, 답장 원문과 신고도 남는다. 지우면 익명 상대가 방금 탈퇴했다는 것이 드러나고 신고 증거가 사라졌다), 조직이 없어지면 `organization_id`만 NULL(「삭제된 조직」). 조직을 떠나도 지난 쪽지는 남는다.
+  - 화면: 상단 바 봉투(`LetterButton`, 빨간 배지 99+) → `/letters`(`LettersPage`, 탭 `?box=sent`, 보고 있는 동안 안 읽은 수가 늘면 받은 쪽지함을 다시 받는다). 쪽지 쓰기는 `AppLayout`의 `LetterComposerProvider`가 하나만 두고(`hooks/useLetterComposer.ts`의 `compose`·`notify`), 멤버 프로필의 「쪽지 보내기」(받는 사람 고정)·쪽지함의 「쪽지 쓰기」(조직·멤버 고르기)·「답장」이 연다. 받은 쪽지는 열면 바로 읽음으로 바꾸고 배지를 줄인다(`useMarkLetterRead`).
 - 메뉴 자동완성은 별도 테이블 없이 같은 조직 과거 투표의 `menu_options.name`을 중복 없이 조회해서 만든다. 항목마다 마지막으로 먹은 날을 붙이고, 최근 7일 안에 먹은 메뉴는 뒤로 보낸다.
 - 메뉴 통계·추천(`menu/MenuStatsService`, 네이티브 SQL)도 별도 테이블 없이 계산한다. "먹은 메뉴"는 **마감된 투표에서 참여자가 한 명 이상인 메뉴**이고(조직 기준), 이름은 소문자·띄어쓰기 제거로 묶는다("김치찌개" = "김치 찌개", 표시는 가장 최근 이름). 추천은 먹은 적이 있지만 최근 7일(오늘 포함) 안에는 먹지 않은 메뉴를 많이 먹은 순으로 준다. 조직 「통계」 탭(`/orgs/:orgId/stats`)과 메뉴 입력창(비운 채 누르면 추천)에서 쓴다.
 
@@ -192,6 +206,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 회원 상세의 「올린 사진 지우기」(`DELETE /api/admin/users/{id}/photo`, 204)는 부적절한 사진 대응용이다. 구글 사진으로 돌아가고, 올린 사진이 없으면 아무것도 하지 않는다.
 - `OrganizationService.leave`(본인 탈퇴, 없으면 404)와 `removeMember`(관리자용, 없으면 아무것도 안 함)는 같은 내부 로직을 쓴다. 같은 트랜잭션 안에서 예외를 내면 트랜잭션 전체가 롤백되므로 관리자 작업은 `removeMember`를 쓴다.
 - 진행 중인 정기 투표를 지우면 스케줄러가 1분 안에 다시 열기 때문에, 투표 삭제는 `withSchedule`로 규칙도 함께 지울 수 있다.
+- 「신고」 탭(`/admin/reports`)은 받은 사람이 신고한 쪽지만 보여준다(위 「쪽지」). 신고되지 않은 쪽지는 관리자도 볼 수 없다.
 - 조회 쿼리는 `admin/AdminRepository`(JPQL `select new AdminResponses$...`)에 모아 둔다. 목록은 검색어 `q`, 최대 100건이다.
 
 **새 소식**(`notice` 패키지, 프론트 `/notices`, Notion 「14. 공지사항 기능」)
@@ -251,16 +266,17 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - Figma 파일: https://www.figma.com/design/w0OIV1khSVnxlf5KfRo6aP/OhJumWhat
   - 「디자인 시스템」 페이지
     - Foundations 프레임: 로고, 컨셉 컬러, 원색 팔레트, 의미 기반 토큰, 타이포그래피, 간격·둥글기·그림자
-    - Components 프레임: Button, Badge, Avatar, OptionCard, Input, Logo, TopBar(「새 소식 점」 속성), UpdateToast, MapPin(지도 핀), ChatMessage·ChatPanel, Chat Unread(UnreadBadge, ChatPreview, NewMessagesPill, UnreadDivider, ChatButton)
-  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 별명·프로필 사진·소개(`03-N` 마이페이지, `03-N2` 소개 비었을 때, `03-M2` 프로필 수정, `03-M3` 사진 맞추기), 멤버 프로필(`07-P`, 소개 없음·나·떠난 멤버 `07-P2`), 지난 투표(`04-H`), 새 소식 배너(`04-B`), 결과 복사(`05b-S`), 패스한 상태(`05-P`, 「✓ 오늘은 패스했어요 · 다시 누르면 취소」), 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제), 식당 붙이기(`05-L`, `05-M4` 식당 모달), 식당 찾기 모달(`05-F`), 투표 지도(`05-G`, 크게 보기 `05-G2`), 메뉴 추천(`05-R`, 지난 식당·고른 식당 칩 `05-R2`), 메뉴 댓글(`05-K` 진행 중, `05b-K` 마감 결과 읽기 전용), 투표 채팅(`05-C` 하단 버튼·안 읽은 배지, `05-C2` 채팅 시트, `05-C3` 닫힌 채팅, `05-C4` 새 메시지 도착 미리보기, `05-C5` 「여기부터 새 메시지」, `05-C6` 위로 올려 읽는 중 「새 메시지 N ↓」), 조직 홈 안 읽은 채팅(`04-C`), 조직 위치(`07-L`, 조직 주소·반경·지도), `08 통계`, `09 새 소식`
-  - 「와이어프레임 · 데스크톱」 페이지: 같은 화면의 데스크톱(1440px) 버전(`D01`~`D07-M`, `D03-N`, `D04-H`, `D05-A`, `D05-G`, `D05-G2`, `D05-K`, `D05-C`, `D05-C2` 채팅 카드가 화면 밖일 때, `D07-L`, `D08`, `D09`). 모달은 모바일 `-M` 프레임과 같다(큰 지도 모달 `D05-G2`만 넓다).
-  - 「관리자 콘솔」 페이지: 관리자 화면(모바일 `A01`~`A08`, 데스크톱 `DA01`~`DA08`, 강제 탈퇴 모달 `-M`, 올린 사진 지우기 `A03-M2`, 공지 글쓰기 모달 `A08-M`, 메뉴 댓글 지우기 `A06-K`, 채팅 지우기 `A06-C`, 차단된 로그인 `L01`)과 로컬 컴포넌트 StatCard·ListRow
+    - Components 프레임: Button, Badge, Avatar, OptionCard, Input(Error 포함), Logo, TopBar(「쪽지 배지」·「새 소식 점」 속성), UpdateToast, MapPin(지도 핀), ChatMessage·ChatPanel, Chat Unread(UnreadBadge, ChatPreview, NewMessagesPill, UnreadDivider, ChatButton), Profile Details(ChoicePill, MbtiPicker, Select, TagChip, SuggestChip, TagInput, ProfileDetailList), Letters(AnonymousAvatar, LetterItem, Checkbox, Textarea)
+  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 별명·프로필 사진·소개·상세 프로필(`03-N` 마이페이지, `03-N2` 소개 비었을 때, `03-N4` 상세 프로필 비었을 때, `03-M2` 프로필 수정(상세 프로필 섹션), `03-M2E` 상세 프로필 비었을 때·오류, `03-M3` 사진 맞추기), 멤버 프로필(`07-P`, 소개 없음·나·떠난 멤버 `07-P2`), 지난 투표(`04-H`), 새 소식 배너(`04-B`), 결과 복사(`05b-S`), 패스한 상태(`05-P`, 「✓ 오늘은 패스했어요 · 다시 누르면 취소」), 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제), 식당 붙이기(`05-L`, `05-M4` 식당 모달), 식당 찾기 모달(`05-F`), 투표 지도(`05-G`, 크게 보기 `05-G2`), 메뉴 추천(`05-R`, 지난 식당·고른 식당 칩 `05-R2`), 메뉴 댓글(`05-K` 진행 중, `05b-K` 마감 결과 읽기 전용), 투표 채팅(`05-C` 하단 버튼·안 읽은 배지, `05-C2` 채팅 시트, `05-C3` 닫힌 채팅, `05-C4` 새 메시지 도착 미리보기, `05-C5` 「여기부터 새 메시지」, `05-C6` 위로 올려 읽는 중 「새 메시지 N ↓」), 조직 홈 안 읽은 채팅(`04-C`), 조직 위치(`07-L`, 조직 주소·반경·지도), `08 통계`, `09 새 소식`, 쪽지(`10` 받은 쪽지, `10b` 보낸 쪽지, `10c` 비었을 때, `10-M1` 쓰기·받는 사람 고정, `10-M1b` 받는 사람 고르기, `10-M1c` 답장·익명 유지, `10-M2` 받은 쪽지 보기, `10-M2b` 익명 쪽지, `10-M2c` 보낸 쪽지, `10-M3` 신고, `10-M4` 차단한 사람 관리, `10-M5` 차단 확인)
+  - 「와이어프레임 · 데스크톱」 페이지: 같은 화면의 데스크톱(1440px) 버전(`D01`~`D07-M`, `D03-N`, `D03-N4`, `D03-M2`·`D03-M2E` 프로필 수정, `D07-P` 멤버 프로필, `D04-H`, `D05-A`, `D05-G`, `D05-G2`, `D05-K`, `D05-C`, `D05-C2` 채팅 카드가 화면 밖일 때, `D07-L`, `D08`, `D09`, `D10`·`D10b`·`D10c` 쪽지함과 `D10-M1`~`D10-M5`). 모달은 모바일 `-M` 프레임과 같다(큰 지도 모달 `D05-G2`만 넓다).
+  - 「관리자 콘솔」 페이지: 관리자 화면(모바일 `A01`~`A09`, 데스크톱 `DA01`~`DA09`, 쪽지 신고 `A09`·`DA09`, 개요의 처리할 신고 카드, 강제 탈퇴 모달 `-M`, 올린 사진 지우기 `A03-M2`, 공지 글쓰기 모달 `A08-M`, 메뉴 댓글 지우기 `A06-K`, 채팅 지우기 `A06-C`, 차단된 로그인 `L01`)과 로컬 컴포넌트 StatCard·ListRow
     - 콘텐츠 폭 1024px 가운데 정렬. 1024px 이상(`lg`)에서 본문 + 오른쪽 사이드(320px) 2단, 그보다 좁으면 모바일 레이아웃을 쓴다.
     - 로그인은 좌우 분할(왼쪽 브랜드 소개·투표 미리보기, 오른쪽 로그인), 모달은 폭 448px이다.
 - **새 화면이나 컴포넌트를 만들 때는 먼저 해당 Figma 프레임을 보고 그대로 구현한다.**
   - 디자인과 다르게 구현해야 하면 이유를 PR에 적는다.
-  - Figma MCP는 데스크톱 연결(`figma-desktop`)을 쓴다. 원격 Figma MCP 계정에는 이 파일의 편집 권한이 없다.
+  - Figma는 원격 Figma 커넥터의 `use_figma`로 그린다(이 계정에 파일 편집 권한이 있다). 부르기 전에 `figma:figma-use` 스킬을 불러온다.
 - **색은 의미 기반 토큰 클래스만 쓴다.**
+  - 입력 오류의 빨간 테두리는 `border-border-danger`(Figma `color/border/danger`)다. `inputClass`가 `aria-invalid`일 때 붙인다.
   - 예: `bg-bg-canvas`, `bg-bg-brand`, `text-text-secondary`, `border-border-default`
   - `stone-*`, `orange-*` 같은 원색 클래스는 화면 코드에서 쓰지 않는다.
   - 토큰은 `ohjumwhat-frontend/src/index.css`의 `@theme`에 있고, Figma `Color` 변수와 이름이 1:1이다(`color/bg/canvas` → `--color-bg-canvas` → `bg-bg-canvas`).
@@ -285,11 +301,12 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 모달 크기: `Modal`의 `size="lg"`(폭 1024px, 큰 지도)와 `closable`(제목 옆 ✕). 기본은 448px
   - 멤버 카드(Figma 「멤버 N명」) → `components/MemberList.tsx`(조직 설정, 데스크톱 조직 홈 사이드)
   - 멤버 프로필 모달(07-P·07-P2) → `components/MemberProfileModal.tsx`(소개는 `useMembers` 캐시에서 찾고, 멤버가 아니면 이름·사진만). `OrgLayout`의 `ProfileViewerProvider`(`components/ProfileViewer.tsx`, 훅은 `hooks/useProfileViewer.ts`)가 모달을 하나만 두고, 사람을 누르는 곳은 `ProfileButton`을 쓴다(멤버 목록, `PersonChip`=참여자·미응답자 칩, 댓글·채팅 작성자). `ProfileButton`은 클릭·키 입력을 위로 올려 보내지 않아 메뉴 카드(`role="button"`) 안에서 눌러도 투표가 바뀌지 않고, 모달이 채팅 시트 밖에 있어 닫아도 시트는 그대로다. 조직 화면 밖(관리자 콘솔 등)에서는 글자로만 보인다
-  - 프로필 수정 모달(03-M2) → `components/ProfileModal.tsx`(사진·이름·한줄 소개·좋아하는 음식을 「저장」 한 번에, 사진 → 이름 → 소개 순서로 저장), 좋아하는 음식 입력 → `components/FoodTagInput.tsx`(Enter·쉼표·blur로 추가, 한글 조합 중 Enter는 무시, 더하지 않은 글도 저장에 넣는다), 음식 배지 → `components/FoodTags.tsx`(Badge Brand), 사진 맞추기(03-M3) → `components/PhotoCropper.tsx`(계산은 `lib/photoCrop.ts`, 미리보기는 `data:` 주소: CSP가 `blob:` 이미지를 막는다)
+  - 프로필 수정 모달(03-M2) → `components/ProfileModal.tsx`(사진·이름·한줄 소개·좋아하는 음식·상세 프로필을 「저장」 한 번에, 사진 → 이름 → 소개 → 상세 순서로 저장, 버튼 줄은 sticky), 상세 프로필 섹션 → `components/ProfileDetailsFields.tsx`, MbtiPicker·ChoicePill → `components/MbtiPicker.tsx`(줄마다 sr-only 라디오), Select → 네이티브 `<select>` + `inputClass`, TagInput·TagChip·SuggestChip → `components/TagInput.tsx`(Enter·쉼표·blur·「+」로 추가, 한글 조합 중 Enter는 무시, 더하지 않은 글도 저장에 넣는다, 추천 칩은 `ProfileDetailsFields`), 좋아하는 음식 입력 → `components/FoodTagInput.tsx`(TagInput, 10자·3개), ProfileDetailList → `components/ProfileDetailList.tsx`(마이페이지·멤버 프로필·관리자 회원 상세), 음식 배지 → `components/FoodTags.tsx`(Badge Brand), 사진 맞추기(03-M3) → `components/PhotoCropper.tsx`(계산은 `lib/photoCrop.ts`, 미리보기는 `data:` 주소: CSP가 `blob:` 이미지를 막는다)
   - 투표 관리 메뉴·모달(05-A, 05-M1~M3) → `components/PollManageMenu.tsx`. 제목·마감 시간 입력은 만들기(04-M)와 수정이 `components/PollForm.tsx`를 같이 쓴다.
   - StatCard·ListRow(관리자 콘솔) → `components/AdminParts.tsx`(`StatCard`, `ListRow`, `ActionRow`, `DangerZone`, `AdminSearch`)
   - TopBar 종 아이콘(「새 소식 점」) → `components/NoticeBell.tsx`, 새 소식 배너(04-B) → `components/NoticeBanner.tsx`, 새 소식 카드의 배지·본문 → `components/NoticeBadge.tsx`·`components/NoticeBody.tsx`
   - UpdateToast → `components/UpdateToast.tsx`
+  - TopBar 「쪽지 배지」 → `components/LetterButton.tsx`(`UnreadBadge`), 쪽지함(10·D10) → `pages/LettersPage.tsx`(LetterItem 포함), AnonymousAvatar → `components/AnonymousAvatar.tsx`, 쪽지 쓰기(10-M1·M1b·M1c)와 「쪽지를 보냈어요」 안내 → `components/LetterComposer.tsx`(안내는 채팅 시트 같은 모달 위에서도 보이게 `popover`로 top layer에 올린다, 잠기지 않은 답장은 익명 체크 대신 안내), 쪽지 보기·지우기·차단 확인·신고(10-M2·M3·M5) → `components/LetterModal.tsx`(확인 창은 보기 모달 밖에 그린다), 차단한 사람 관리(10-M4) → `components/LetterBlocksModal.tsx`, 메시지 본문(채팅·쪽지 공용) → `components/MessageBody.tsx`, 관리자 신고(A09·DA09) → `pages/admin/AdminReportsPage.tsx`, 개요의 처리할 신고 카드 → `AdminParts`의 `StatCard`(`hint`)
   - 공지 글쓰기 모달(A08-M) → `components/NoticeFormModal.tsx`(쓰기·고치기 공용, 「미리보기」 토글)
 
 ## 코드 스타일

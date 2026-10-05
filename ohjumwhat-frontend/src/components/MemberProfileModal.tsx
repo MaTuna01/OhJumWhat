@@ -1,10 +1,13 @@
 import { Link } from 'react-router'
+import { useLetterComposer } from '../hooks/useLetterComposer.ts'
 import { useMe } from '../queries/me.ts'
 import { useMembers } from '../queries/orgs.ts'
 import type { Person } from '../queries/polls.ts'
 import Avatar from './Avatar.tsx'
+import Button from './Button.tsx'
 import FoodTags from './FoodTags.tsx'
 import Modal from './Modal.tsx'
+import ProfileDetailList from './ProfileDetailList.tsx'
 
 type Props = {
   orgId: number
@@ -13,11 +16,11 @@ type Props = {
   onClose: () => void
 }
 
-/** 멤버 프로필(Figma 07-P·07-P2): 사진·이름·한줄 소개·좋아하는 음식. 보기 전용이라 ✕로 닫는다. */
+/** 멤버 프로필(Figma 07-P·07-P2): 사진·이름·한줄 소개·좋아하는 음식·상세 프로필. 보기 전용이라 ✕로 닫는다. */
 export default function MemberProfileModal({ orgId, person, onClose }: Props) {
   return (
     <Modal open={person !== null} onClose={onClose} title="프로필" closable>
-      {person && <MemberProfile orgId={orgId} person={person} />}
+      {person && <MemberProfile orgId={orgId} person={person} onClose={onClose} />}
     </Modal>
   )
 }
@@ -26,13 +29,14 @@ export default function MemberProfileModal({ orgId, person, onClose }: Props) {
  * 소개는 조직 멤버 목록(조직당 10~20명이라 한 번에 받는다)에서 찾는다. 댓글·채팅·지난 참여자처럼 이제 멤버가 아닌
  * 사람은 연 곳에서 받은 이름·사진만 보여준다(소개는 같은 조직 멤버에게만 보인다).
  */
-function MemberProfile({ orgId, person }: { orgId: number; person: Person }) {
+function MemberProfile({ orgId, person, onClose }: { orgId: number; person: Person; onClose: () => void }) {
+  const { compose } = useLetterComposer()
   const members = useMembers(orgId)
   const { data: me } = useMe()
   const member = members.data?.find((m) => m.userId === person.userId)
   const name = member?.name ?? person.name
   const isMe = person.userId === me?.id
-  const hasIntro = member != null && (member.bio != null || member.foodTags.length > 0)
+  const hasIntro = member != null && (member.bio != null || member.foodTags.length > 0 || member.details != null)
 
   return (
     <div className="flex flex-col items-center gap-3 pb-1 text-center">
@@ -58,9 +62,23 @@ function MemberProfile({ orgId, person }: { orgId: number; person: Person }) {
               <FoodTags tags={member.foodTags} className="justify-center" />
             </div>
           )}
+          {member.details && <ProfileDetailList details={member.details} className="w-full" />}
         </>
       ) : (
         <p className="text-sm text-text-tertiary">아직 소개가 없어요</p>
+      )}
+      {!isMe && member && (
+        // 지금 같은 조직 멤버에게만(Figma 07-P). 이 모달을 닫고 받는 사람이 정해진 쪽지 쓰기(10-M1)를 연다.
+        <Button
+          variant="secondary"
+          className="mt-1 w-full"
+          onClick={() => {
+            onClose()
+            compose({ kind: 'new', organizationId: orgId, recipient: { userId: member.userId, name: member.name, profileImageUrl: member.profileImageUrl } })
+          }}
+        >
+          쪽지 보내기
+        </Button>
       )}
       {isMe && member && (
         <Link

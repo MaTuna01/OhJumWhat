@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api.ts'
-import { type Me, meQueryKey } from './me.ts'
+import { type Me, meQueryKey, type ProfileDetails } from './me.ts'
 
 export type MyOrganization = {
   id: number
@@ -46,6 +46,8 @@ export type Member = {
   bio: string | null
   /** 좋아하는 음식(최대 3개). 없으면 빈 배열 */
   foodTags: string[]
+  /** 상세 프로필. 채우지 않았으면 null */
+  details: ProfileDetails | null
   joinedAt: string
 }
 

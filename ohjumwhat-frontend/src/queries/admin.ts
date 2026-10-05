@@ -2,6 +2,7 @@ import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClie
 import { api } from '../lib/api.ts'
 import type { ChatMessage, ChatPage } from './chat.ts'
 import type { MenuComment } from './comments.ts'
+import type { ProfileDetails } from './me.ts'
 import type { Notice } from './notices.ts'
 import type { PollDetail, PollStatus } from './polls.ts'
 import type { Schedule } from './schedules.ts'
@@ -18,6 +19,33 @@ export type AdminStats = {
   /** 최근 7일 가입 */
   newUserCount: number
   blockedCount: number
+  /** 처리 전 쪽지 신고 */
+  openReportCount: number
+}
+
+/** 쪽지 신고(받은 사람이 신고한 쪽지만). 익명 쪽지도 실제 보낸 사람을 보여준다. */
+export type AdminLetterReport = {
+  id: number
+  reportedAt: string
+  reason: string | null
+  /** 처리 완료한 시각(처리 전이면 null) */
+  resolvedAt: string | null
+  resolvedByName: string | null
+  letterId: number
+  body: string
+  anonymous: boolean
+  sentAt: string
+  organizationId: number | null
+  organizationName: string | null
+  /** 실제 보낸 사람(강제 탈퇴로 지워졌으면 null) */
+  senderId: number | null
+  senderName: string | null
+  senderEmail: string | null
+  /** 신고한 사람(= 받은 사람) */
+  /** 받은 사람이 강제 탈퇴했으면 null */
+  recipientId: number | null
+  recipientName: string | null
+  recipientEmail: string | null
 }
 
 export type AdminUser = {
@@ -43,6 +71,8 @@ export type AdminUserDetail = {
   bio: string | null
   /** 좋아하는 음식(없으면 빈 배열) */
   foodTags: string[]
+  /** 상세 프로필(채우지 않았으면 null) */
+  details: ProfileDetails | null
   /** 세션의 마지막 요청 시각(최근 접속) */
   lastAccessAt: string | null
   organizations: { id: number; name: string; memberCount: number; joinedAt: string; lastVisitedAt: string | null }[]
@@ -105,6 +135,7 @@ export const adminKeys = {
   comments: (optionId: number) => ['admin', 'comments', optionId] as const,
   chat: (pollId: number) => ['admin', 'chat', pollId] as const,
   blocks: ['admin', 'blocks'] as const,
+  letterReports: (status: 'open' | 'all') => ['admin', 'letter-reports', status] as const,
 }
 
 const search = (q: string) => (q ? `?q=${encodeURIComponent(q)}` : '')
@@ -153,6 +184,14 @@ export function useAdminPoll(pollId: number) {
   })
 }
 
+export function useAdminLetterReports(status: 'open' | 'all') {
+  return useQuery({
+    queryKey: adminKeys.letterReports(status),
+    queryFn: () => api<AdminLetterReport[]>(`/api/admin/letter-reports?status=${status}`),
+    placeholderData: keepPreviousData,
+  })
+}
+
 export function useAdminBlocks() {
   return useQuery({ queryKey: adminKeys.blocks, queryFn: () => api<AdminBlock[]>('/api/admin/blocks') })
 }
@@ -174,6 +213,10 @@ export const useWithdrawUser = () => useAdminMutation((userId: number) => api<vo
 /** 올린 프로필 사진 지우기(구글 사진으로 돌아간다) */
 export const useDeleteUserPhoto = () =>
   useAdminMutation((userId: number) => api<void>(`/api/admin/users/${userId}/photo`, { method: 'DELETE' }))
+
+/** 쪽지 신고 처리 완료 */
+export const useResolveLetterReport = () =>
+  useAdminMutation((reportId: number) => api<void>(`/api/admin/letter-reports/${reportId}/resolve`, { method: 'POST' }))
 
 export const useUnblock = () => useAdminMutation((blockId: number) => api<void>(`/api/admin/blocks/${blockId}`, { method: 'DELETE' }))
 

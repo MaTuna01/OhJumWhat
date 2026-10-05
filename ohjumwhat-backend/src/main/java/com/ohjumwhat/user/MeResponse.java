@@ -11,10 +11,11 @@ import java.util.List;
  * @param customPhoto 직접 올린 사진이 있으면 true
  * @param bio 한줄 소개. 없으면 null
  * @param foodTags 좋아하는 음식(적은 순서, 최대 3개). 없으면 빈 목록
+ * @param details 상세 프로필(MBTI·퍼스널컬러·취미·나이·직급). 채우지 않았으면 null
  * @param lastVisitedOrgId 로그인 후 이동할 최근 조직. 속한 조직이 없으면 null
  * @param admin 관리자면 프로필 메뉴에 관리자 콘솔이 보인다
  */
 public record MeResponse(Long id, String name, String nickname, String googleName, String email,
 		String profileImageUrl, String googleProfileImageUrl, boolean customPhoto, String bio, List<String> foodTags,
-		Long lastVisitedOrgId, boolean admin) {
+		ProfileDetailsResponse details, Long lastVisitedOrgId, boolean admin) {
 }

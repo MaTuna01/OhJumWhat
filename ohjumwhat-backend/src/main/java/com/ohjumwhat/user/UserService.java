@@ -134,6 +134,26 @@ public class UserService {
 	}
 
 	/**
+	 * 상세 프로필(MBTI·퍼스널컬러·취미·나이·직급)을 통째로 바꾼다. 다섯 항목 모두 필수라 지우는 방법은 없다.
+	 * 화면의 입력 순서대로 확인해 처음 걸린 항목의 문구로 답한다. 소개처럼 update 쿼리로 저장한다.
+	 */
+	@Transactional
+	public MeResponse changeDetails(Long userId, String rawMbti, String rawPersonalColor, List<String> rawHobbies,
+			Integer rawAge, String rawJobTitle) {
+		String mbti = ProfileDetails.mbti(rawMbti);
+		PersonalColor personalColor = ProfileDetails.personalColor(rawPersonalColor);
+		List<String> hobbies = ProfileDetails.hobbies(rawHobbies);
+		short age = ProfileDetails.age(rawAge);
+		String jobTitle = ProfileDetails.jobTitle(rawJobTitle);
+		if (userRepository.updateDetails(userId, mbti, personalColor, hobbies.toArray(String[]::new), age,
+				jobTitle) == 0) {
+			throw ApiException.unauthorized("다시 로그인해 주세요.");
+		}
+		log.info("상세 프로필 변경: userId={}, 취미 {}개", userId, hobbies.size());
+		return toMe(findMe(userId));
+	}
+
+	/**
 	 * 올린 프로필 사진의 키를 바꾼다(null이면 구글 사진으로 돌아간다). 새 파일은 ProfilePhotoService가 미리 써 두고,
 	 * 옛 파일은 커밋한 뒤에 지운다. 같은 회원의 강제 탈퇴·관리자 사진 지우기와 겹치지 않게 행을 잠근다.
 	 */
@@ -160,7 +180,7 @@ public class UserService {
 			.orElse(null);
 		return new MeResponse(user.getId(), user.getDisplayName(), user.getNickname(), user.getName(),
 				user.getEmail(), user.getPhotoUrl(), user.getProfileImageUrl(), user.getPhotoKey() != null,
-				user.getBio(), user.getFoodTags(), lastVisitedOrgId, user.isAdmin());
+				user.getBio(), user.getFoodTags(), user.getDetails(), lastVisitedOrgId, user.isAdmin());
 	}
 
 	private void requireNotBlocked(String googleSub) {

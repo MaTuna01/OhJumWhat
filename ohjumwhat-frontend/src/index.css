@@ -44,6 +44,7 @@
   --color-border-strong: var(--color-stone-300);
   --color-border-brand: var(--color-orange-500);
   --color-border-brand-soft: var(--color-orange-200);
+  --color-border-danger: var(--color-red-600);
   --color-icon-muted: var(--color-stone-400);
   --color-icon-brand: var(--color-orange-500);
 }
