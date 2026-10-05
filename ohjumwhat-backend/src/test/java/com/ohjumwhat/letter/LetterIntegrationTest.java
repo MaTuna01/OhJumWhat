@@ -173,13 +173,13 @@ class LetterIntegrationTest extends LetterTestBase {
 	}
 
 	@Test
-	void 강제_탈퇴하면_보낸_쪽지는_탈퇴한_사용자로_남고_받은_쪽지는_지워진다() throws Exception {
+	void 강제_탈퇴하면_그_사람이_보내거나_받은_쪽지는_탈퇴한_사용자로_남는다() throws Exception {
 		User admin = new User("sub-admin", "admin@example.com", "관리자", null);
 		admin.promote();
 		admin = userRepository.save(admin);
 		long fromPark = sendOk(park, devId, lee, "박이 보낸 쪽지", false);
 		long anonymousFromPark = sendOk(park, devId, lee, "박이 익명으로 보낸 쪽지", true);
-		sendOk(lee, devId, park, "박에게 보낸 쪽지", false);
+		long toPark = sendOk(lee, devId, park, "박에게 보낸 쪽지", false);
 
 		mockMvc.perform(delete("/api/admin/users/" + park.getId()).with(loginAs(admin)).with(xsrf()))
 			.andExpect(status().isNoContent());
@@ -193,7 +193,11 @@ class LetterIntegrationTest extends LetterTestBase {
 			.andExpect(jsonPath("$.letters[0].id").value(anonymousFromPark))
 			.andExpect(jsonPath("$.letters[0].counterpartHidden").value(true))
 			.andExpect(jsonPath("$.letters[0].canReply").value(true));
-		sent(lee).andExpect(jsonPath("$.letters", hasSize(0)));
+		// 박이 받은 쪽지도 지워지지 않고 이영희의 보낸 쪽지함에 「탈퇴한 사용자」로 남는다.
+		sent(lee).andExpect(jsonPath("$.letters", hasSize(1)))
+			.andExpect(jsonPath("$.letters[0].id").value(toPark))
+			.andExpect(jsonPath("$.letters[0].counterpart").value(nullValue()))
+			.andExpect(jsonPath("$.letters[0].counterpartHidden").value(false));
 		reply(lee, fromPark, "답장").andExpect(status().isConflict())
 			.andExpect(jsonPath("$.message").value("답장할 수 없는 쪽지예요."));
 		reply(lee, anonymousFromPark, "답장").andExpect(status().isConflict())

@@ -27,7 +27,7 @@ public class Letter {
 	// 강제 탈퇴로 회원이 지워지면 NULL
 	private Long senderId;
 
-	@Column(nullable = false)
+	/** 받은 사람이 강제 탈퇴하면 null(쪽지는 남는다: 보낸 쪽지함·답장 원문·신고가 그대로다) */
 	private Long recipientId;
 
 	private Long replyToId;

@@ -93,7 +93,7 @@ function ReportRow({ report, now, resolving, onResolve }: { report: AdminLetterR
         {report.anonymous && <Badge tone="brand">익명으로 보냄</Badge>}
       </p>
       <p className="text-xs text-text-secondary">
-        신고한 사람(받은 사람) · {report.recipientName} · {report.organizationName ?? '삭제된 조직'} · {formatDayTime(report.sentAt, now)}
+        신고한 사람(받은 사람) · {report.recipientName ?? '탈퇴한 사용자'} · {report.organizationName ?? '삭제된 조직'} · {formatDayTime(report.sentAt, now)}
       </p>
       <p className="text-xs text-text-secondary">{report.reason ? `사유 · ${report.reason}` : '사유 없음'}</p>
       <div className="flex items-center justify-end gap-3">
