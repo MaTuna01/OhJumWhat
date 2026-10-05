@@ -135,6 +135,24 @@ class LetterBlockReportIntegrationTest extends LetterTestBase {
 	}
 
 	@Test
+	void 신고한_사람을_강제_탈퇴해도_신고와_쪽지는_남는다() throws Exception {
+		User admin = admin();
+		long id = sendOk(park, devId, lee, "신고할 쪽지", false);
+		report(lee, id, "{\"reason\": \"사유\"}").andExpect(status().isNoContent());
+
+		mockMvc.perform(delete("/api/admin/users/" + lee.getId()).with(loginAs(admin)).with(xsrf()))
+			.andExpect(status().isNoContent());
+
+		mockMvc.perform(get("/api/admin/letter-reports").with(loginAs(admin)))
+			.andExpect(jsonPath("$", hasSize(1)))
+			.andExpect(jsonPath("$[0].body").value("신고할 쪽지"))
+			.andExpect(jsonPath("$[0].senderName").value("박민수"))
+			.andExpect(jsonPath("$[0].recipientId").value(nullValue()))
+			.andExpect(jsonPath("$[0].recipientName").value(nullValue()));
+		sent(park).andExpect(jsonPath("$.letters[0].counterpart").value(nullValue()));
+	}
+
+	@Test
 	void 관리자가_아니면_신고를_볼_수_없다() throws Exception {
 		mockMvc.perform(get("/api/admin/letter-reports").with(loginAs(lee))).andExpect(status().isForbidden());
 	}

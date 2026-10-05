@@ -42,9 +42,10 @@ export type AdminLetterReport = {
   senderName: string | null
   senderEmail: string | null
   /** 신고한 사람(= 받은 사람) */
-  recipientId: number
-  recipientName: string
-  recipientEmail: string
+  /** 받은 사람이 강제 탈퇴했으면 null */
+  recipientId: number | null
+  recipientName: string | null
+  recipientEmail: string | null
 }
 
 export type AdminUser = {

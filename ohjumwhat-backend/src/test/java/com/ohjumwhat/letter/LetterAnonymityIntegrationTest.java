@@ -132,6 +132,25 @@ class LetterAnonymityIntegrationTest extends LetterTestBase {
 	}
 
 	@Test
+	void 익명_상대가_강제_탈퇴해도_답장한_사람의_보낸_쪽지함은_그대로다() throws Exception {
+		User admin = new User("sub-admin", "admin@example.com", "관리자", null);
+		admin.promote();
+		admin = userRepository.save(admin);
+		long anonymous = sendOk(park, devId, lee, "누구게요", true);
+		long answer = replyOk(lee, anonymous, "궁금해요");
+
+		mockMvc.perform(delete("/api/admin/users/" + park.getId()).with(loginAs(admin)).with(xsrf()))
+			.andExpect(status().isNoContent());
+
+		// 보낸 답장이 사라지거나 원문 표시가 없어지면 그 익명 상대가 방금 탈퇴했다는 것이 드러난다.
+		sent(lee).andExpect(jsonPath("$.letters", hasSize(1)))
+			.andExpect(jsonPath("$.letters[0].id").value(answer))
+			.andExpect(jsonPath("$.letters[0].counterpartHidden").value(true))
+			.andExpect(jsonPath("$.letters[0].replyTo.id").value(anonymous))
+			.andExpect(jsonPath("$.letters[0].replyTo.preview").value("누구게요"));
+	}
+
+	@Test
 	void 익명_쪽지에서_차단하면_그_쪽지만_숨기고_실명_쪽지는_그대로다() throws Exception {
 		long named = sendOk(park, devId, lee, "실명 쪽지", false);
 		long anonymous = sendOk(park, devId, lee, "익명 쪽지", true);
