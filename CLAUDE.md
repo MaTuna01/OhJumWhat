@@ -89,6 +89,10 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 올리기는 `POST /api/me/photo`(multipart `photo`), 되돌리기는 `DELETE /api/me/photo`다. 브라우저가 512px로 잘라 보내고, 서버(`ProfilePhotoImages`)가 2048px 이하 JPEG·PNG만 받아 256px JPEG로 다시 그린다(EXIF 제거).
   - `photo_key`는 엔티티에서 `updatable=false`이고 `UserRepository.updatePhotoKey`로만 바꾼다. 로그인은 회원 행 전체를 다시 쓰므로, 그러지 않으면 같은 순간의 로그인이 옛 키를 되써서 사진이 깨진다.
   - 새 파일은 DB를 바꾸기 전에 쓰고, 옛 파일은 커밋한 뒤에 지운다(`ProfilePhotoStorage.deleteAfterCommit`). DB가 없는 파일을 가리키는 일은 없고, 실패하면 아무도 가리키지 않는 파일만 남는다.
+- 프로필 소개는 **한줄 소개(`users.bio`, 50자)와 좋아하는 음식(`users.food_tags`, `VARCHAR(10)[]`, 직접 적는 태그 최대 3개)**다(V13, Notion 「17. 프로필 항목 추가」). 같은 조직 멤버가 프로필 모달에서 보고, 응답은 `MeResponse`·`MemberResponse`의 `bio`·`foodTags`(없으면 null·빈 배열)다.
+  - `PUT /api/me/profile {bio, foodTags}`로 통째로 바꾼다(비우면 지운다). 정리 규칙은 `user/ProfileIntro`와 화면의 `lib/profile.ts`가 같다: 앞뒤·연속 공백 정리, 태그 앞의 `#` 제거, 제어 문자 거절, 글자(코드 포인트) 수, 띄어쓰기·대소문자만 다른 태그는 먼저 적은 것만 남긴다.
+  - 두 컬럼도 `photo_key`처럼 엔티티에서 `insertable/updatable=false`이고 `UserRepository.updateIntro`로만 바꾼다(로그인이 옛 소개를 되써서 지우지 않게).
+  - 가입 단계는 없다. 처음 가입하면 마이페이지로 가므로, 소개가 비어 있으면 「내 정보」에 채우기 안내(Figma `03-N2`)를 보여준다.
 - CSRF는 `csrf.spa()` 방식이다. `CsrfCookieFilter`가 매 응답에 `XSRF-TOKEN` 쿠키를 내리고, 프론트 `lib/api.ts`가 GET이 아닌 요청에 `X-XSRF-TOKEN` 헤더로 붙인다.
 - 로그아웃은 `POST /logout`이고 204를 준다.
 - 세션은 Spring Session JDBC로 DB(`spring_session` 테이블, Flyway V2)에 저장한다. 그래서 서버를 재시작·재배포해도 로그인이 유지된다. `SESSION` 쿠키의 유효기간은 30일이다.
@@ -242,7 +246,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 「디자인 시스템」 페이지
     - Foundations 프레임: 로고, 컨셉 컬러, 원색 팔레트, 의미 기반 토큰, 타이포그래피, 간격·둥글기·그림자
     - Components 프레임: Button, Badge, Avatar, OptionCard, Input, Logo, TopBar(「새 소식 점」 속성), UpdateToast, MapPin(지도 핀)
-  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 별명·프로필 사진(`03-N` 마이페이지, `03-M2` 프로필 수정, `03-M3` 사진 맞추기), 지난 투표(`04-H`), 새 소식 배너(`04-B`), 결과 복사(`05b-S`), 패스한 상태(`05-P`, 「✓ 오늘은 패스했어요 · 다시 누르면 취소」), 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제), 식당 붙이기(`05-L`, `05-M4` 식당 모달), 식당 찾기 모달(`05-F`), 투표 지도(`05-G`, 크게 보기 `05-G2`), 메뉴 추천(`05-R`, 지난 식당·고른 식당 칩 `05-R2`), 메뉴 댓글(`05-K` 진행 중, `05b-K` 마감 결과 읽기 전용), 투표 채팅(`05-C` 하단 버튼, `05-C2` 채팅 시트, `05-C3` 닫힌 채팅), 조직 위치(`07-L`, 조직 주소·반경·지도), `08 통계`, `09 새 소식`
+  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 별명·프로필 사진·소개(`03-N` 마이페이지, `03-N2` 소개 비었을 때, `03-M2` 프로필 수정, `03-M3` 사진 맞추기), 멤버 프로필(`07-P`, 소개 없음·나·떠난 멤버 `07-P2`), 지난 투표(`04-H`), 새 소식 배너(`04-B`), 결과 복사(`05b-S`), 패스한 상태(`05-P`, 「✓ 오늘은 패스했어요 · 다시 누르면 취소」), 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제), 식당 붙이기(`05-L`, `05-M4` 식당 모달), 식당 찾기 모달(`05-F`), 투표 지도(`05-G`, 크게 보기 `05-G2`), 메뉴 추천(`05-R`, 지난 식당·고른 식당 칩 `05-R2`), 메뉴 댓글(`05-K` 진행 중, `05b-K` 마감 결과 읽기 전용), 투표 채팅(`05-C` 하단 버튼, `05-C2` 채팅 시트, `05-C3` 닫힌 채팅), 조직 위치(`07-L`, 조직 주소·반경·지도), `08 통계`, `09 새 소식`
   - 「와이어프레임 · 데스크톱」 페이지: 같은 화면의 데스크톱(1440px) 버전(`D01`~`D07-M`, `D03-N`, `D04-H`, `D05-A`, `D05-G`, `D05-G2`, `D05-K`, `D05-C`, `D07-L`, `D08`, `D09`). 모달은 모바일 `-M` 프레임과 같다(큰 지도 모달 `D05-G2`만 넓다).
   - 「관리자 콘솔」 페이지: 관리자 화면(모바일 `A01`~`A08`, 데스크톱 `DA01`~`DA08`, 강제 탈퇴 모달 `-M`, 올린 사진 지우기 `A03-M2`, 공지 글쓰기 모달 `A08-M`, 메뉴 댓글 지우기 `A06-K`, 채팅 지우기 `A06-C`, 차단된 로그인 `L01`)과 로컬 컴포넌트 StatCard·ListRow
     - 콘텐츠 폭 1024px 가운데 정렬. 1024px 이상(`lg`)에서 본문 + 오른쪽 사이드(320px) 2단, 그보다 좁으면 모바일 레이아웃을 쓴다.
@@ -274,7 +278,8 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - MapPin(지도 핀) → `NaverMap`의 `markerElement`: 물방울 핀 끝이 정확한 위치, 이름표는 핀 오른쪽. Tone(조직 위치·내 메뉴·그 밖), Number(식당 찾기 번호, 핀 머리), Show Label(식당 찾기는 고른 식당만 이름표)
   - 모달 크기: `Modal`의 `size="lg"`(폭 1024px, 큰 지도)와 `closable`(제목 옆 ✕). 기본은 448px
   - 멤버 카드(Figma 「멤버 N명」) → `components/MemberList.tsx`(조직 설정, 데스크톱 조직 홈 사이드)
-  - 프로필 수정 모달(03-M2) → `components/ProfileModal.tsx`(사진·이름을 「저장」 한 번에, 사진을 먼저 저장), 사진 맞추기(03-M3) → `components/PhotoCropper.tsx`(계산은 `lib/photoCrop.ts`, 미리보기는 `data:` 주소: CSP가 `blob:` 이미지를 막는다)
+  - 멤버 프로필 모달(07-P·07-P2) → `components/MemberProfileModal.tsx`(소개는 `useMembers` 캐시에서 찾고, 멤버가 아니면 이름·사진만). `OrgLayout`의 `ProfileViewerProvider`(`components/ProfileViewer.tsx`, 훅은 `hooks/useProfileViewer.ts`)가 모달을 하나만 두고, 사람을 누르는 곳은 `ProfileButton`을 쓴다(멤버 목록, `PersonChip`=참여자·미응답자 칩, 댓글·채팅 작성자). `ProfileButton`은 클릭·키 입력을 위로 올려 보내지 않아 메뉴 카드(`role="button"`) 안에서 눌러도 투표가 바뀌지 않고, 모달이 채팅 시트 밖에 있어 닫아도 시트는 그대로다. 조직 화면 밖(관리자 콘솔 등)에서는 글자로만 보인다
+  - 프로필 수정 모달(03-M2) → `components/ProfileModal.tsx`(사진·이름·한줄 소개·좋아하는 음식을 「저장」 한 번에, 사진 → 이름 → 소개 순서로 저장), 좋아하는 음식 입력 → `components/FoodTagInput.tsx`(Enter·쉼표·blur로 추가, 한글 조합 중 Enter는 무시, 더하지 않은 글도 저장에 넣는다), 음식 배지 → `components/FoodTags.tsx`(Badge Brand), 사진 맞추기(03-M3) → `components/PhotoCropper.tsx`(계산은 `lib/photoCrop.ts`, 미리보기는 `data:` 주소: CSP가 `blob:` 이미지를 막는다)
   - 투표 관리 메뉴·모달(05-A, 05-M1~M3) → `components/PollManageMenu.tsx`. 제목·마감 시간 입력은 만들기(04-M)와 수정이 `components/PollForm.tsx`를 같이 쓴다.
   - StatCard·ListRow(관리자 콘솔) → `components/AdminParts.tsx`(`StatCard`, `ListRow`, `ActionRow`, `DangerZone`, `AdminSearch`)
   - TopBar 종 아이콘(「새 소식 점」) → `components/NoticeBell.tsx`, 새 소식 배너(04-B) → `components/NoticeBanner.tsx`, 새 소식 카드의 배지·본문 → `components/NoticeBadge.tsx`·`components/NoticeBody.tsx`
