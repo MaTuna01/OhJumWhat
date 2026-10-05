@@ -140,6 +140,50 @@ class PollIntegrationTest extends IntegrationTest {
 	}
 
 	@Test
+	void 참여나_패스를_취소하면_처음처럼_미응답으로_돌아간다() throws Exception {
+		Long pollId = pollId(createPoll(kim, "점심", "11:50"));
+		Long kimchi = optionId(addOption(kim, pollId, "김치찌개"), "김치찌개");
+		vote(kim, pollId, kimchi);
+		vote(lee, pollId, kimchi);
+
+		cancelVote(kim, pollId)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.myResponse").value("NONE"))
+			.andExpect(jsonPath("$.myOptionId").doesNotExist())
+			.andExpect(jsonPath("$.options[0].voters[*].name", contains("이영희")))
+			.andExpect(jsonPath("$.options[0].deletable").value(false))
+			.andExpect(jsonPath("$.soloOptionIds", contains(kimchi.intValue())))
+			.andExpect(jsonPath("$.nonRespondents[*].name", contains("김철수")));
+
+		cancelVote(lee, pollId)
+			.andExpect(jsonPath("$.myResponse").value("NONE"))
+			.andExpect(jsonPath("$.options[0].voters", empty()))
+			.andExpect(jsonPath("$.soloOptionIds", empty()))
+			.andExpect(jsonPath("$.nonRespondents[*].name", contains("김철수", "이영희")));
+		assertThat(jdbcTemplate.queryForObject("select count(*) from votes", Long.class)).isZero();
+
+		// 참여자가 없어졌으니 추가한 사람은 메뉴를 다시 지울 수 있다
+		mockMvc.perform(get("/api/orgs/" + orgId + "/polls/" + pollId).with(loginAs(kim)))
+			.andExpect(jsonPath("$.options[0].deletable").value(true));
+
+		vote(lee, pollId, null).andExpect(jsonPath("$.passed[*].name", contains("이영희")));
+		cancelVote(lee, pollId)
+			.andExpect(jsonPath("$.myResponse").value("NONE"))
+			.andExpect(jsonPath("$.passed", empty()))
+			.andExpect(jsonPath("$.nonRespondents[*].name", contains("김철수", "이영희")));
+	}
+
+	@Test
+	void 응답하지_않았어도_취소는_그대로_성공한다() throws Exception {
+		Long pollId = pollId(createPoll(kim, "점심", "11:50"));
+
+		cancelVote(lee, pollId)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.myResponse").value("NONE"))
+			.andExpect(jsonPath("$.nonRespondents", hasSize(2)));
+	}
+
+	@Test
 	void 다른_투표의_메뉴로는_참여할_수_없다() throws Exception {
 		Long pollA = pollId(createPoll(kim, "점심", "11:50"));
 		Long pollB = pollId(createPoll(kim, "저녁", "18:00"));
@@ -163,6 +207,7 @@ class PollIntegrationTest extends IntegrationTest {
 			.andExpect(jsonPath("$.status").value("CLOSED"))
 			.andExpect(jsonPath("$.options[1].deletable").value(false));
 		vote(kim, pollId, kimchi).andExpect(status().isConflict()).andExpect(jsonPath("$.message").value("마감된 투표예요."));
+		cancelVote(lee, pollId).andExpect(status().isConflict()).andExpect(jsonPath("$.message").value("마감된 투표예요."));
 		addOption(kim, pollId, "국밥").andExpect(status().isConflict());
 		mockMvc.perform(delete("/api/polls/" + pollId + "/options/" + empty).with(loginAs(kim)).with(xsrf()))
 			.andExpect(status().isConflict());
@@ -202,6 +247,7 @@ class PollIntegrationTest extends IntegrationTest {
 		mockMvc.perform(get("/api/orgs/" + otherOrg + "/polls/" + pollId).with(loginAs(stranger)))
 			.andExpect(status().isNotFound());
 		vote(stranger, pollId, kimchi).andExpect(status().isNotFound());
+		cancelVote(stranger, pollId).andExpect(status().isNotFound());
 		addOption(stranger, pollId, "국밥").andExpect(status().isNotFound());
 		mockMvc.perform(get("/api/orgs/" + orgId + "/polls/today").with(loginAs(stranger)))
 			.andExpect(status().isNotFound());
@@ -410,6 +456,10 @@ class PollIntegrationTest extends IntegrationTest {
 	private ResultActions vote(User user, Long pollId, Long optionId) throws Exception {
 		return mockMvc.perform(put("/api/polls/" + pollId + "/vote").with(loginAs(user)).with(xsrf())
 			.contentType(MediaType.APPLICATION_JSON).content("{\"optionId\": " + optionId + "}"));
+	}
+
+	private ResultActions cancelVote(User user, Long pollId) throws Exception {
+		return mockMvc.perform(delete("/api/polls/" + pollId + "/vote").with(loginAs(user)).with(xsrf()));
 	}
 
 	private static Long pollId(ResultActions result) throws Exception {

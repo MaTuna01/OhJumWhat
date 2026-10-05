@@ -98,7 +98,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 사용자에게 보여줄 오류는 `ApiException`(`notFound`/`badRequest`/`forbidden`/`conflict`)으로 던진다. `GlobalExceptionHandler`가 이를 `{"message": "..."}`로 응답하고, 요청 값 검증 실패(`@Valid`)와 파일 올리기 오류(multipart 아님·파트 없음 400, 한도 초과 413)도 같은 형식으로 준다. 프론트 `api()`는 이 `message`를 `ApiError.message`로 꺼낸다.
 - 조직 하위 API는 먼저 `MembershipService.requireMember(orgId, userId)`를 호출한다. 멤버가 아니면 조직이 있는지도 알리지 않도록 404로 응답한다.
 - 조회용 DTO가 필요하면 JPQL `select new ...Record(...)`로 바로 만든다(예: `MembershipRepository.findMembers`).
-- 투표 관련 쓰기 API(메뉴 추가·삭제, 참여·패스)는 모두 최신 `PollDetailResponse`를 돌려준다. 프론트는 이 응답을 바로 쿼리 캐시에 넣는다. 메뉴 댓글 쓰기 API만 그 메뉴의 최신 댓글 목록을 돌려준다(아래 「메뉴 댓글」).
+- 투표 관련 쓰기 API(메뉴 추가·삭제, 참여·패스·취소)는 모두 최신 `PollDetailResponse`를 돌려준다. 프론트는 이 응답을 바로 쿼리 캐시에 넣는다. 메뉴 댓글 쓰기 API만 그 메뉴의 최신 댓글 목록을 돌려준다(아래 「메뉴 댓글」).
 - 투표 접근은 `PollService.getForMember`로 확인한다. 투표가 없거나 멤버가 아니면 404로 응답한다.
 - 진행 중인 투표에서만 쓰기가 되고, 이 확인은 `PollService.requireOpen`이 한다. 마감되면 409다.
 - 참여는 `VoteRepository.upsert`(native `ON CONFLICT`)로 한 사람 한 행을 유지한다.
@@ -133,6 +133,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 테스트에서는 `ohjumwhat.scheduler.enabled=false`로 백그라운드 실행을 끄고, `ScheduledPollOpener`를 고정된 `TestClock`으로 직접 호출한다.
 - `poll_schedules.days_of_week`는 요일 비트마스크다(월=1 … 일=64, 평일=31). 변환은 `PollSchedule.bitOf`/`runsOn`으로 한다.
 - `votes`는 (poll, user)당 한 행이다. 메뉴를 바꾸면 `option_id`만 갱신한다. `option_id`가 NULL이면 "오늘은 패스"다.
+  - 행이 없으면 미응답이다. 진행 중에는 `DELETE /api/polls/{pollId}/vote`로 응답을 취소해 처음처럼 미응답으로 돌아간다(행을 지운다, 응답이 없어도 같은 응답을 준다). 화면에서는 고른 메뉴 카드나 「✓ 오늘은 패스했어요」를 다시 누르면 취소한다(확인 창 없이 바로).
 - `votes.option_id` FK는 의도적으로 `NO ACTION`이다(RESTRICT 아님). 투표를 CASCADE로 삭제할 때 검사가 문장 끝으로 미뤄지게 하기 위해서다. 참여자가 있는 메뉴를 삭제하지 못하게 막는 검사는 서비스에서 먼저 한다.
 - 메뉴를 추가해도 추가한 사람이 자동으로 참여하지 않는다. 메뉴는 추가한 사람만, 참여자가 0명이고 투표가 진행 중일 때만 삭제할 수 있다. 메뉴 이름은 trim해서 저장하고, (poll, name)은 UNIQUE다.
 - 메뉴의 식당(`menu_options.link_url`·`place_name`·`place_address`·`kakao_place_id`·`place_query`, V4·V7·V8·V9)은 선택이다. 메뉴를 추가할 때 붙이거나, 추가한 사람이 진행 중에 `PUT /api/polls/{pollId}/options/{optionId}/link {link, placeName, placeAddress, kakaoPlaceId, placeQuery}`로 달고 고친다. 지도 링크(이름·주소) **또는** 근처 식당 찾기로 고른 카카오 식당(장소 ID·검색어) 중 하나만 받고(둘 다 오면 400), 둘 다 비면 식당을 뺀다. 화면은 새 탭(`rel="noopener noreferrer"`)으로 연다(Notion 「11. 식당 정보·네이버 지도 연동」, 「15. 식당 검색·네이버 지도 연동」).
@@ -200,7 +201,8 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 
 **투표 화면.**
 - 투표 상세(`PollDetailPage`)는 진행 중일 때 3초마다 폴링하고, 마감 응답을 받으면 결과 모드로 바뀌며 폴링을 멈춘다. 채팅만 WebSocket으로 받고(위 「투표 채팅」), 받기 연결은 결과 모드로 바뀌어도 끊기지 않게 이 화면이 든다.
-- 참여·패스는 `lib/pollDetail.ts`의 `applyVote`로 먼저 화면에 반영(낙관적 업데이트)하고, 실패하면 되돌린다. 이 함수는 서버 `PollService.detail`과 같은 규칙으로 다시 계산하므로, 규칙을 바꿀 때는 둘을 함께 고친다.
+- 참여·패스·취소는 `lib/pollDetail.ts`의 `applyVote`(`VoteChoice` = 메뉴 ID·`'PASS'`·`'NONE'`)로 먼저 화면에 반영(낙관적 업데이트)하고, 실패하면 되돌린다. 이 함수는 서버 `PollService.detail`과 같은 규칙으로 다시 계산하므로, 규칙을 바꿀 때는 둘을 함께 고친다.
+  - `useVote`는 같은 투표의 요청을 mutation `scope`로 묶어 보낸 순서대로 처리한다(빠르게 두 번 누르면 참여 → 취소 순서가 지켜진다). 뒤에 기다리는 요청이 있으면 앞 요청의 응답을 캐시에 넣지 않는다.
 - 화면마다 `useDocumentTitle(...)`로 탭 제목을 붙인다(예: "점심 · 개발팀 · 오점왓"). 없는 경로는 `NotFoundPage`가, 예상하지 못한 렌더링 오류는 `RouteErrorPage`(라우터 errorElement)가 처리한다.
 - 마감 결과의 「결과 복사」는 `lib/share.ts`의 `resultText`(메신저에 붙일 글)와 `copyText`(클립보드, 안 되면 숨긴 입력창)로 한다.
 - 시간 표시는 `lib/time.ts`(한국 시간 기준)를 쓴다. 요일 비트마스크(월=1 … 일=64, 평일=31)는 `lib/daysOfWeek.ts`로 변환한다.
@@ -240,7 +242,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 「디자인 시스템」 페이지
     - Foundations 프레임: 로고, 컨셉 컬러, 원색 팔레트, 의미 기반 토큰, 타이포그래피, 간격·둥글기·그림자
     - Components 프레임: Button, Badge, Avatar, OptionCard, Input, Logo, TopBar(「새 소식 점」 속성), UpdateToast, MapPin(지도 핀)
-  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 별명·프로필 사진(`03-N` 마이페이지, `03-M2` 프로필 수정, `03-M3` 사진 맞추기), 지난 투표(`04-H`), 새 소식 배너(`04-B`), 결과 복사(`05b-S`), 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제), 식당 붙이기(`05-L`, `05-M4` 식당 모달), 식당 찾기 모달(`05-F`), 투표 지도(`05-G`, 크게 보기 `05-G2`), 메뉴 추천(`05-R`, 지난 식당·고른 식당 칩 `05-R2`), 메뉴 댓글(`05-K` 진행 중, `05b-K` 마감 결과 읽기 전용), 투표 채팅(`05-C` 하단 버튼, `05-C2` 채팅 시트, `05-C3` 닫힌 채팅), 조직 위치(`07-L`, 조직 주소·반경·지도), `08 통계`, `09 새 소식`
+  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 별명·프로필 사진(`03-N` 마이페이지, `03-M2` 프로필 수정, `03-M3` 사진 맞추기), 지난 투표(`04-H`), 새 소식 배너(`04-B`), 결과 복사(`05b-S`), 패스한 상태(`05-P`, 「✓ 오늘은 패스했어요 · 다시 누르면 취소」), 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제), 식당 붙이기(`05-L`, `05-M4` 식당 모달), 식당 찾기 모달(`05-F`), 투표 지도(`05-G`, 크게 보기 `05-G2`), 메뉴 추천(`05-R`, 지난 식당·고른 식당 칩 `05-R2`), 메뉴 댓글(`05-K` 진행 중, `05b-K` 마감 결과 읽기 전용), 투표 채팅(`05-C` 하단 버튼, `05-C2` 채팅 시트, `05-C3` 닫힌 채팅), 조직 위치(`07-L`, 조직 주소·반경·지도), `08 통계`, `09 새 소식`
   - 「와이어프레임 · 데스크톱」 페이지: 같은 화면의 데스크톱(1440px) 버전(`D01`~`D07-M`, `D03-N`, `D04-H`, `D05-A`, `D05-G`, `D05-G2`, `D05-K`, `D05-C`, `D07-L`, `D08`, `D09`). 모달은 모바일 `-M` 프레임과 같다(큰 지도 모달 `D05-G2`만 넓다).
   - 「관리자 콘솔」 페이지: 관리자 화면(모바일 `A01`~`A08`, 데스크톱 `DA01`~`DA08`, 강제 탈퇴 모달 `-M`, 올린 사진 지우기 `A03-M2`, 공지 글쓰기 모달 `A08-M`, 메뉴 댓글 지우기 `A06-K`, 채팅 지우기 `A06-C`, 차단된 로그인 `L01`)과 로컬 컴포넌트 StatCard·ListRow
     - 콘텐츠 폭 1024px 가운데 정렬. 1024px 이상(`lg`)에서 본문 + 오른쪽 사이드(320px) 2단, 그보다 좁으면 모바일 레이아웃을 쓴다.
