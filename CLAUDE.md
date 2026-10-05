@@ -41,6 +41,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 5. **`dev` → `main` 승격(릴리스)은 사용자가 결정한다.** 릴리스도 이슈(`[release] vX.Y.Z`)를 만들고 `release/vX.Y.Z` 브랜치에서 버전·CHANGELOG·업데이트 글을 준비한다. 승격 PR 제목은 `[#이슈 번호] - 릴리스 vX.Y.Z: 요약`이고, 본문에 포함한 이슈·PR을 적는다. 릴리스 이슈는 배포·태그까지 마치고 닫는다.
    - 운영 버그를 고치는 승격은 제목 앞에 `[hotfix]`를 붙이고(`[hotfix] [#이슈 번호] - 릴리스 v1.7.1: …`, 라벨 `hotfix`·`bug`), 사용자가 버그 수정으로 알 수 있게 업데이트 글도 적는다.
 - 이 규칙은 이슈 #48부터 적용한다. 그 전 브랜치(`feature/…`)·커밋에는 이슈 번호가 없다.
+- 작업을 완료한 이후엔 개발에 사용한 브랜치를 정리한다.
 
 ## 명령어
 
