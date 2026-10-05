@@ -5,12 +5,13 @@ import Avatar from './Avatar.tsx'
 
 // 관리자 콘솔 공통 부품. Figma 「관리자 콘솔」 페이지의 StatCard·ListRow 컴포넌트와 같다.
 
-/** Figma StatCard: 개요의 숫자 카드 */
-export function StatCard({ label, value }: { label: string; value: number | string }) {
+/** Figma StatCard: 개요의 숫자 카드(Hint는 숫자 아래 안내) */
+export function StatCard({ label, value, hint }: { label: string; value: number | string; hint?: string }) {
   return (
-    <div className="flex flex-col gap-1 rounded-2xl border border-border-default bg-bg-surface p-4">
+    <div className="flex h-full flex-col gap-1 rounded-2xl border border-border-default bg-bg-surface p-4">
       <p className="text-xs text-text-tertiary">{label}</p>
       <p className="text-2xl font-bold tracking-tight">{value}</p>
+      {hint && <p className="text-xs text-text-tertiary">{hint}</p>}
     </div>
   )
 }

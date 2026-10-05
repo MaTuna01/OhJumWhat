@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ohjumwhat.common.ApiException;
+import com.ohjumwhat.letter.LetterReportRepository;
 import com.ohjumwhat.menu.MenuOption;
 import com.ohjumwhat.menu.MenuOptionRepository;
 import com.ohjumwhat.organization.LeaveResponse;
@@ -83,6 +84,8 @@ public class AdminService {
 
 	private final ProfilePhotoStorage photoStorage;
 
+	private final LetterReportRepository letterReportRepository;
+
 	private final ApplicationEventPublisher events;
 
 	private final Clock clock;
@@ -92,7 +95,8 @@ public class AdminService {
 			MembershipRepository membershipRepository, OrganizationService organizationService,
 			PollRepository pollRepository, PollService pollService, MenuOptionRepository menuOptionRepository,
 			VoteRepository voteRepository, PollScheduleRepository scheduleRepository, JdbcTemplate jdbcTemplate,
-			ProfilePhotoStorage photoStorage, ApplicationEventPublisher events, Clock clock) {
+			ProfilePhotoStorage photoStorage, LetterReportRepository letterReportRepository,
+			ApplicationEventPublisher events, Clock clock) {
 		this.adminRepository = adminRepository;
 		this.userRepository = userRepository;
 		this.blockedAccountRepository = blockedAccountRepository;
@@ -106,6 +110,7 @@ public class AdminService {
 		this.scheduleRepository = scheduleRepository;
 		this.jdbcTemplate = jdbcTemplate;
 		this.photoStorage = photoStorage;
+		this.letterReportRepository = letterReportRepository;
 		this.events = events;
 		this.clock = clock;
 	}
@@ -115,7 +120,8 @@ public class AdminService {
 		Instant now = Instant.now(clock);
 		return new AdminResponses.Stats(adminRepository.countUsers(), adminRepository.countOrganizations(),
 				adminRepository.countPollsOn(LocalDate.now(clock)), adminRepository.countOpenPolls(now),
-				adminRepository.countUsersSince(now.minus(7, ChronoUnit.DAYS)), adminRepository.countBlocks());
+				adminRepository.countUsersSince(now.minus(7, ChronoUnit.DAYS)), adminRepository.countBlocks(),
+				letterReportRepository.countOpen());
 	}
 
 	// 회원
@@ -144,7 +150,7 @@ public class AdminService {
 	/**
 	 * 강제 탈퇴: 모든 조직에서 탈퇴(마지막 멤버였던 조직은 삭제) → 같은 구글 계정 차단 → 회원 삭제 → 로그인 세션 만료.
 	 * 회원을 지우면 그 사람의 응답은 모두 지워지고(CASCADE), 올린 메뉴는 작성자만 비운 채 남는다(SET NULL).
-	 * 올린 프로필 사진 파일은 커밋한 뒤에 지운다.
+	 * 올린 프로필 사진 파일은 커밋한 뒤에 지운다. 그 사람이 보낸 쪽지의 열린 신고는 처리 완료로 한다(지우면 보낸 사람을 알 수 없다).
 	 */
 	@Transactional
 	public void withdraw(Long adminId, Long userId) {
@@ -161,6 +167,7 @@ public class AdminService {
 				deletedOrganizations++;
 			}
 		}
+		int resolvedReports = letterReportRepository.resolveOpenAgainst(userId, adminId, Instant.now(clock));
 		BlockedAccount block = blockedAccountRepository.save(new BlockedAccount(user, adminId, Instant.now(clock)));
 		photoStorage.deleteAfterCommit(user.getPhotoKey());
 		userRepository.delete(user);
@@ -168,8 +175,8 @@ public class AdminService {
 		// 세션 저장소 API는 별도 트랜잭션으로 커밋되므로, 같은 트랜잭션에서 지우도록 SQL을 쓴다.
 		int expiredSessions = jdbcTemplate.update("delete from spring_session where principal_name = ?",
 				block.getGoogleSub());
-		log.info("관리자 강제 탈퇴: adminId={}, userId={}, blockId={}, 삭제된 조직 수={}, 만료한 세션 수={}", adminId, userId,
-				block.getId(), deletedOrganizations, expiredSessions);
+		log.info("관리자 강제 탈퇴: adminId={}, userId={}, blockId={}, 삭제된 조직 수={}, 만료한 세션 수={}, 처리한 쪽지 신고 수={}",
+				adminId, userId, block.getId(), deletedOrganizations, expiredSessions, resolvedReports);
 	}
 
 	/** 올린 프로필 사진 지우기(부적절한 사진 대응). 구글 사진으로 돌아가고, 파일은 커밋한 뒤에 지운다. 올린 사진이 없으면 그대로 둔다. */

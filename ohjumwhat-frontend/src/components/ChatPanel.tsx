@@ -3,7 +3,6 @@ import { useChatReading } from '../hooks/useChatReading.ts'
 import type { ChatConnection } from '../hooks/usePollChatSocket.ts'
 import { useNow } from '../hooks/useNow.ts'
 import { CHAT_MAX, chatLength } from '../lib/chat.ts'
-import { linkify } from '../lib/noticeBody.ts'
 import { formatClock } from '../lib/time.ts'
 import { inputClass } from '../lib/ui.ts'
 import { type ChatMessage, useChatMessages, useDeleteMessage, useEditMessage, useLoadOlderMessages, useSendMessage } from '../queries/chat.ts'
@@ -12,7 +11,7 @@ import Avatar from './Avatar.tsx'
 import Button from './Button.tsx'
 import { ChatJumpButton, ListEnd, UnreadDivider } from './ChatUnread.tsx'
 import ConfirmDialog from './ConfirmDialog.tsx'
-import { LinkedLine } from './NoticeBody.tsx'
+import MessageBody from './MessageBody.tsx'
 import { ProfileButton } from './ProfileViewer.tsx'
 
 type Props = {
@@ -167,20 +166,6 @@ export default function ChatPanel({ pollId, chatClosesAt, connection, variant }:
       </ConfirmDialog>
       {variant === 'side' && <ChatJumpButton pollId={pollId} active={reading.inView === false} onClick={reading.reveal} />}
     </section>
-  )
-}
-
-/** 메시지 본문: 줄바꿈을 살리고 http(s) 주소는 새 탭 링크 */
-export function MessageBody({ body }: { body: string }) {
-  return (
-    <>
-      {body.split('\n').map((line, i) => (
-        <span key={i}>
-          {i > 0 && <br />}
-          <LinkedLine line={linkify(line)} />
-        </span>
-      ))}
-    </>
   )
 }
 

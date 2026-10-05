@@ -9,7 +9,7 @@ import { useAdminOrgs, useAdminStats, useAdminUsers } from '../../queries/admin.
 
 const RECENT = 5
 
-/** Figma A01·DA01 관리자 콘솔 개요: 숫자 카드, 최근 가입한 회원, 최근 만든 조직 */
+/** Figma A01·DA01 관리자 콘솔 개요: 숫자 카드(처리할 신고는 신고 탭으로), 최근 가입한 회원, 최근 만든 조직 */
 export default function AdminOverviewPage() {
   const stats = useAdminStats()
   const users = useAdminUsers('')
@@ -24,13 +24,16 @@ export default function AdminOverviewPage() {
       ) : stats.isError ? (
         <p className="text-sm text-text-danger">{stats.error.message}</p>
       ) : (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-7">
           <StatCard label="전체 회원" value={stats.data.userCount} />
           <StatCard label="조직" value={stats.data.organizationCount} />
           <StatCard label="오늘 투표" value={stats.data.todayPollCount} />
           <StatCard label="진행 중 투표" value={stats.data.openPollCount} />
           <StatCard label="최근 7일 가입" value={stats.data.newUserCount} />
           <StatCard label="차단한 계정" value={stats.data.blockedCount} />
+          <Link to="/admin/reports" className="rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-brand">
+            <StatCard label="처리할 신고" value={stats.data.openReportCount} hint="신고 탭 ›" />
+          </Link>
         </div>
       )}
 

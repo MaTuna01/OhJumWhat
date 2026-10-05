@@ -1,4 +1,6 @@
 import { Link, Outlet } from 'react-router'
+import LetterButton from './LetterButton.tsx'
+import { LetterComposerProvider } from './LetterComposer.tsx'
 import Logo from './Logo.tsx'
 import NoticeBell from './NoticeBell.tsx'
 import OrgSwitcher from './OrgSwitcher.tsx'
@@ -10,22 +12,26 @@ const container = 'mx-auto max-w-3xl px-4 lg:max-w-[66rem]'
 
 export default function AppLayout() {
   return (
-    <div className="min-h-dvh">
-      <header className="sticky top-0 z-10 border-b border-border-default bg-bg-surface/90 backdrop-blur">
-        <div className={`${container} flex h-14 items-center gap-2`}>
-          <Link to="/" aria-label="오점왓 홈" className="shrink-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-brand">
-            <Logo size={28} />
-          </Link>
-          <OrgSwitcher />
-          <div className="flex-1" />
-          <NoticeBell />
-          <ProfileMenu />
-        </div>
-      </header>
-      <main className={`${container} py-6 lg:pt-8 lg:pb-10`}>
-        <Outlet />
-      </main>
-      <UpdateToast />
-    </div>
+    // 쪽지 쓰기는 어느 화면에서든(멤버 프로필, 쪽지함) 열 수 있게 앱 전체에 하나만 둔다.
+    <LetterComposerProvider>
+      <div className="min-h-dvh">
+        <header className="sticky top-0 z-10 border-b border-border-default bg-bg-surface/90 backdrop-blur">
+          <div className={`${container} flex h-14 items-center gap-2`}>
+            <Link to="/" aria-label="오점왓 홈" className="shrink-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-brand">
+              <Logo size={28} />
+            </Link>
+            <OrgSwitcher />
+            <div className="flex-1" />
+            <LetterButton />
+            <NoticeBell />
+            <ProfileMenu />
+          </div>
+        </header>
+        <main className={`${container} py-6 lg:pt-8 lg:pb-10`}>
+          <Outlet />
+        </main>
+        <UpdateToast />
+      </div>
+    </LetterComposerProvider>
   )
 }

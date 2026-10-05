@@ -9,9 +9,11 @@ import AdminOrgPage from './pages/admin/AdminOrgPage.tsx'
 import AdminOrgsPage from './pages/admin/AdminOrgsPage.tsx'
 import AdminOverviewPage from './pages/admin/AdminOverviewPage.tsx'
 import AdminPollPage from './pages/admin/AdminPollPage.tsx'
+import AdminReportsPage from './pages/admin/AdminReportsPage.tsx'
 import AdminUserPage from './pages/admin/AdminUserPage.tsx'
 import AdminUsersPage from './pages/admin/AdminUsersPage.tsx'
 import InvitePage from './pages/InvitePage.tsx'
+import LettersPage from './pages/LettersPage.tsx'
 import LoginPage from './pages/LoginPage.tsx'
 import MyPage from './pages/MyPage.tsx'
 import NotFoundPage from './pages/NotFoundPage.tsx'
@@ -40,6 +42,7 @@ export const router = createBrowserRouter([
               { path: '/invite/:token', element: <InvitePage /> },
               { path: '/me', element: <MyPage /> },
               { path: '/notices', element: <NoticesPage /> },
+              { path: '/letters', element: <LettersPage /> },
               {
                 // 조직 화면 공통: 조직 조회(방문 기록)·404 처리·탭
                 path: '/orgs/:orgId',
@@ -65,6 +68,7 @@ export const router = createBrowserRouter([
               { path: 'polls/:pollId', element: <AdminPollPage /> },
               { path: 'blocks', element: <AdminBlocksPage /> },
               { path: 'notices', element: <AdminNoticesPage /> },
+              { path: 'reports', element: <AdminReportsPage /> },
             ],
           },
           { path: '*', element: <NotFoundPage /> },
