@@ -7,6 +7,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -16,6 +17,8 @@ import com.ohjumwhat.auth.LoginUser;
 import com.ohjumwhat.chat.ChatMessageResponse;
 import com.ohjumwhat.chat.ChatMessagesResponse;
 import com.ohjumwhat.chat.ChatService;
+import com.ohjumwhat.letter.LetterReportResponse;
+import com.ohjumwhat.letter.LetterService;
 import com.ohjumwhat.menu.MenuCommentResponse;
 import com.ohjumwhat.menu.MenuCommentService;
 import com.ohjumwhat.organization.LeaveResponse;
@@ -32,10 +35,14 @@ class AdminController {
 
 	private final ChatService chatService;
 
-	AdminController(AdminService adminService, MenuCommentService menuCommentService, ChatService chatService) {
+	private final LetterService letterService;
+
+	AdminController(AdminService adminService, MenuCommentService menuCommentService, ChatService chatService,
+			LetterService letterService) {
 		this.adminService = adminService;
 		this.menuCommentService = menuCommentService;
 		this.chatService = chatService;
+		this.letterService = letterService;
 	}
 
 	@GetMapping("/stats")
@@ -63,6 +70,18 @@ class AdminController {
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	void deleteUserPhoto(@AuthenticationPrincipal LoginUser admin, @PathVariable Long userId) {
 		adminService.deleteUserPhoto(admin.getUserId(), userId);
+	}
+
+	/** 쪽지 신고(받은 사람이 신고한 쪽지만, 익명이어도 실제 보낸 사람까지). status: open(기본)·all */
+	@GetMapping("/letter-reports")
+	List<LetterReportResponse> letterReports(@RequestParam(defaultValue = "open") String status) {
+		return letterService.reportsForAdmin(!"all".equalsIgnoreCase(status));
+	}
+
+	@PostMapping("/letter-reports/{reportId}/resolve")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	void resolveLetterReport(@AuthenticationPrincipal LoginUser admin, @PathVariable Long reportId) {
+		letterService.resolveReport(admin.getUserId(), reportId);
 	}
 
 	@GetMapping("/blocks")

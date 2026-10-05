@@ -27,7 +27,7 @@ export default function OrgSwitcher() {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`조직 전환: ${current?.name ?? '선택 안 됨'}`}
-        className="flex max-w-48 items-center gap-1 rounded-lg px-2 py-1.5 text-sm font-medium text-text-secondary hover:bg-bg-muted focus-visible:outline-2 focus-visible:outline-border-brand"
+        className="flex max-w-48 min-w-0 items-center gap-1 rounded-lg px-2 py-1.5 text-sm font-medium text-text-secondary hover:bg-bg-muted focus-visible:outline-2 focus-visible:outline-border-brand"
       >
         <span className="truncate">{current?.name ?? '조직 선택'}</span>
         <svg viewBox="0 0 20 20" className="size-4 shrink-0 text-text-placeholder" aria-hidden>
