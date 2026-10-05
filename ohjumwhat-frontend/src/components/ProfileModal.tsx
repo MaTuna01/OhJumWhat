@@ -1,33 +1,44 @@
 import { type ChangeEvent, type FormEvent, useRef, useState } from 'react'
 import { ApiError } from '../lib/api.ts'
 import {
-  addFoodTags,
   BIO_MAX_LENGTH,
   canRevertPhoto,
   FOOD_TAG_MAX_LENGTH,
+  FOOD_TAG_RULE,
   FOOD_TAGS_MAX,
   introChange,
   NICKNAME_MAX_LENGTH,
   nicknameChange,
   type PendingPhoto,
+  pendingTags,
   photoChange,
   photoFileError,
   previewPhoto,
   revertPhoto,
 } from '../lib/profile.ts'
+import {
+  type DetailField,
+  type DetailsForm,
+  detailErrors,
+  detailsChange,
+  initialDetailsForm,
+  missingDetailLabels,
+} from '../lib/profileDetails.ts'
 import { inputClass } from '../lib/ui.ts'
-import { type Me, useChangeIntro, useChangeNickname, useChangePhoto } from '../queries/me.ts'
+import { type Me, useChangeDetails, useChangeIntro, useChangeNickname, useChangePhoto } from '../queries/me.ts'
 import Avatar from './Avatar.tsx'
 import Button from './Button.tsx'
 import FoodTagInput, { type FoodTagState } from './FoodTagInput.tsx'
 import Modal from './Modal.tsx'
 import PhotoCropper from './PhotoCropper.tsx'
+import ProfileDetailsFields from './ProfileDetailsFields.tsx'
 
 type View = 'profile' | 'crop'
 
 /**
- * 프로필 수정(Figma 03-M2): 사진·이름·한줄 소개·좋아하는 음식을 한 번에 저장한다. 「사진 올리기」로 고른 사진은
+ * 프로필 수정(Figma 03-M2): 사진·이름·한줄 소개·좋아하는 음식·상세 프로필을 한 번에 저장한다. 「사진 올리기」로 고른 사진은
  * 같은 모달의 「사진 맞추기」(03-M3)에서 맞춘다. 저장 전에는 아무것도 보내지 않으므로 취소하면 그대로다.
+ * 상세 프로필(MBTI·퍼스널컬러·취미·나이·직급)은 모두 필수라, 다 채우기 전에는 사진·이름만 바꿔도 저장할 수 없다(03-M2E).
  */
 export default function ProfileModal({ me, open, onClose }: { me: Me; open: boolean; onClose: () => void }) {
   const [view, setView] = useState<View>('profile')
@@ -52,20 +63,38 @@ function ProfileEditor({ me, view, onViewChange, onClose }: EditorProps) {
   const [pickError, setPickError] = useState<string | null>(null)
   const [bio, setBio] = useState(me.bio ?? '')
   const [food, setFood] = useState<FoodTagState>({ tags: me.foodTags, draft: '', error: null })
+  const [details, setDetails] = useState<DetailsForm>(() => initialDetailsForm(me.details))
+  // 포커스가 한 번 벗어난 항목만 오류를 보여준다(처음 열었을 때부터 빨간 글씨로 가득하지 않게).
+  // 고쳐 본 항목(dirty)은 다른 항목으로 옮겨 가도 오류를 보인다. 버튼·라디오에 포커스를 주지 않는 Safari에서
+  // MBTI·취미 칩만 누르고 다른 칸으로 가면 blur가 일어나지 않기 때문이다.
+  const [touched, setTouched] = useState<ReadonlySet<DetailField>>(new Set())
+  const [dirty, setDirty] = useState<ReadonlySet<DetailField>>(new Set())
   const fileInput = useRef<HTMLInputElement>(null)
   const photo = useChangePhoto()
   const nickname = useChangeNickname()
   const intro = useChangeIntro()
+  const detailsSave = useChangeDetails()
 
   const nameChange = nicknameChange(me, name)
   const change = photoChange(pending)
   // 아직 태그로 더하지 않은 글도 저장할 음식에 넣는다(적고 바로 「저장」을 눌러도 빠지지 않게). 이미 있는 음식은 건너뛴다.
-  const pendingFood = food.draft.trim() ? addFoodTags(food.tags, food.draft) : { tags: food.tags, error: null }
+  const pendingFood = pendingTags(food, FOOD_TAG_RULE)
   const introUpdate = introChange(me, bio, pendingFood.tags)
-  const saving = photo.isPending || nickname.isPending || intro.isPending
-  const saveError = photo.error ?? nickname.error ?? intro.error
+  const errors = detailErrors(details)
+  const detailsIncomplete = Object.keys(errors).length > 0
+  const shownErrors = Object.fromEntries(Object.entries(errors).filter(([field]) => touched.has(field as DetailField)))
+  const detailUpdate = detailsChange(me, details)
+  const saving = photo.isPending || nickname.isPending || intro.isPending || detailsSave.isPending
+  const saveError = photo.error ?? nickname.error ?? intro.error ?? detailsSave.error
 
   const pick = () => fileInput.current?.click()
+
+  const touch = (fields: Iterable<DetailField>) =>
+    setTouched((prev) => {
+      const next = new Set(prev)
+      for (const field of fields) next.add(field)
+      return next.size === prev.size ? prev : next
+    })
 
   const onFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -89,14 +118,17 @@ function ProfileEditor({ me, view, onViewChange, onClose }: EditorProps) {
   const save = async (e: FormEvent) => {
     e.preventDefault()
     if (pendingFood.error) {
+      // 음식 칸은 버튼 줄에서 멀리 있어서, 오류를 띄우고 그 칸으로 데려간다.
       setFood({ ...food, error: pendingFood.error })
+      document.getElementById('food-tag')?.focus()
       return
     }
     photo.reset()
     nickname.reset()
     intro.reset()
+    detailsSave.reset()
     try {
-      // 사진 → 이름 → 소개 순서로 저장한다. 뒤의 것만 실패하면 앞의 것은 저장된 채로 남고,
+      // 사진 → 이름 → 소개 → 상세 프로필 순서로 저장한다. 뒤의 것만 실패하면 앞의 것은 저장된 채로 남고,
       // 다시 저장하면 바뀐 것만 보낸다(me가 응답으로 바뀌므로).
       if (change) {
         await photo.mutateAsync(change)
@@ -108,6 +140,10 @@ function ProfileEditor({ me, view, onViewChange, onClose }: EditorProps) {
       if (introUpdate.changed) {
         await intro.mutateAsync({ bio: introUpdate.bio, foodTags: introUpdate.foodTags })
         setFood({ tags: introUpdate.foodTags, draft: '', error: null })
+      }
+      if (detailUpdate.changed && detailUpdate.details) {
+        const saved = await detailsSave.mutateAsync(detailUpdate.details)
+        setDetails(initialDetailsForm(saved.details))
       }
       onClose()
     } catch {
@@ -217,26 +253,48 @@ function ProfileEditor({ me, view, onViewChange, onClose }: EditorProps) {
             </p>
           </div>
 
-          {saveError && (
-            <p role="alert" className="text-sm text-text-danger">
-              {saveError instanceof ApiError ? saveError.message : '저장하지 못했어요. 연결을 확인하고 다시 시도해 주세요.'}
-            </p>
-          )}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={onClose}>
-              취소
-            </Button>
-            <Button
-              type="submit"
-              disabled={
-                saving ||
-                (!change && !nameChange.changed && !introUpdate.changed) ||
-                nameChange.length > NICKNAME_MAX_LENGTH ||
-                introUpdate.bioLength > BIO_MAX_LENGTH
-              }
-            >
-              저장
-            </Button>
+          <ProfileDetailsFields
+            form={details}
+            onChange={(next, field) => {
+              setDetails(next)
+              setDirty((prev) => (prev.has(field) ? prev : new Set(prev).add(field)))
+            }}
+            errors={shownErrors}
+            onLeave={(field) => touch([field])}
+            onEnter={(field) => touch([...dirty].filter((f) => f !== field))}
+            disabled={saving}
+          />
+
+          {/* 모달이 길어서 내용은 스크롤되고 버튼 줄은 아래에 붙어 있다(Figma 03-M2 Actions sticky).
+              저장 오류도 이 줄 안에 두어 어디까지 스크롤했든 보이게 한다. */}
+          <div className="sticky bottom-0 -mx-5 space-y-2 border-t border-border-default bg-bg-surface px-5 pt-3 pb-1">
+            {saveError && (
+              <p role="alert" className="text-sm text-text-danger">
+                {saveError instanceof ApiError ? saveError.message : '저장하지 못했어요. 연결을 확인하고 다시 시도해 주세요.'}
+              </p>
+            )}
+            {detailsIncomplete && (
+              <p className="text-xs font-medium text-text-secondary">
+                상세 프로필을 모두 채우면 저장할 수 있어요 ({missingDetailLabels(errors)} 남음)
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={onClose}>
+                취소
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  saving ||
+                  detailsIncomplete ||
+                  (!change && !nameChange.changed && !introUpdate.changed && !detailUpdate.changed) ||
+                  nameChange.length > NICKNAME_MAX_LENGTH ||
+                  introUpdate.bioLength > BIO_MAX_LENGTH
+                }
+              >
+                저장
+              </Button>
+            </div>
           </div>
         </form>
       )}

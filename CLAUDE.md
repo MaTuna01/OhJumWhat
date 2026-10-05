@@ -8,6 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - 기획서(요구사항·화면 7개·ERD·삭제 규칙의 원본): Notion 「점심메뉴 선정」 https://app.notion.com/p/3eb11d838f8d802e81dbfcd702c34692
   기획서에는 서비스명이 가칭 "밥팟"으로 적혀 있지만, 정식 이름은 **오점왓**이다. 코드·설정·화면에서는 오점왓/ohjumwhat을 쓴다.
+- 이후 PM을 영입해 협업하기 위해 기획서를 https://app.notion.com/p/92bf482da589416c88ce1307aa8be911?source=copy_link 로 옮겨 진행한다.
 - 구현 계획·진행 현황·남은 단계는 [docs/PLAN.md](docs/PLAN.md)에 있다. 단계를 마치면 이 문서의 진행 현황도 갱신한다.
 - 진행 단계는 같은 페이지의 Tasks DB에 7단계로 등록되어 있다. 단계를 마치면 해당 작업의 상태를 갱신한다.
 - git에 올리지 않는 파일(`.env`, `application.yml`, OAuth JSON, 서버 pem 키)의 실제 내용은 Notion 「개발 필요 파일」 페이지(기획서 하위)에 있다.
@@ -36,7 +37,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 3. **커밋 메시지 첫 줄에 이슈 번호를 꼭 적는다.** 형식은 `[#이슈 번호] - 요약`이다(예: `[#2] - 기능개발`, `[#12] - 근처 식당 찾기 API 추가`). 본문에는 무엇을 왜 바꿨는지 적는다. 이슈 번호를 붙일 수 없는 작업이면 이슈부터 만든다.
 4. **PR은 `dev`로 연다**(`gh pr create --base dev`). 제목은 커밋과 같은 `[#이슈 번호] - 요약`이고, 본문 첫 줄에 `이슈: #이슈 번호`를 적는다.
-   - `dev`에 머지하는 것은 Claude가 직접 해도 된다. 단, 백엔드·프론트 테스트와 빌드를 통과하고 동작 확인을 마친 뒤 PR 체크리스트를 채우고 머지한다. 머지 커밋도 컨벤션을 따르게 제목을 정한다: `gh pr merge --merge --subject "[#이슈 번호] - 요약 (#PR 번호)"`.
+   - `dev`에 머지하는 것은 반드시 검토 후 개발자가 직접 진행하며, 백엔드·프론트 테스트와 빌드를 통과하고 동작 확인을 마친 뒤 PR 체크리스트를 채우고 머지한다. 머지 커밋도 컨벤션을 따르게 제목을 정한다: `gh pr merge --merge --subject "[#이슈 번호] - 요약 (#PR 번호)"`.
    - 머지하면 이슈를 닫는다(`gh issue close <번호> --comment "#<PR 번호>로 dev에 머지"`). `dev`는 기본 브랜치가 아니라 `Closes #N`으로는 닫히지 않는다.
 5. **`dev` → `main` 승격(릴리스)은 사용자가 결정한다.** 릴리스도 이슈(`[release] vX.Y.Z`)를 만들고 `release/vX.Y.Z` 브랜치에서 버전·CHANGELOG·업데이트 글을 준비한다. 승격 PR 제목은 `[#이슈 번호] - 릴리스 vX.Y.Z: 요약`이고, 본문에 포함한 이슈·PR을 적는다. 릴리스 이슈는 배포·태그까지 마치고 닫는다.
    - 운영 버그를 고치는 승격은 제목 앞에 `[hotfix]`를 붙이고(`[hotfix] [#이슈 번호] - 릴리스 v1.7.1: …`, 라벨 `hotfix`·`bug`), 사용자가 버그 수정으로 알 수 있게 업데이트 글도 적는다.
@@ -92,7 +93,12 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 프로필 소개는 **한줄 소개(`users.bio`, 50자)와 좋아하는 음식(`users.food_tags`, `VARCHAR(10)[]`, 직접 적는 태그 최대 3개)**다(V13, Notion 「17. 프로필 항목 추가」). 같은 조직 멤버가 프로필 모달에서 보고, 응답은 `MeResponse`·`MemberResponse`의 `bio`·`foodTags`(없으면 null·빈 배열)다.
   - `PUT /api/me/profile {bio, foodTags}`로 통째로 바꾼다(비우면 지운다). 정리 규칙은 `user/ProfileIntro`와 화면의 `lib/profile.ts`가 같다: 앞뒤·연속 공백 정리, 태그 앞의 `#` 제거, 제어 문자 거절, 글자(코드 포인트) 수, 띄어쓰기·대소문자만 다른 태그는 먼저 적은 것만 남긴다.
   - 두 컬럼도 `photo_key`처럼 엔티티에서 `insertable/updatable=false`이고 `UserRepository.updateIntro`로만 바꾼다(로그인이 옛 소개를 되써서 지우지 않게).
-  - 가입 단계는 없다. 처음 가입하면 마이페이지로 가므로, 소개가 비어 있으면 「내 정보」에 채우기 안내(Figma `03-N2`)를 보여준다.
+  - 가입 단계는 없다. 처음 가입하면 마이페이지로 가므로, 「내 정보」에 채우기 안내를 보여준다(상세 프로필이 비었으면 `03-N4`, 상세 프로필은 채웠고 소개만 비었으면 `03-N2`).
+- 상세 프로필은 **MBTI·퍼스널컬러·취미·나이·직급**(`users.mbti`·`personal_color`·`hobbies VARCHAR(10)[]`·`age SMALLINT`·`job_title`, V15, Notion 「22. 프로필 항목 추가」)이다. 같은 조직 멤버가 프로필 모달에서 보고, 응답은 `MeResponse`·`MemberResponse`·관리자 회원 상세의 `details`(채우지 않았으면 null)다.
+  - **다섯 항목 모두 필수**이고 지우는 기능은 없다. DB CHECK(`ck_users_profile_details`)가 「모두 비었거나 모두 채워졌거나」만 받는다. 「프로필 수정」 모달 안에 있어서, 다 채우기 전에는 사진·이름만 바꿔도 「저장」이 비활성이다(Figma `03-M2E`, 버튼 위에 남은 항목 안내).
+  - `PUT /api/me/profile/details {mbti, personalColor, hobbies, age, jobTitle}`로 통째로 바꾼다(소개 `PUT /api/me/profile`과 따로). 규칙은 `user/ProfileDetails`와 화면의 `lib/profileDetails.ts`가 같다: MBTI는 E/I·S/N·T/F·J/P 4글자(대문자로 저장), 퍼스널컬러는 `PersonalColor` enum(봄 웜·여름 쿨·가을 웜·겨울 쿨, 기획서의 「봄 워터」는 오타로 봤다), 취미는 좋아하는 음식과 같은 태그 규칙(`ProfileText.tags` ↔ `lib/profile.ts addTags`)으로 1~5개·10자, 나이는 1~120 정수, 직급은 1~15자. 오류 문구는 기획서 그대로이고 화면 입력 순서대로 확인해 처음 걸린 항목의 문구로 답한다.
+  - 다섯 컬럼도 엔티티에서 `insertable/updatable=false`이고 `UserRepository.updateDetails`로만 바꾼다(로그인이 옛 값을 되써서 지우지 않게).
+  - 화면의 오류는 그 항목에서 포커스가 벗어난 뒤에만 보인다(MBTI·취미는 묶음 밖으로 벗어날 때). 취미는 아직 태그로 더하지 않은 글도 저장에 넣는다.
 - CSRF는 `csrf.spa()` 방식이다. `CsrfCookieFilter`가 매 응답에 `XSRF-TOKEN` 쿠키를 내리고, 프론트 `lib/api.ts`가 GET이 아닌 요청에 `X-XSRF-TOKEN` 헤더로 붙인다.
 - 로그아웃은 `POST /logout`이고 204를 준다.
 - 세션은 Spring Session JDBC로 DB(`spring_session` 테이블, Flyway V2)에 저장한다. 그래서 서버를 재시작·재배포해도 로그인이 유지된다. `SESSION` 쿠키의 유효기간은 30일이다.
@@ -251,16 +257,17 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - Figma 파일: https://www.figma.com/design/w0OIV1khSVnxlf5KfRo6aP/OhJumWhat
   - 「디자인 시스템」 페이지
     - Foundations 프레임: 로고, 컨셉 컬러, 원색 팔레트, 의미 기반 토큰, 타이포그래피, 간격·둥글기·그림자
-    - Components 프레임: Button, Badge, Avatar, OptionCard, Input, Logo, TopBar(「새 소식 점」 속성), UpdateToast, MapPin(지도 핀), ChatMessage·ChatPanel, Chat Unread(UnreadBadge, ChatPreview, NewMessagesPill, UnreadDivider, ChatButton)
-  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 별명·프로필 사진·소개(`03-N` 마이페이지, `03-N2` 소개 비었을 때, `03-M2` 프로필 수정, `03-M3` 사진 맞추기), 멤버 프로필(`07-P`, 소개 없음·나·떠난 멤버 `07-P2`), 지난 투표(`04-H`), 새 소식 배너(`04-B`), 결과 복사(`05b-S`), 패스한 상태(`05-P`, 「✓ 오늘은 패스했어요 · 다시 누르면 취소」), 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제), 식당 붙이기(`05-L`, `05-M4` 식당 모달), 식당 찾기 모달(`05-F`), 투표 지도(`05-G`, 크게 보기 `05-G2`), 메뉴 추천(`05-R`, 지난 식당·고른 식당 칩 `05-R2`), 메뉴 댓글(`05-K` 진행 중, `05b-K` 마감 결과 읽기 전용), 투표 채팅(`05-C` 하단 버튼·안 읽은 배지, `05-C2` 채팅 시트, `05-C3` 닫힌 채팅, `05-C4` 새 메시지 도착 미리보기, `05-C5` 「여기부터 새 메시지」, `05-C6` 위로 올려 읽는 중 「새 메시지 N ↓」), 조직 홈 안 읽은 채팅(`04-C`), 조직 위치(`07-L`, 조직 주소·반경·지도), `08 통계`, `09 새 소식`
-  - 「와이어프레임 · 데스크톱」 페이지: 같은 화면의 데스크톱(1440px) 버전(`D01`~`D07-M`, `D03-N`, `D04-H`, `D05-A`, `D05-G`, `D05-G2`, `D05-K`, `D05-C`, `D05-C2` 채팅 카드가 화면 밖일 때, `D07-L`, `D08`, `D09`). 모달은 모바일 `-M` 프레임과 같다(큰 지도 모달 `D05-G2`만 넓다).
+    - Components 프레임: Button, Badge, Avatar, OptionCard, Input(Error 포함), Logo, TopBar(「새 소식 점」 속성), UpdateToast, MapPin(지도 핀), ChatMessage·ChatPanel, Chat Unread(UnreadBadge, ChatPreview, NewMessagesPill, UnreadDivider, ChatButton), Profile Details(ChoicePill, MbtiPicker, Select, TagChip, SuggestChip, TagInput, ProfileDetailList)
+  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 별명·프로필 사진·소개·상세 프로필(`03-N` 마이페이지, `03-N2` 소개 비었을 때, `03-N4` 상세 프로필 비었을 때, `03-M2` 프로필 수정(상세 프로필 섹션), `03-M2E` 상세 프로필 비었을 때·오류, `03-M3` 사진 맞추기), 멤버 프로필(`07-P`, 소개 없음·나·떠난 멤버 `07-P2`), 지난 투표(`04-H`), 새 소식 배너(`04-B`), 결과 복사(`05b-S`), 패스한 상태(`05-P`, 「✓ 오늘은 패스했어요 · 다시 누르면 취소」), 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제), 식당 붙이기(`05-L`, `05-M4` 식당 모달), 식당 찾기 모달(`05-F`), 투표 지도(`05-G`, 크게 보기 `05-G2`), 메뉴 추천(`05-R`, 지난 식당·고른 식당 칩 `05-R2`), 메뉴 댓글(`05-K` 진행 중, `05b-K` 마감 결과 읽기 전용), 투표 채팅(`05-C` 하단 버튼·안 읽은 배지, `05-C2` 채팅 시트, `05-C3` 닫힌 채팅, `05-C4` 새 메시지 도착 미리보기, `05-C5` 「여기부터 새 메시지」, `05-C6` 위로 올려 읽는 중 「새 메시지 N ↓」), 조직 홈 안 읽은 채팅(`04-C`), 조직 위치(`07-L`, 조직 주소·반경·지도), `08 통계`, `09 새 소식`
+  - 「와이어프레임 · 데스크톱」 페이지: 같은 화면의 데스크톱(1440px) 버전(`D01`~`D07-M`, `D03-N`, `D03-N4`, `D03-M2`·`D03-M2E` 프로필 수정, `D07-P` 멤버 프로필, `D04-H`, `D05-A`, `D05-G`, `D05-G2`, `D05-K`, `D05-C`, `D05-C2` 채팅 카드가 화면 밖일 때, `D07-L`, `D08`, `D09`). 모달은 모바일 `-M` 프레임과 같다(큰 지도 모달 `D05-G2`만 넓다).
   - 「관리자 콘솔」 페이지: 관리자 화면(모바일 `A01`~`A08`, 데스크톱 `DA01`~`DA08`, 강제 탈퇴 모달 `-M`, 올린 사진 지우기 `A03-M2`, 공지 글쓰기 모달 `A08-M`, 메뉴 댓글 지우기 `A06-K`, 채팅 지우기 `A06-C`, 차단된 로그인 `L01`)과 로컬 컴포넌트 StatCard·ListRow
     - 콘텐츠 폭 1024px 가운데 정렬. 1024px 이상(`lg`)에서 본문 + 오른쪽 사이드(320px) 2단, 그보다 좁으면 모바일 레이아웃을 쓴다.
     - 로그인은 좌우 분할(왼쪽 브랜드 소개·투표 미리보기, 오른쪽 로그인), 모달은 폭 448px이다.
 - **새 화면이나 컴포넌트를 만들 때는 먼저 해당 Figma 프레임을 보고 그대로 구현한다.**
   - 디자인과 다르게 구현해야 하면 이유를 PR에 적는다.
-  - Figma MCP는 데스크톱 연결(`figma-desktop`)을 쓴다. 원격 Figma MCP 계정에는 이 파일의 편집 권한이 없다.
+  - Figma는 원격 Figma 커넥터의 `use_figma`로 그린다(이 계정에 파일 편집 권한이 있다). 부르기 전에 `figma:figma-use` 스킬을 불러온다.
 - **색은 의미 기반 토큰 클래스만 쓴다.**
+  - 입력 오류의 빨간 테두리는 `border-border-danger`(Figma `color/border/danger`)다. `inputClass`가 `aria-invalid`일 때 붙인다.
   - 예: `bg-bg-canvas`, `bg-bg-brand`, `text-text-secondary`, `border-border-default`
   - `stone-*`, `orange-*` 같은 원색 클래스는 화면 코드에서 쓰지 않는다.
   - 토큰은 `ohjumwhat-frontend/src/index.css`의 `@theme`에 있고, Figma `Color` 변수와 이름이 1:1이다(`color/bg/canvas` → `--color-bg-canvas` → `bg-bg-canvas`).
@@ -285,7 +292,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 모달 크기: `Modal`의 `size="lg"`(폭 1024px, 큰 지도)와 `closable`(제목 옆 ✕). 기본은 448px
   - 멤버 카드(Figma 「멤버 N명」) → `components/MemberList.tsx`(조직 설정, 데스크톱 조직 홈 사이드)
   - 멤버 프로필 모달(07-P·07-P2) → `components/MemberProfileModal.tsx`(소개는 `useMembers` 캐시에서 찾고, 멤버가 아니면 이름·사진만). `OrgLayout`의 `ProfileViewerProvider`(`components/ProfileViewer.tsx`, 훅은 `hooks/useProfileViewer.ts`)가 모달을 하나만 두고, 사람을 누르는 곳은 `ProfileButton`을 쓴다(멤버 목록, `PersonChip`=참여자·미응답자 칩, 댓글·채팅 작성자). `ProfileButton`은 클릭·키 입력을 위로 올려 보내지 않아 메뉴 카드(`role="button"`) 안에서 눌러도 투표가 바뀌지 않고, 모달이 채팅 시트 밖에 있어 닫아도 시트는 그대로다. 조직 화면 밖(관리자 콘솔 등)에서는 글자로만 보인다
-  - 프로필 수정 모달(03-M2) → `components/ProfileModal.tsx`(사진·이름·한줄 소개·좋아하는 음식을 「저장」 한 번에, 사진 → 이름 → 소개 순서로 저장), 좋아하는 음식 입력 → `components/FoodTagInput.tsx`(Enter·쉼표·blur로 추가, 한글 조합 중 Enter는 무시, 더하지 않은 글도 저장에 넣는다), 음식 배지 → `components/FoodTags.tsx`(Badge Brand), 사진 맞추기(03-M3) → `components/PhotoCropper.tsx`(계산은 `lib/photoCrop.ts`, 미리보기는 `data:` 주소: CSP가 `blob:` 이미지를 막는다)
+  - 프로필 수정 모달(03-M2) → `components/ProfileModal.tsx`(사진·이름·한줄 소개·좋아하는 음식·상세 프로필을 「저장」 한 번에, 사진 → 이름 → 소개 → 상세 순서로 저장, 버튼 줄은 sticky), 상세 프로필 섹션 → `components/ProfileDetailsFields.tsx`, MbtiPicker·ChoicePill → `components/MbtiPicker.tsx`(줄마다 sr-only 라디오), Select → 네이티브 `<select>` + `inputClass`, TagInput·TagChip·SuggestChip → `components/TagInput.tsx`(Enter·쉼표·blur·「+」로 추가, 한글 조합 중 Enter는 무시, 더하지 않은 글도 저장에 넣는다, 추천 칩은 `ProfileDetailsFields`), 좋아하는 음식 입력 → `components/FoodTagInput.tsx`(TagInput, 10자·3개), ProfileDetailList → `components/ProfileDetailList.tsx`(마이페이지·멤버 프로필·관리자 회원 상세), 음식 배지 → `components/FoodTags.tsx`(Badge Brand), 사진 맞추기(03-M3) → `components/PhotoCropper.tsx`(계산은 `lib/photoCrop.ts`, 미리보기는 `data:` 주소: CSP가 `blob:` 이미지를 막는다)
   - 투표 관리 메뉴·모달(05-A, 05-M1~M3) → `components/PollManageMenu.tsx`. 제목·마감 시간 입력은 만들기(04-M)와 수정이 `components/PollForm.tsx`를 같이 쓴다.
   - StatCard·ListRow(관리자 콘솔) → `components/AdminParts.tsx`(`StatCard`, `ListRow`, `ActionRow`, `DangerZone`, `AdminSearch`)
   - TopBar 종 아이콘(「새 소식 점」) → `components/NoticeBell.tsx`, 새 소식 배너(04-B) → `components/NoticeBanner.tsx`, 새 소식 카드의 배지·본문 → `components/NoticeBadge.tsx`·`components/NoticeBody.tsx`

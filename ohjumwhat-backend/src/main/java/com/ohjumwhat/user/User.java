@@ -59,6 +59,26 @@ public class User {
 	@Column(insertable = false, updatable = false)
 	private String[] foodTags;
 
+	/*
+	 * 상세 프로필(V15): MBTI·퍼스널컬러·취미·나이·직급. 모두 비었거나(채우기 전) 모두 채워져 있다(DB CHECK).
+	 * 소개처럼 엔티티 저장으로 쓰지 않고 UserRepository.updateDetails로만 바꾼다(같은 순간의 로그인이 되쓰지 않게).
+	 */
+	@Column(insertable = false, updatable = false, length = 4)
+	private String mbti;
+
+	@Enumerated(EnumType.STRING)
+	@Column(insertable = false, updatable = false, length = 12)
+	private PersonalColor personalColor;
+
+	@Column(insertable = false, updatable = false)
+	private String[] hobbies;
+
+	@Column(insertable = false, updatable = false)
+	private Short age;
+
+	@Column(insertable = false, updatable = false, length = 15)
+	private String jobTitle;
+
 	// DB 기본값은 Hibernate가 INSERT에 컬럼을 넣으므로 쓰이지 않는다. 여기서 기본값을 둔다.
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
@@ -178,7 +198,17 @@ public class User {
 
 	/** DB 배열을 목록으로. JPQL로 u.foodTags를 고르는 DTO도 이것으로 바꾼다. */
 	public static List<String> foodTags(String[] foodTags) {
-		return foodTags == null ? List.of() : List.of(foodTags);
+		return tagList(foodTags);
+	}
+
+	/** 태그 배열(좋아하는 음식, 취미)을 목록으로. 아직 읽지 않았으면(null) 빈 목록 */
+	public static List<String> tagList(String[] tags) {
+		return tags == null ? List.of() : List.of(tags);
+	}
+
+	/** 상세 프로필. 채우지 않았으면 null */
+	public ProfileDetailsResponse getDetails() {
+		return ProfileDetailsResponse.of(mbti, personalColor, hobbies, age, jobTitle);
 	}
 
 	public Role getRole() {

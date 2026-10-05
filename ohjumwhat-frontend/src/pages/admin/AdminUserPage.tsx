@@ -7,6 +7,7 @@ import Button from '../../components/Button.tsx'
 import ConfirmDialog from '../../components/ConfirmDialog.tsx'
 import FoodTags from '../../components/FoodTags.tsx'
 import { PageLoader, PageMessage, Section } from '../../components/PageState.tsx'
+import ProfileDetailList from '../../components/ProfileDetailList.tsx'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.ts'
 import { useNow } from '../../hooks/useNow.ts'
 import { ApiError } from '../../lib/api.ts'
@@ -44,7 +45,7 @@ export default function AdminUserPage() {
   if (detail.isError) return <PageMessage title="회원 정보를 불러오지 못했어요">{detail.error.message}</PageMessage>
   if (detail.isPending) return <PageLoader />
 
-  const { user, bio, foodTags, organizations, activity, lastAccessAt } = detail.data
+  const { user, bio, foodTags, details, organizations, activity, lastAccessAt } = detail.data
   const soloOrgs = organizations.filter((o) => o.memberCount <= 1).length
   const isAdmin = user.role === 'ADMIN'
 
@@ -90,7 +91,9 @@ export default function AdminUserPage() {
                   )
                 }
               />
+              {!details && <InfoRow label="상세 프로필" value="없음" />}
             </dl>
+            {details && <ProfileDetailList details={details} />}
           </section>
 
           <div className="grid grid-cols-3 gap-3">

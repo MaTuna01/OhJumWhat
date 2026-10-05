@@ -21,9 +21,26 @@ export type Me = {
   bio: string | null
   /** 좋아하는 음식(적은 순서, 최대 3개). 없으면 빈 배열 */
   foodTags: string[]
+  /** 상세 프로필(MBTI·퍼스널컬러·취미·나이·직급). 채우지 않았으면 null */
+  details: ProfileDetails | null
   lastVisitedOrgId: number | null
   /** 관리자면 프로필 메뉴에 관리자 콘솔이 보인다 */
   admin: boolean
+}
+
+export type PersonalColor = 'SPRING_WARM' | 'SUMMER_COOL' | 'AUTUMN_WARM' | 'WINTER_COOL'
+
+/** 상세 프로필(Notion 「22. 프로필 항목 추가」). 다섯 항목은 함께 채워지고 함께 비어 있다. */
+export type ProfileDetails = {
+  /** 예: ENFP */
+  mbti: string
+  personalColor: PersonalColor
+  /** 취미(적은 순서, 1~5개) */
+  hobbies: string[]
+  /** 1~120 */
+  age: number
+  /** 직급(15자) */
+  jobTitle: string
 }
 
 export const meQueryKey = ['me'] as const
@@ -72,6 +89,15 @@ export function useChangeIntro() {
   return useMutation({
     mutationFn: (intro: { bio: string | null; foodTags: string[] }) =>
       api<Me>('/api/me/profile', { method: 'PUT', body: intro }),
+    onSuccess: (me) => applyMe(queryClient, me),
+  })
+}
+
+/** 상세 프로필 정하기(다섯 항목 모두 필수, 통째로 바꾼다) */
+export function useChangeDetails() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (details: ProfileDetails) => api<Me>('/api/me/profile/details', { method: 'PUT', body: details }),
     onSuccess: (me) => applyMe(queryClient, me),
   })
 }

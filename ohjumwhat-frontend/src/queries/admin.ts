@@ -2,6 +2,7 @@ import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClie
 import { api } from '../lib/api.ts'
 import type { ChatMessage, ChatPage } from './chat.ts'
 import type { MenuComment } from './comments.ts'
+import type { ProfileDetails } from './me.ts'
 import type { Notice } from './notices.ts'
 import type { PollDetail, PollStatus } from './polls.ts'
 import type { Schedule } from './schedules.ts'
@@ -43,6 +44,8 @@ export type AdminUserDetail = {
   bio: string | null
   /** 좋아하는 음식(없으면 빈 배열) */
   foodTags: string[]
+  /** 상세 프로필(채우지 않았으면 null) */
+  details: ProfileDetails | null
   /** 세션의 마지막 요청 시각(최근 접속) */
   lastAccessAt: string | null
   organizations: { id: number; name: string; memberCount: number; joinedAt: string; lastVisitedAt: string | null }[]

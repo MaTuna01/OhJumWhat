@@ -7,6 +7,7 @@ import FoodTags from '../components/FoodTags.tsx'
 import LeaveOrgDialog from '../components/LeaveOrgDialog.tsx'
 import NoticeBanner from '../components/NoticeBanner.tsx'
 import { PageLoader, Section } from '../components/PageState.tsx'
+import ProfileDetailList from '../components/ProfileDetailList.tsx'
 import ProfileModal from '../components/ProfileModal.tsx'
 import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { buttonClass, columnsClass } from '../lib/ui.ts'
@@ -55,20 +56,26 @@ export default function MyPage() {
               <FoodTags tags={me.foodTags} />
             </div>
           ) : (
-            // 처음 가입하면 이 화면으로 오므로 가입 단계 대신 여기서 소개를 채우게 안내한다(Figma 03-N2).
-            <div className="mt-4 flex items-center gap-3 rounded-xl bg-bg-subtle px-3.5 py-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">한줄 소개를 써 보세요</p>
-                <p className="mt-0.5 text-xs text-text-tertiary">좋아하는 음식과 함께 같은 조직 멤버에게 보여요.</p>
-              </div>
-              <button
-                type="button"
+            // 소개 안내(03-N2)는 상세 프로필을 채운 뒤에 보인다. 상세 프로필이 비었으면 그 안내(03-N4)가 먼저다.
+            me.details && (
+              <FillPrompt
+                title="한줄 소개를 써 보세요"
+                description="좋아하는 음식과 함께 같은 조직 멤버에게 보여요."
+                action="소개 쓰기"
                 onClick={() => setEditing(true)}
-                className="shrink-0 rounded text-sm font-medium text-text-brand hover:underline focus-visible:outline-2 focus-visible:outline-border-brand"
-              >
-                소개 쓰기
-              </button>
-            </div>
+              />
+            )
+          )}
+          {me.details ? (
+            <ProfileDetailList details={me.details} className="mt-4" />
+          ) : (
+            // 가입 단계가 없어서 처음 가입한 사람·기존 회원 모두 여기서 채우게 안내한다(Figma 03-N4).
+            <FillPrompt
+              title="상세 프로필을 채워 주세요"
+              description="MBTI·퍼스널컬러·취미·나이·직급을 채우면 같은 조직 멤버에게 보여요. 다 채워야 프로필을 저장할 수 있어요."
+              action="채우기"
+              onClick={() => setEditing(true)}
+            />
           )}
         </Section>
 
@@ -126,6 +133,25 @@ export default function MyPage() {
       <CreateOrgModal open={creating} onClose={() => setCreating(false)} />
       <LeaveOrgDialog org={leaving} onClose={() => setLeaving(null)} />
       <ProfileModal me={me} open={editing} onClose={() => setEditing(false)} />
+    </div>
+  )
+}
+
+/** 「내 정보」의 채우기 안내(Figma 03-N2 소개, 03-N4 상세 프로필). 누르면 「프로필 수정」을 연다. */
+function FillPrompt({ title, description, action, onClick }: { title: string; description: string; action: string; onClick: () => void }) {
+  return (
+    <div className="mt-4 flex items-center gap-3 rounded-xl bg-bg-subtle px-3.5 py-3">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium">{title}</p>
+        <p className="mt-0.5 text-xs text-text-tertiary">{description}</p>
+      </div>
+      <button
+        type="button"
+        onClick={onClick}
+        className="shrink-0 rounded text-sm font-medium text-text-brand hover:underline focus-visible:outline-2 focus-visible:outline-border-brand"
+      >
+        {action}
+      </button>
     </div>
   )
 }

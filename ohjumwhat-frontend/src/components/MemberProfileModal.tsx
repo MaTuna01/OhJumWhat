@@ -5,6 +5,7 @@ import type { Person } from '../queries/polls.ts'
 import Avatar from './Avatar.tsx'
 import FoodTags from './FoodTags.tsx'
 import Modal from './Modal.tsx'
+import ProfileDetailList from './ProfileDetailList.tsx'
 
 type Props = {
   orgId: number
@@ -13,7 +14,7 @@ type Props = {
   onClose: () => void
 }
 
-/** 멤버 프로필(Figma 07-P·07-P2): 사진·이름·한줄 소개·좋아하는 음식. 보기 전용이라 ✕로 닫는다. */
+/** 멤버 프로필(Figma 07-P·07-P2): 사진·이름·한줄 소개·좋아하는 음식·상세 프로필. 보기 전용이라 ✕로 닫는다. */
 export default function MemberProfileModal({ orgId, person, onClose }: Props) {
   return (
     <Modal open={person !== null} onClose={onClose} title="프로필" closable>
@@ -32,7 +33,7 @@ function MemberProfile({ orgId, person }: { orgId: number; person: Person }) {
   const member = members.data?.find((m) => m.userId === person.userId)
   const name = member?.name ?? person.name
   const isMe = person.userId === me?.id
-  const hasIntro = member != null && (member.bio != null || member.foodTags.length > 0)
+  const hasIntro = member != null && (member.bio != null || member.foodTags.length > 0 || member.details != null)
 
   return (
     <div className="flex flex-col items-center gap-3 pb-1 text-center">
@@ -58,6 +59,7 @@ function MemberProfile({ orgId, person }: { orgId: number; person: Person }) {
               <FoodTags tags={member.foodTags} className="justify-center" />
             </div>
           )}
+          {member.details && <ProfileDetailList details={member.details} className="w-full" />}
         </>
       ) : (
         <p className="text-sm text-text-tertiary">아직 소개가 없어요</p>

@@ -136,7 +136,7 @@ public class AdminService {
 				user.getGoogleSub());
 		AdminResponses.Activity activity = new AdminResponses.Activity(adminRepository.countPollsCreatedBy(userId),
 				adminRepository.countMenusAddedBy(userId), adminRepository.countResponsesBy(userId));
-		return new AdminResponses.UserDetail(row, user.getBio(), user.getFoodTags(),
+		return new AdminResponses.UserDetail(row, user.getBio(), user.getFoodTags(), user.getDetails(),
 				lastAccess == null ? null : Instant.ofEpochMilli(lastAccess), adminRepository.findOrganizationsOfUser(userId),
 				activity);
 	}
