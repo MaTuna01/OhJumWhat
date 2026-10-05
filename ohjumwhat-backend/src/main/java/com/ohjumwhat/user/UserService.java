@@ -119,6 +119,21 @@ public class UserService {
 	}
 
 	/**
+	 * 한줄 소개와 좋아하는 음식을 함께 바꾼다(통째로 바꾸기, 비우면 지운다). 로그인과 겹쳐도 되쓰이지 않게
+	 * 엔티티가 아니라 update 쿼리로 저장한다.
+	 */
+	@Transactional
+	public MeResponse changeIntro(Long userId, String rawBio, List<String> rawFoodTags) {
+		String bio = ProfileIntro.bio(rawBio);
+		List<String> foodTags = ProfileIntro.foodTags(rawFoodTags);
+		if (userRepository.updateIntro(userId, bio, foodTags.toArray(String[]::new)) == 0) {
+			throw ApiException.unauthorized("다시 로그인해 주세요.");
+		}
+		log.info("프로필 소개 변경: userId={}, 소개 있음={}, 음식 {}개", userId, bio != null, foodTags.size());
+		return toMe(findMe(userId));
+	}
+
+	/**
 	 * 올린 프로필 사진의 키를 바꾼다(null이면 구글 사진으로 돌아간다). 새 파일은 ProfilePhotoService가 미리 써 두고,
 	 * 옛 파일은 커밋한 뒤에 지운다. 같은 회원의 강제 탈퇴·관리자 사진 지우기와 겹치지 않게 행을 잠근다.
 	 */
@@ -145,7 +160,7 @@ public class UserService {
 			.orElse(null);
 		return new MeResponse(user.getId(), user.getDisplayName(), user.getNickname(), user.getName(),
 				user.getEmail(), user.getPhotoUrl(), user.getProfileImageUrl(), user.getPhotoKey() != null,
-				lastVisitedOrgId, user.isAdmin());
+				user.getBio(), user.getFoodTags(), lastVisitedOrgId, user.isAdmin());
 	}
 
 	private void requireNotBlocked(String googleSub) {

@@ -5,6 +5,7 @@ import Avatar from '../../components/Avatar.tsx'
 import Badge from '../../components/Badge.tsx'
 import Button from '../../components/Button.tsx'
 import ConfirmDialog from '../../components/ConfirmDialog.tsx'
+import FoodTags from '../../components/FoodTags.tsx'
 import { PageLoader, PageMessage, Section } from '../../components/PageState.tsx'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.ts'
 import { useNow } from '../../hooks/useNow.ts'
@@ -43,7 +44,7 @@ export default function AdminUserPage() {
   if (detail.isError) return <PageMessage title="회원 정보를 불러오지 못했어요">{detail.error.message}</PageMessage>
   if (detail.isPending) return <PageLoader />
 
-  const { user, organizations, activity, lastAccessAt } = detail.data
+  const { user, bio, foodTags, organizations, activity, lastAccessAt } = detail.data
   const soloOrgs = organizations.filter((o) => o.memberCount <= 1).length
   const isAdmin = user.role === 'ADMIN'
 
@@ -65,6 +66,8 @@ export default function AdminUserPage() {
             </div>
             <dl className="space-y-2 text-sm">
               {user.googleName !== user.name && <InfoRow label="구글 이름" value={user.googleName} />}
+              <InfoRow label="한줄 소개" value={bio ?? '없음'} />
+              <InfoRow label="좋아하는 음식" value={foodTags.length > 0 ? <FoodTags tags={foodTags} className="justify-end" /> : '없음'} />
               <InfoRow label="가입" value={formatDate(user.createdAt)} />
               <InfoRow label="최근 로그인" value={user.lastLoginAt ? formatDayTime(user.lastLoginAt, now) : '기록 없음'} />
               <InfoRow label="최근 접속" value={lastAccessAt ? formatAgo(lastAccessAt, now) : '로그인 세션 없음'} />
@@ -170,8 +173,8 @@ export default function AdminUserPage() {
 function InfoRow({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex justify-between gap-4">
-      <dt className="text-text-tertiary">{label}</dt>
-      <dd className="text-right">{value}</dd>
+      <dt className="shrink-0 text-text-tertiary">{label}</dt>
+      <dd className="min-w-0 text-right break-words">{value}</dd>
     </div>
   )
 }

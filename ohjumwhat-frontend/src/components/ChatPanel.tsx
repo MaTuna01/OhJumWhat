@@ -1,4 +1,5 @@
 import { type FormEvent, type KeyboardEvent, useLayoutEffect, useRef, useState } from 'react'
+import { useChatReading } from '../hooks/useChatReading.ts'
 import type { ChatConnection } from '../hooks/usePollChatSocket.ts'
 import { useNow } from '../hooks/useNow.ts'
 import { CHAT_MAX, chatLength } from '../lib/chat.ts'
@@ -9,8 +10,10 @@ import { type ChatMessage, useChatMessages, useDeleteMessage, useEditMessage, us
 import { useMe } from '../queries/me.ts'
 import Avatar from './Avatar.tsx'
 import Button from './Button.tsx'
+import { ChatJumpButton, ListEnd, UnreadDivider } from './ChatUnread.tsx'
 import ConfirmDialog from './ConfirmDialog.tsx'
 import { LinkedLine } from './NoticeBody.tsx'
+import { ProfileButton } from './ProfileViewer.tsx'
 
 type Props = {
   pollId: number
@@ -25,6 +28,7 @@ type Props = {
  * Figma ChatPanel(05-C2·05-C3·D05-C): 투표 채팅. 보내기·고치기·지우기는 REST, 받기는 WebSocket(usePollChatSocket)이다.
  * 남의 글은 왼쪽(아바타·이름), 내 글은 오른쪽(채팅이 열려 있을 때 고치기·삭제), 지운 글은 「삭제된 메시지예요」.
  * 아래에 붙어 있으면 새 메시지가 올 때 따라 내려간다.
+ * 안 읽은 메시지(useChatReading): 열 때 「여기부터 새 메시지」, 위로 올려 읽는 중이면 「새 메시지 N ↓」, 데스크톱 카드가 화면 밖이면 떠 있는 버튼.
  */
 export default function ChatPanel({ pollId, chatClosesAt, connection, variant }: Props) {
   const { data: me } = useMe()
@@ -39,6 +43,7 @@ export default function ChatPanel({ pollId, chatClosesAt, connection, variant }:
   const [removing, setRemoving] = useState<ChatMessage | null>(null)
   const listRef = useRef<HTMLUListElement>(null)
   const atBottom = useRef(true)
+  const reading = useChatReading(pollId, listRef, atBottom)
   const messages = chat.data?.messages ?? []
   const lastId = messages.at(-1)?.id
 
@@ -71,6 +76,7 @@ export default function ChatPanel({ pollId, chatClosesAt, connection, variant }:
         onScroll={(e) => {
           const list = e.currentTarget
           atBottom.current = list.scrollHeight - list.scrollTop - list.clientHeight < 80
+          reading.onScroll()
         }}
         className={`space-y-3 overflow-y-auto overscroll-contain ${variant === 'side' ? 'max-h-96' : 'min-h-0 flex-1'}`}
         aria-live="polite"
@@ -99,7 +105,8 @@ export default function ChatPanel({ pollId, chatClosesAt, connection, variant }:
         {messages.map((message) => {
           const mine = message.author != null && message.author.userId === me?.id
           return (
-            <li key={message.id}>
+            <li key={message.id} className={`rounded-xl transition-colors duration-700 ${reading.freshIds.has(message.id) ? 'bg-bg-brand-soft' : ''}`}>
+              {reading.dividerId === message.id && <UnreadDivider />}
               {open && editingId === message.id ? (
                 <MessageForm
                   initial={message.body ?? ''}
@@ -124,6 +131,7 @@ export default function ChatPanel({ pollId, chatClosesAt, connection, variant }:
             </li>
           )
         })}
+        <ListEnd sentinelRef={reading.sentinelRef} newLabel={reading.showNewPill ? reading.unreadLabel : ''} onJump={reading.scrollToBottom} />
       </ul>
 
       {open ? (
@@ -157,6 +165,7 @@ export default function ChatPanel({ pollId, chatClosesAt, connection, variant }:
         <p className="break-words whitespace-pre-wrap">「{removing?.body}」</p>
         <p className="mt-2">채팅에는 「삭제된 메시지예요」로 남아요.</p>
       </ConfirmDialog>
+      {variant === 'side' && <ChatJumpButton pollId={pollId} active={reading.inView === false} onClick={reading.reveal} />}
     </section>
   )
 }
@@ -219,10 +228,14 @@ function MessageItem({ message, mine, onEdit, onDelete }: { message: ChatMessage
   }
   return (
     <div className="flex gap-2 pr-8">
-      <Avatar name={name} imageUrl={message.author?.profileImageUrl} size="sm" />
+      <ProfileButton person={message.author} focusable={false} className="h-fit shrink-0 rounded-full">
+        <Avatar name={name} imageUrl={message.author?.profileImageUrl} size="sm" />
+      </ProfileButton>
       <div className="flex min-w-0 flex-col items-start gap-1">
         <div className="flex items-baseline gap-1.5 text-xs">
-          <span className="font-medium text-text-primary">{name}</span>
+          <ProfileButton person={message.author} className="rounded font-medium text-text-primary hover:underline">
+            {name}
+          </ProfileButton>
           {time}
         </div>
         {bubble}

@@ -123,6 +123,12 @@ public class PollController {
 		return voteService.vote(pollId, loginUser.getUserId(), request.optionId());
 	}
 
+	/** 참여·패스 취소(미응답으로) */
+	@DeleteMapping("/api/polls/{pollId}/vote")
+	PollDetailResponse cancelVote(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId) {
+		return voteService.cancel(pollId, loginUser.getUserId());
+	}
+
 	/**
 	 * @param link 식당 지도 링크(선택). 지도 앱의 공유 문구를 통째로 붙여도 된다.
 	 * @param placeName 식당 이름(선택, 링크가 있을 때만 저장). 공백을 정리한 뒤 100자까지

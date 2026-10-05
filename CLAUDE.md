@@ -41,6 +41,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 5. **`dev` → `main` 승격(릴리스)은 사용자가 결정한다.** 릴리스도 이슈(`[release] vX.Y.Z`)를 만들고 `release/vX.Y.Z` 브랜치에서 버전·CHANGELOG·업데이트 글을 준비한다. 승격 PR 제목은 `[#이슈 번호] - 릴리스 vX.Y.Z: 요약`이고, 본문에 포함한 이슈·PR을 적는다. 릴리스 이슈는 배포·태그까지 마치고 닫는다.
    - 운영 버그를 고치는 승격은 제목 앞에 `[hotfix]`를 붙이고(`[hotfix] [#이슈 번호] - 릴리스 v1.7.1: …`, 라벨 `hotfix`·`bug`), 사용자가 버그 수정으로 알 수 있게 업데이트 글도 적는다.
 - 이 규칙은 이슈 #48부터 적용한다. 그 전 브랜치(`feature/…`)·커밋에는 이슈 번호가 없다.
+- 작업을 완료한 이후엔 개발에 사용한 브랜치를 정리한다.
 
 ## 명령어
 
@@ -88,6 +89,10 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 올리기는 `POST /api/me/photo`(multipart `photo`), 되돌리기는 `DELETE /api/me/photo`다. 브라우저가 512px로 잘라 보내고, 서버(`ProfilePhotoImages`)가 2048px 이하 JPEG·PNG만 받아 256px JPEG로 다시 그린다(EXIF 제거).
   - `photo_key`는 엔티티에서 `updatable=false`이고 `UserRepository.updatePhotoKey`로만 바꾼다. 로그인은 회원 행 전체를 다시 쓰므로, 그러지 않으면 같은 순간의 로그인이 옛 키를 되써서 사진이 깨진다.
   - 새 파일은 DB를 바꾸기 전에 쓰고, 옛 파일은 커밋한 뒤에 지운다(`ProfilePhotoStorage.deleteAfterCommit`). DB가 없는 파일을 가리키는 일은 없고, 실패하면 아무도 가리키지 않는 파일만 남는다.
+- 프로필 소개는 **한줄 소개(`users.bio`, 50자)와 좋아하는 음식(`users.food_tags`, `VARCHAR(10)[]`, 직접 적는 태그 최대 3개)**다(V13, Notion 「17. 프로필 항목 추가」). 같은 조직 멤버가 프로필 모달에서 보고, 응답은 `MeResponse`·`MemberResponse`의 `bio`·`foodTags`(없으면 null·빈 배열)다.
+  - `PUT /api/me/profile {bio, foodTags}`로 통째로 바꾼다(비우면 지운다). 정리 규칙은 `user/ProfileIntro`와 화면의 `lib/profile.ts`가 같다: 앞뒤·연속 공백 정리, 태그 앞의 `#` 제거, 제어 문자 거절, 글자(코드 포인트) 수, 띄어쓰기·대소문자만 다른 태그는 먼저 적은 것만 남긴다.
+  - 두 컬럼도 `photo_key`처럼 엔티티에서 `insertable/updatable=false`이고 `UserRepository.updateIntro`로만 바꾼다(로그인이 옛 소개를 되써서 지우지 않게).
+  - 가입 단계는 없다. 처음 가입하면 마이페이지로 가므로, 소개가 비어 있으면 「내 정보」에 채우기 안내(Figma `03-N2`)를 보여준다.
 - CSRF는 `csrf.spa()` 방식이다. `CsrfCookieFilter`가 매 응답에 `XSRF-TOKEN` 쿠키를 내리고, 프론트 `lib/api.ts`가 GET이 아닌 요청에 `X-XSRF-TOKEN` 헤더로 붙인다.
 - 로그아웃은 `POST /logout`이고 204를 준다.
 - 세션은 Spring Session JDBC로 DB(`spring_session` 테이블, Flyway V2)에 저장한다. 그래서 서버를 재시작·재배포해도 로그인이 유지된다. `SESSION` 쿠키의 유효기간은 30일이다.
@@ -97,7 +102,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 사용자에게 보여줄 오류는 `ApiException`(`notFound`/`badRequest`/`forbidden`/`conflict`)으로 던진다. `GlobalExceptionHandler`가 이를 `{"message": "..."}`로 응답하고, 요청 값 검증 실패(`@Valid`)와 파일 올리기 오류(multipart 아님·파트 없음 400, 한도 초과 413)도 같은 형식으로 준다. 프론트 `api()`는 이 `message`를 `ApiError.message`로 꺼낸다.
 - 조직 하위 API는 먼저 `MembershipService.requireMember(orgId, userId)`를 호출한다. 멤버가 아니면 조직이 있는지도 알리지 않도록 404로 응답한다.
 - 조회용 DTO가 필요하면 JPQL `select new ...Record(...)`로 바로 만든다(예: `MembershipRepository.findMembers`).
-- 투표 관련 쓰기 API(메뉴 추가·삭제, 참여·패스)는 모두 최신 `PollDetailResponse`를 돌려준다. 프론트는 이 응답을 바로 쿼리 캐시에 넣는다. 메뉴 댓글 쓰기 API만 그 메뉴의 최신 댓글 목록을 돌려준다(아래 「메뉴 댓글」).
+- 투표 관련 쓰기 API(메뉴 추가·삭제, 참여·패스·취소)는 모두 최신 `PollDetailResponse`를 돌려준다. 프론트는 이 응답을 바로 쿼리 캐시에 넣는다. 메뉴 댓글 쓰기 API만 그 메뉴의 최신 댓글 목록을 돌려준다(아래 「메뉴 댓글」).
 - 투표 접근은 `PollService.getForMember`로 확인한다. 투표가 없거나 멤버가 아니면 404로 응답한다.
 - 진행 중인 투표에서만 쓰기가 되고, 이 확인은 `PollService.requireOpen`이 한다. 마감되면 409다.
 - 참여는 `VoteRepository.upsert`(native `ON CONFLICT`)로 한 사람 한 행을 유지한다.
@@ -132,6 +137,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 테스트에서는 `ohjumwhat.scheduler.enabled=false`로 백그라운드 실행을 끄고, `ScheduledPollOpener`를 고정된 `TestClock`으로 직접 호출한다.
 - `poll_schedules.days_of_week`는 요일 비트마스크다(월=1 … 일=64, 평일=31). 변환은 `PollSchedule.bitOf`/`runsOn`으로 한다.
 - `votes`는 (poll, user)당 한 행이다. 메뉴를 바꾸면 `option_id`만 갱신한다. `option_id`가 NULL이면 "오늘은 패스"다.
+  - 행이 없으면 미응답이다. 진행 중에는 `DELETE /api/polls/{pollId}/vote`로 응답을 취소해 처음처럼 미응답으로 돌아간다(행을 지운다, 응답이 없어도 같은 응답을 준다). 화면에서는 고른 메뉴 카드나 「✓ 오늘은 패스했어요」를 다시 누르면 취소한다(확인 창 없이 바로).
 - `votes.option_id` FK는 의도적으로 `NO ACTION`이다(RESTRICT 아님). 투표를 CASCADE로 삭제할 때 검사가 문장 끝으로 미뤄지게 하기 위해서다. 참여자가 있는 메뉴를 삭제하지 못하게 막는 검사는 서비스에서 먼저 한다.
 - 메뉴를 추가해도 추가한 사람이 자동으로 참여하지 않는다. 메뉴는 추가한 사람만, 참여자가 0명이고 투표가 진행 중일 때만 삭제할 수 있다. 메뉴 이름은 trim해서 저장하고, (poll, name)은 UNIQUE다.
 - 메뉴의 식당(`menu_options.link_url`·`place_name`·`place_address`·`kakao_place_id`·`place_query`, V4·V7·V8·V9)은 선택이다. 메뉴를 추가할 때 붙이거나, 추가한 사람이 진행 중에 `PUT /api/polls/{pollId}/options/{optionId}/link {link, placeName, placeAddress, kakaoPlaceId, placeQuery}`로 달고 고친다. 지도 링크(이름·주소) **또는** 근처 식당 찾기로 고른 카카오 식당(장소 ID·검색어) 중 하나만 받고(둘 다 오면 400), 둘 다 비면 식당을 뺀다. 화면은 새 탭(`rel="noopener noreferrer"`)으로 연다(Notion 「11. 식당 정보·네이버 지도 연동」, 「15. 식당 검색·네이버 지도 연동」).
@@ -163,6 +169,12 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 연결 끊기: 투표 삭제(`PollDeletedEvent`)·조직 탈퇴·멤버 제거·강제 탈퇴(`MembershipEndedEvent`)·조직 삭제(`OrganizationDeletedEvent`)는 커밋 후 이벤트로 바로, 로그아웃은 `SecurityConfig`의 `LogoutHandler`가 그 로그인(HTTP 세션)의 연결만 끊는다(4003). 30초마다 `ChatSweeper`가 닫힌 채팅(4001)·없어진 투표·멤버가 아닌 연결을 끊고 연결 확인 신호 `{"type":"ping"}`을 보낸다(브라우저 JS는 ping 프레임을 못 봐서 글로 보낸다). 테스트에서는 `ohjumwhat.scheduler.enabled=false`로 끄고 `ChatSweeper.sweep()`을 직접 부른다.
   - 화면(`lib/chatSocket.ts openChatSocket`, `hooks/usePollChatSocket.ts`): 채팅이 열려 있고 탭이 보일 때만 연결한다. 끊기면 1초부터 두 배씩(최대 30초) 다시 연결하고, 4001·4003이면 멈춘다. 75초 동안 아무것도 받지 못하면(반쯤 끊긴 연결) 버리고 다시 연결한다. 연결될 때마다 목록을 다시 받아 놓친 메시지를 채운다(`queries/chat.ts`, `structuralSharing`으로 그 순간의 캐시와 합쳐 WebSocket으로 받은 것을 잃지 않는다, 합치기 규칙은 `lib/chat.ts mergeMessages`).
   - 관리자: `GET /api/admin/polls/{pollId}/messages`, `DELETE /api/admin/chat-messages/{id}`(기간과 무관, 소프트 삭제 + 보고 있는 사람에게 전송).
+  - **안 읽은 메시지**(V14 `chat_reads`, Notion 「18. 채팅에 메시지가 오면 알림」): 읽은 위치를 서버에 (투표, 사람)당 한 행으로 둔다(기기 간 동기화, 행이 없으면 0). 푸시 알림이 아니라 화면 안의 배지·미리보기·구분선으로 알린다.
+    - 안 읽음 = 남이 쓴(탈퇴한 사용자 글 포함) 지우지 않은 메시지 중 읽은 위치보다 뒤. 서버 `ChatReadRepository.countUnread`와 화면 `lib/chat.ts unreadCount`가 같은 규칙이라 함께 고친다. 처음 여는 투표는 남의 메시지가 모두 안 읽음이다.
+    - `PUT /api/polls/{pollId}/messages/read {lastReadId}`(204, 멤버만, 채팅이 닫힌 뒤에도 된다)는 네이티브 upsert로 뒤로 가지 않고 그 투표의 마지막 메시지를 넘지 않는다(메시지가 없으면 행을 만들지 않는다). 보내면 서버가 보낸 메시지까지 읽음으로 한다. 목록 응답에 `lastReadId`, 오늘 투표 요약에 `unreadMessages`·`chatClosesAt`(진행 중이거나 채팅이 열린 투표가 있으면 조직 홈이 15초마다 다시 받는다).
+    - 읽음 판정(`hooks/useChatReading.ts`): 목록 끝의 sticky 표시(`ListEnd`)가 화면 안이고(IntersectionObserver) 탭이 보이고 목록이 맨 아래일 때만. 위로 올려 읽는 중에 온 메시지는 안 읽음으로 남아 「새 메시지 N ↓」가 뜬다. 보이기 시작한 순간의 안 읽은 범위에 「여기부터 새 메시지」를 고정하고(내가 쓰면 지운다), 보는 동안 온 메시지는 잠깐 강조한다.
+    - 전송(`queries/chat.ts useMarkChatRead`): 캐시의 `lastReadId`는 바로 올리고(`mergeChatPage`가 큰 쪽으로 합친다), 서버에는 1초에 한 번 가장 뒤의 위치만, 떠날 때·탭을 숨길 때는 `keepalive`로 바로 보낸다. 성공하면 오늘 투표 카드를 다시 받는다. `setQueryData`는 같은 값도 `structuralSharing`(`mergeChatPage`)으로 새 객체를 만들어 다시 그리므로, 바뀌지 않으면 업데이터가 `undefined`를 돌려 캐시를 건드리지 않는다(아니면 읽음 effect가 끝없이 돈다).
+    - 버튼(`hooks/useChatUnread.ts`): 모바일 「💬 채팅」(시트가 닫혀 있을 때)과 데스크톱 「💬 새 메시지」(채팅 카드가 화면 밖일 때)에 빨간 배지(99+, 최신 50개보다 앞부터 안 읽었으면 「50+」)를 두고, 남의 새 메시지가 오면 4초 미리보기를 띄운다(처음 받은 목록은 미리보기하지 않는다).
   - Spring 7은 SockJS 스케줄러를 `TaskScheduler` 빈으로 내놓지 않아 정기 투표 `@Scheduled`를 가로채지 않는다(`ChatIntegrationTest`가 고정). 실제 핸드셰이크(세션 쿠키·출처·프록시 헤더)는 `ChatSocketTest`(실제 포트)가 확인한다.
 - 메뉴 자동완성은 별도 테이블 없이 같은 조직 과거 투표의 `menu_options.name`을 중복 없이 조회해서 만든다. 항목마다 마지막으로 먹은 날을 붙이고, 최근 7일 안에 먹은 메뉴는 뒤로 보낸다.
 - 메뉴 통계·추천(`menu/MenuStatsService`, 네이티브 SQL)도 별도 테이블 없이 계산한다. "먹은 메뉴"는 **마감된 투표에서 참여자가 한 명 이상인 메뉴**이고(조직 기준), 이름은 소문자·띄어쓰기 제거로 묶는다("김치찌개" = "김치 찌개", 표시는 가장 최근 이름). 추천은 먹은 적이 있지만 최근 7일(오늘 포함) 안에는 먹지 않은 메뉴를 많이 먹은 순으로 준다. 조직 「통계」 탭(`/orgs/:orgId/stats`)과 메뉴 입력창(비운 채 누르면 추천)에서 쓴다.
@@ -199,7 +211,8 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 
 **투표 화면.**
 - 투표 상세(`PollDetailPage`)는 진행 중일 때 3초마다 폴링하고, 마감 응답을 받으면 결과 모드로 바뀌며 폴링을 멈춘다. 채팅만 WebSocket으로 받고(위 「투표 채팅」), 받기 연결은 결과 모드로 바뀌어도 끊기지 않게 이 화면이 든다.
-- 참여·패스는 `lib/pollDetail.ts`의 `applyVote`로 먼저 화면에 반영(낙관적 업데이트)하고, 실패하면 되돌린다. 이 함수는 서버 `PollService.detail`과 같은 규칙으로 다시 계산하므로, 규칙을 바꿀 때는 둘을 함께 고친다.
+- 참여·패스·취소는 `lib/pollDetail.ts`의 `applyVote`(`VoteChoice` = 메뉴 ID·`'PASS'`·`'NONE'`)로 먼저 화면에 반영(낙관적 업데이트)하고, 실패하면 되돌린다. 이 함수는 서버 `PollService.detail`과 같은 규칙으로 다시 계산하므로, 규칙을 바꿀 때는 둘을 함께 고친다.
+  - `useVote`는 같은 투표의 요청을 mutation `scope`로 묶어 보낸 순서대로 처리한다(빠르게 두 번 누르면 참여 → 취소 순서가 지켜진다). 뒤에 기다리는 요청이 있으면 앞 요청의 응답을 캐시에 넣지 않는다.
 - 화면마다 `useDocumentTitle(...)`로 탭 제목을 붙인다(예: "점심 · 개발팀 · 오점왓"). 없는 경로는 `NotFoundPage`가, 예상하지 못한 렌더링 오류는 `RouteErrorPage`(라우터 errorElement)가 처리한다.
 - 마감 결과의 「결과 복사」는 `lib/share.ts`의 `resultText`(메신저에 붙일 글)와 `copyText`(클립보드, 안 되면 숨긴 입력창)로 한다.
 - 시간 표시는 `lib/time.ts`(한국 시간 기준)를 쓴다. 요일 비트마스크(월=1 … 일=64, 평일=31)는 `lib/daysOfWeek.ts`로 변환한다.
@@ -238,9 +251,9 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - Figma 파일: https://www.figma.com/design/w0OIV1khSVnxlf5KfRo6aP/OhJumWhat
   - 「디자인 시스템」 페이지
     - Foundations 프레임: 로고, 컨셉 컬러, 원색 팔레트, 의미 기반 토큰, 타이포그래피, 간격·둥글기·그림자
-    - Components 프레임: Button, Badge, Avatar, OptionCard, Input, Logo, TopBar(「새 소식 점」 속성), UpdateToast, MapPin(지도 핀)
-  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 별명·프로필 사진(`03-N` 마이페이지, `03-M2` 프로필 수정, `03-M3` 사진 맞추기), 지난 투표(`04-H`), 새 소식 배너(`04-B`), 결과 복사(`05b-S`), 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제), 식당 붙이기(`05-L`, `05-M4` 식당 모달), 식당 찾기 모달(`05-F`), 투표 지도(`05-G`, 크게 보기 `05-G2`), 메뉴 추천(`05-R`, 지난 식당·고른 식당 칩 `05-R2`), 메뉴 댓글(`05-K` 진행 중, `05b-K` 마감 결과 읽기 전용), 투표 채팅(`05-C` 하단 버튼, `05-C2` 채팅 시트, `05-C3` 닫힌 채팅), 조직 위치(`07-L`, 조직 주소·반경·지도), `08 통계`, `09 새 소식`
-  - 「와이어프레임 · 데스크톱」 페이지: 같은 화면의 데스크톱(1440px) 버전(`D01`~`D07-M`, `D03-N`, `D04-H`, `D05-A`, `D05-G`, `D05-G2`, `D05-K`, `D05-C`, `D07-L`, `D08`, `D09`). 모달은 모바일 `-M` 프레임과 같다(큰 지도 모달 `D05-G2`만 넓다).
+    - Components 프레임: Button, Badge, Avatar, OptionCard, Input, Logo, TopBar(「새 소식 점」 속성), UpdateToast, MapPin(지도 핀), ChatMessage·ChatPanel, Chat Unread(UnreadBadge, ChatPreview, NewMessagesPill, UnreadDivider, ChatButton)
+  - 「와이어프레임 · 모바일」 페이지: 모바일(390px) 화면. 01 로그인부터 07 조직 설정까지와 `-M` 모달, 별명·프로필 사진·소개(`03-N` 마이페이지, `03-N2` 소개 비었을 때, `03-M2` 프로필 수정, `03-M3` 사진 맞추기), 멤버 프로필(`07-P`, 소개 없음·나·떠난 멤버 `07-P2`), 지난 투표(`04-H`), 새 소식 배너(`04-B`), 결과 복사(`05b-S`), 패스한 상태(`05-P`, 「✓ 오늘은 패스했어요 · 다시 누르면 취소」), 투표 관리(`05-A` ⋯ 메뉴, `05-M1` 수정, `05-M2` 지금 마감, `05-M3` 삭제), 식당 붙이기(`05-L`, `05-M4` 식당 모달), 식당 찾기 모달(`05-F`), 투표 지도(`05-G`, 크게 보기 `05-G2`), 메뉴 추천(`05-R`, 지난 식당·고른 식당 칩 `05-R2`), 메뉴 댓글(`05-K` 진행 중, `05b-K` 마감 결과 읽기 전용), 투표 채팅(`05-C` 하단 버튼·안 읽은 배지, `05-C2` 채팅 시트, `05-C3` 닫힌 채팅, `05-C4` 새 메시지 도착 미리보기, `05-C5` 「여기부터 새 메시지」, `05-C6` 위로 올려 읽는 중 「새 메시지 N ↓」), 조직 홈 안 읽은 채팅(`04-C`), 조직 위치(`07-L`, 조직 주소·반경·지도), `08 통계`, `09 새 소식`
+  - 「와이어프레임 · 데스크톱」 페이지: 같은 화면의 데스크톱(1440px) 버전(`D01`~`D07-M`, `D03-N`, `D04-H`, `D05-A`, `D05-G`, `D05-G2`, `D05-K`, `D05-C`, `D05-C2` 채팅 카드가 화면 밖일 때, `D07-L`, `D08`, `D09`). 모달은 모바일 `-M` 프레임과 같다(큰 지도 모달 `D05-G2`만 넓다).
   - 「관리자 콘솔」 페이지: 관리자 화면(모바일 `A01`~`A08`, 데스크톱 `DA01`~`DA08`, 강제 탈퇴 모달 `-M`, 올린 사진 지우기 `A03-M2`, 공지 글쓰기 모달 `A08-M`, 메뉴 댓글 지우기 `A06-K`, 채팅 지우기 `A06-C`, 차단된 로그인 `L01`)과 로컬 컴포넌트 StatCard·ListRow
     - 콘텐츠 폭 1024px 가운데 정렬. 1024px 이상(`lg`)에서 본문 + 오른쪽 사이드(320px) 2단, 그보다 좁으면 모바일 레이아웃을 쓴다.
     - 로그인은 좌우 분할(왼쪽 브랜드 소개·투표 미리보기, 오른쪽 로그인), 모달은 폭 448px이다.
@@ -266,12 +279,13 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - Badge → `components/Badge.tsx`
   - OptionCard → `components/OptionCard.tsx`(투표 상세의 메뉴 카드, 결과 모드 포함). Figma `Link` 속성(식당 줄)을 켜면 「식당 이름 · 네이버 지도 ↗」(이름이 없으면 「지도 · 서비스 ↗」, `lib/link.ts serviceLabel`)·「식당 고치기」가 보이고, `Distance` 속성은 조직 위치에서의 거리·도보 시간(「350m · 도보 약 7분」)이다. 식당 찾기 모달(05-F, 「근처에서 찾기」·「링크 붙이기」 탭, 메뉴 입력과 카드의 고치기 공용)은 `components/PlaceModal.tsx`, 근처에서 찾기(검색·분류 칩·지도·목록·더 보기)는 `components/PlaceFinder.tsx`, 링크 붙이기 입력(찾기·공유 링크·이름·주소, 조직 위치도 공용)은 `components/PlaceFields.tsx`. `Comments` 속성은 카드 아래 「💬 댓글 N」 토글이다(댓글이 없으면 「댓글 달기」, 마감된 투표에서 댓글이 없으면 숨김, 카드 선택과 별개라 `stopPropagation`).
   - MenuComments(펼친 메뉴 댓글, Open·Readonly·Empty) → `components/OptionComments.tsx`. 카드(`role="button"`) 안에 입력창을 넣지 않도록 카드 밖 바로 아래에 그린다. 펼친 메뉴는 `PollDetailPage`가 들고 있어 마감돼도 펼친 채 읽기 전용으로 바뀐다. 관리자 콘솔도 `CommentList`·`CommentRow`를 쓴다
-  - ChatMessage(Other·Mine·Deleted)·ChatPanel(Open·Closed) → `components/ChatPanel.tsx`(데스크톱 사이드 열 카드, 모바일 시트 안), 하단 「💬 채팅」 버튼·채팅 시트(05-C·05-C2) → `components/ChatSheet.tsx`(시트가 닫혀 있는 동안 받은 남의 메시지 수 「새 메시지 N」). 시트 안의 삭제 확인처럼 `<dialog>` 안에 `<dialog>`를 두면 React가 안쪽 `close`를 바깥 `onClose`로 올려 보내므로 `e.target === e.currentTarget`일 때만 닫는다
+  - ChatMessage(Other·Mine·Deleted)·ChatPanel(Open·Closed) → `components/ChatPanel.tsx`(데스크톱 사이드 열 카드, 모바일 시트 안), 하단 「💬 채팅」 버튼·채팅 시트(05-C·05-C2) → `components/ChatSheet.tsx`. Chat Unread(UnreadBadge·ChatPreview·NewMessagesPill·UnreadDivider·ChatButton, 05-C4~C6·D05-C2·04-C) → `components/ChatUnread.tsx`(`UnreadBadge`, `ChatButton`, `ChatJumpButton`, `UnreadDivider`, `ListEnd`). 시트 안의 삭제 확인처럼 `<dialog>` 안에 `<dialog>`를 두면 React가 안쪽 `close`를 바깥 `onClose`로 올려 보내므로 `e.target === e.currentTarget`일 때만 닫는다
   - 투표 지도(05-G·D05-G) → `components/PollPlacesMap.tsx`(조직 위치·메뉴별 식당 핀, 모바일 접힘, 「⤢ 크게 보기」 → 큰 지도 모달 05-G2·D05-G2: 지도 + 목록, 목록을 누르면 지도가 그 식당으로 옮겨 간다), 지도 공용 → `components/NaverMap.tsx`
   - MapPin(지도 핀) → `NaverMap`의 `markerElement`: 물방울 핀 끝이 정확한 위치, 이름표는 핀 오른쪽. Tone(조직 위치·내 메뉴·그 밖), Number(식당 찾기 번호, 핀 머리), Show Label(식당 찾기는 고른 식당만 이름표)
   - 모달 크기: `Modal`의 `size="lg"`(폭 1024px, 큰 지도)와 `closable`(제목 옆 ✕). 기본은 448px
   - 멤버 카드(Figma 「멤버 N명」) → `components/MemberList.tsx`(조직 설정, 데스크톱 조직 홈 사이드)
-  - 프로필 수정 모달(03-M2) → `components/ProfileModal.tsx`(사진·이름을 「저장」 한 번에, 사진을 먼저 저장), 사진 맞추기(03-M3) → `components/PhotoCropper.tsx`(계산은 `lib/photoCrop.ts`, 미리보기는 `data:` 주소: CSP가 `blob:` 이미지를 막는다)
+  - 멤버 프로필 모달(07-P·07-P2) → `components/MemberProfileModal.tsx`(소개는 `useMembers` 캐시에서 찾고, 멤버가 아니면 이름·사진만). `OrgLayout`의 `ProfileViewerProvider`(`components/ProfileViewer.tsx`, 훅은 `hooks/useProfileViewer.ts`)가 모달을 하나만 두고, 사람을 누르는 곳은 `ProfileButton`을 쓴다(멤버 목록, `PersonChip`=참여자·미응답자 칩, 댓글·채팅 작성자). `ProfileButton`은 클릭·키 입력을 위로 올려 보내지 않아 메뉴 카드(`role="button"`) 안에서 눌러도 투표가 바뀌지 않고, 모달이 채팅 시트 밖에 있어 닫아도 시트는 그대로다. 조직 화면 밖(관리자 콘솔 등)에서는 글자로만 보인다
+  - 프로필 수정 모달(03-M2) → `components/ProfileModal.tsx`(사진·이름·한줄 소개·좋아하는 음식을 「저장」 한 번에, 사진 → 이름 → 소개 순서로 저장), 좋아하는 음식 입력 → `components/FoodTagInput.tsx`(Enter·쉼표·blur로 추가, 한글 조합 중 Enter는 무시, 더하지 않은 글도 저장에 넣는다), 음식 배지 → `components/FoodTags.tsx`(Badge Brand), 사진 맞추기(03-M3) → `components/PhotoCropper.tsx`(계산은 `lib/photoCrop.ts`, 미리보기는 `data:` 주소: CSP가 `blob:` 이미지를 막는다)
   - 투표 관리 메뉴·모달(05-A, 05-M1~M3) → `components/PollManageMenu.tsx`. 제목·마감 시간 입력은 만들기(04-M)와 수정이 `components/PollForm.tsx`를 같이 쓴다.
   - StatCard·ListRow(관리자 콘솔) → `components/AdminParts.tsx`(`StatCard`, `ListRow`, `ActionRow`, `DangerZone`, `AdminSearch`)
   - TopBar 종 아이콘(「새 소식 점」) → `components/NoticeBell.tsx`, 새 소식 배너(04-B) → `components/NoticeBanner.tsx`, 새 소식 카드의 배지·본문 → `components/NoticeBadge.tsx`·`components/NoticeBody.tsx`

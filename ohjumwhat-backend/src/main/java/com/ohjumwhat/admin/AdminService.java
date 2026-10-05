@@ -129,14 +129,16 @@ public class AdminService {
 	public AdminResponses.UserDetail user(Long userId) {
 		AdminResponses.UserRow row = adminRepository.findUser(userId)
 			.orElseThrow(() -> ApiException.notFound(USER_NOT_FOUND));
-		String googleSub = userRepository.findById(userId).map(User::getGoogleSub).orElseThrow();
+		User user = userRepository.findById(userId).orElseThrow();
 		// 세션(spring_session, Flyway V2)의 마지막 요청 시각. principal 이름은 google sub다(LoginUser).
 		Long lastAccess = jdbcTemplate.queryForObject(
-				"select max(last_access_time) from spring_session where principal_name = ?", Long.class, googleSub);
+				"select max(last_access_time) from spring_session where principal_name = ?", Long.class,
+				user.getGoogleSub());
 		AdminResponses.Activity activity = new AdminResponses.Activity(adminRepository.countPollsCreatedBy(userId),
 				adminRepository.countMenusAddedBy(userId), adminRepository.countResponsesBy(userId));
-		return new AdminResponses.UserDetail(row, lastAccess == null ? null : Instant.ofEpochMilli(lastAccess),
-				adminRepository.findOrganizationsOfUser(userId), activity);
+		return new AdminResponses.UserDetail(row, user.getBio(), user.getFoodTags(),
+				lastAccess == null ? null : Instant.ofEpochMilli(lastAccess), adminRepository.findOrganizationsOfUser(userId),
+				activity);
 	}
 
 	/**

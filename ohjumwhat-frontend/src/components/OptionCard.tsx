@@ -31,7 +31,7 @@ type Props = {
 }
 
 /**
- * Figma OptionCard. 카드 전체를 누르면 그 메뉴에 참여한다(한 사람은 한 메뉴만).
+ * Figma OptionCard. 카드 전체를 누르면 그 메뉴에 참여한다(한 사람은 한 메뉴만). 내가 고른 카드를 다시 누르면 참여를 취소한다(미응답).
  * 상태: 기본 / 내 선택(오렌지 테두리) / 혼자(배지) / 비어 있음(내가 추가했으면 삭제) / 결과
  * 식당이 있으면 「식당 이름 · 네이버 지도 ↗」(이름이 없으면 「지도 · 서비스 ↗」, Figma OptionCard Link=true, 05-L)를 보여주고,
  * 위치를 찾았으면 조직 위치에서의 거리·도보 시간(Figma Distance=true, 05-G)을 함께 보여준다.
@@ -61,7 +61,7 @@ export default function OptionCard({ option, meId, result, selected, onSelect, o
       role={result ? undefined : 'button'}
       tabIndex={interactive ? 0 : undefined}
       aria-pressed={result ? undefined : selected}
-      aria-label={result ? undefined : `${option.name} ${count}명${selected ? ', 참여 중' : ', 누르면 참여'}${solo ? ', 혼자예요' : ''}`}
+      aria-label={result ? undefined : `${option.name} ${count}명${selected ? ', 참여 중, 누르면 취소' : ', 누르면 참여'}${solo ? ', 혼자예요' : ''}`}
       aria-disabled={!result && disabled ? true : undefined}
       onClick={interactive ? onSelect : undefined}
       onKeyDown={onKeyDown}

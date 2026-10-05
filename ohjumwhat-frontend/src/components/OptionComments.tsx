@@ -8,6 +8,7 @@ import Avatar from './Avatar.tsx'
 import Button from './Button.tsx'
 import ConfirmDialog from './ConfirmDialog.tsx'
 import { LinkedLine } from './NoticeBody.tsx'
+import { ProfileButton } from './ProfileViewer.tsx'
 
 type Props = {
   pollId: number
@@ -129,13 +130,15 @@ export function CommentRow({ comment, actions }: { comment: MenuComment; actions
   const name = comment.author?.name ?? '탈퇴한 사용자'
   return (
     <div className="flex gap-2">
-      <Avatar name={name} imageUrl={comment.author?.profileImageUrl} size="sm" />
+      <ProfileButton person={comment.author} focusable={false} className="h-fit shrink-0 rounded-full">
+        <Avatar name={name} imageUrl={comment.author?.profileImageUrl} size="sm" />
+      </ProfileButton>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-1.5 text-xs">
-          <span className="font-medium text-text-primary">
+          <ProfileButton person={comment.author} className="rounded font-medium text-text-primary hover:underline">
             {name}
             {comment.mine && ' (나)'}
-          </span>
+          </ProfileButton>
           <span className="text-text-tertiary">
             {formatClock(comment.createdAt)}
             {comment.edited && ' · 수정됨'}

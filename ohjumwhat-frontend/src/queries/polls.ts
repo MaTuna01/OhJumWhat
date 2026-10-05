@@ -1,7 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError, api } from '../lib/api.ts'
 import type { PlaceInput } from '../lib/place.ts'
-import { applyVote } from '../lib/pollDetail.ts'
+import { applyVote, type VoteChoice } from '../lib/pollDetail.ts'
 import type { Me } from './me.ts'
 import { orgKeys } from './orgs.ts'
 
@@ -56,6 +56,8 @@ export type PollSummary = {
   title: string
   status: PollStatus
   closesAt: string
+  /** 채팅이 닫히는 시각(마감 1시간 뒤) */
+  chatClosesAt: string
   memberCount: number
   respondedCount: number
   passCount: number
@@ -63,6 +65,8 @@ export type PollSummary = {
   teamCount: number
   myResponse: MyResponse
   myOptionName: string | null
+  /** 내가 안 읽은 채팅 메시지 수 */
+  unreadMessages: number
 }
 
 /** 지난 투표 한 줄. teams는 참여자가 있는 메뉴(인원 많은 순) */
@@ -110,11 +114,13 @@ export const pollKeys = {
 /** 진행 중인 투표는 3초마다 다시 불러온다(백그라운드 탭에서는 멈춘다). */
 const POLL_INTERVAL = 3000
 
+/** 오늘 투표 카드. 진행 중이거나 채팅이 열린(마감 1시간 뒤까지) 투표가 있으면 15초마다 다시 받는다(안 읽은 채팅 수). */
 export function useTodayPolls(orgId: number) {
   return useQuery({
     queryKey: pollKeys.today(orgId),
     queryFn: () => api<PollSummary[]>(`/api/orgs/${orgId}/polls/today`),
-    refetchInterval: (query) => (query.state.data?.some((p) => p.status === 'OPEN') ? 15_000 : false),
+    refetchInterval: (query) =>
+      query.state.data?.some((p) => p.status === 'OPEN' || Date.parse(p.chatClosesAt) > Date.now()) ? 15_000 : false,
   })
 }
 
@@ -235,26 +241,35 @@ export function useDeleteOption(orgId: number, pollId: number) {
   )
 }
 
-/** 참여·패스는 누르는 즉시 화면에 반영하고(낙관적 업데이트), 실패하면 되돌린다. */
+/**
+ * 참여·패스·취소(미응답으로)는 누르는 즉시 화면에 반영하고(낙관적 업데이트), 실패하면 되돌린다.
+ * 같은 투표의 요청은 scope로 묶어 보낸 순서대로 처리한다(빠르게 두 번 누르면 참여 → 취소 순서가 지켜진다).
+ */
 export function useVote(orgId: number, pollId: number, me: Me | undefined) {
   const queryClient = useQueryClient()
   const key = pollKeys.detail(pollId)
+  const mutationKey = ['polls', pollId, 'vote']
   return useMutation({
-    mutationFn: (optionId: number | null) =>
-      api<PollDetail>(`/api/polls/${pollId}/vote`, { method: 'PUT', body: { optionId } }),
-    onMutate: async (optionId) => {
+    mutationKey,
+    scope: { id: `vote-${pollId}` },
+    mutationFn: (choice: VoteChoice) =>
+      choice === 'NONE'
+        ? api<PollDetail>(`/api/polls/${pollId}/vote`, { method: 'DELETE' })
+        : api<PollDetail>(`/api/polls/${pollId}/vote`, { method: 'PUT', body: { optionId: choice === 'PASS' ? null : choice } }),
+    onMutate: async (choice) => {
       await queryClient.cancelQueries({ queryKey: key })
       const previous = queryClient.getQueryData<PollDetail>(key)
       if (previous && me) {
-        queryClient.setQueryData(key, applyVote(previous, me, optionId))
+        queryClient.setQueryData(key, applyVote(previous, me, choice))
       }
       return { previous }
     },
-    onError: (_error, _optionId, context) => {
+    onError: (_error, _choice, context) => {
       if (context?.previous) queryClient.setQueryData(key, context.previous)
     },
     onSuccess: (detail) => {
-      queryClient.setQueryData(key, detail)
+      // 뒤에 기다리는 요청이 있으면 그 요청의 낙관적 화면을 덮지 않는다(마지막 응답이 넣는다).
+      if (queryClient.isMutating({ mutationKey }) <= 1) queryClient.setQueryData(key, detail)
       queryClient.invalidateQueries({ queryKey: pollKeys.today(orgId) })
     },
   })

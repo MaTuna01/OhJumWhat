@@ -218,14 +218,14 @@ function OpenPoll({ orgId, poll, comments, chat }: { orgId: number; poll: PollDe
             </p>
           ) : (
             <>
-              <p className="text-xs font-medium text-text-tertiary">메뉴 {poll.options.length}개 · 카드를 누르면 그 메뉴로 참여해요</p>
+              <p className="text-xs font-medium text-text-tertiary">메뉴 {poll.options.length}개 · 누르면 참여, 한 번 더 누르면 취소해요</p>
               {poll.options.map((option) => (
                 <div key={option.id} className="space-y-1.5">
                   <OptionCard
                     option={option}
                     meId={me?.id ?? -1}
                     selected={poll.myOptionId === option.id}
-                    onSelect={() => poll.myOptionId !== option.id && vote.mutate(option.id)}
+                    onSelect={() => vote.mutate(poll.myOptionId === option.id ? 'NONE' : option.id)}
                     onDelete={() => deleteOption.mutate(option.id)}
                     onEditLink={() => setPlaceOptionId(option.id)}
                     disabled={deleteOption.isPending}
@@ -277,12 +277,18 @@ function OpenPoll({ orgId, poll, comments, chat }: { orgId: number; poll: PollDe
           <button
             type="button"
             aria-pressed={passedMe}
-            onClick={() => !passedMe && vote.mutate(null)}
+            onClick={() => vote.mutate(passedMe ? 'NONE' : 'PASS')}
             className={`w-full rounded-xl border px-5 py-3 text-base font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-brand ${
               passedMe ? 'border-border-brand bg-bg-brand-soft text-text-brand ring-1 ring-border-brand' : 'border-border-strong bg-bg-surface hover:bg-bg-subtle'
             }`}
           >
-            {passedMe ? '✓ 오늘은 패스했어요' : '오늘은 패스'}
+            {passedMe ? (
+              <>
+                ✓ 오늘은 패스했어요 <span className="text-sm font-normal whitespace-nowrap">· 다시 누르면 취소</span>
+              </>
+            ) : (
+              '오늘은 패스'
+            )}
           </button>
           {poll.passed.length > 0 && <p className="text-xs text-text-tertiary">패스한 사람: {names(poll.passed)}</p>}
         </div>

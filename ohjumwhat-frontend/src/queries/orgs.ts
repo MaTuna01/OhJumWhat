@@ -42,6 +42,10 @@ export type Member = {
   userId: number
   name: string
   profileImageUrl: string | null
+  /** 한줄 소개. 없으면 null */
+  bio: string | null
+  /** 좋아하는 음식(최대 3개). 없으면 빈 배열 */
+  foodTags: string[]
   joinedAt: string
 }
 

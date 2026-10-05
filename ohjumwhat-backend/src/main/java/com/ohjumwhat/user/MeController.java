@@ -1,6 +1,7 @@
 package com.ohjumwhat.user;
 
 import java.io.IOException;
+import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -58,6 +59,15 @@ public class MeController {
 	}
 
 	/**
+	 * 한줄 소개와 좋아하는 음식 정하기(통째로 바꾼다). bio가 비면 소개를, foodTags가 비면 음식을 지운다.
+	 * 여기의 크기 제한은 큰 요청을 막는 방어선이고, 실제 규칙(50자, 10자·3개)은 ProfileIntro가 확인한다.
+	 */
+	@PutMapping("/api/me/profile")
+	MeResponse changeIntro(@AuthenticationPrincipal LoginUser loginUser, @Valid @RequestBody IntroRequest request) {
+		return userService.changeIntro(loginUser.getUserId(), request.bio(), request.foodTags());
+	}
+
+	/**
 	 * 프로필 사진 올리기(multipart 파트 photo). 브라우저가 정사각형으로 잘라 보낸 사진을 서버가 256px JPEG로 다시 만든다.
 	 * consumes를 두지 않아, multipart가 아닌 요청도 415 대신 {"message"}가 있는 400으로 답한다(GlobalExceptionHandler).
 	 */
@@ -77,5 +87,10 @@ public class MeController {
 	}
 
 	record NicknameRequest(@Size(max = 100, message = "이름은 20자 이하로 입력해 주세요.") String nickname) {
+	}
+
+	record IntroRequest(@Size(max = 200, message = "한줄 소개는 50자 이하로 입력해 주세요.") String bio,
+			@Size(max = 20, message = "좋아하는 음식은 3개까지 적을 수 있어요.")
+			List<@Size(max = 100, message = "음식 이름은 10자 이하로 입력해 주세요.") String> foodTags) {
 	}
 }
