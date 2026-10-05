@@ -6,6 +6,7 @@ import java.util.List;
 
 import com.ohjumwhat.poll.PollStatus;
 import com.ohjumwhat.schedule.ScheduleResponse;
+import com.ohjumwhat.user.ProfileDetailsResponse;
 import com.ohjumwhat.user.Role;
 import com.ohjumwhat.user.User;
 
@@ -38,9 +39,11 @@ final class AdminResponses {
 	/**
 	 * @param bio 한줄 소개(없으면 null)
 	 * @param foodTags 좋아하는 음식(없으면 빈 목록)
+	 * @param details 상세 프로필(채우지 않았으면 null)
 	 * @param lastAccessAt 세션의 마지막 요청 시각(로그인은 30일 유지되므로 최근 로그인보다 최근 활동에 가깝다)
 	 */
-	record UserDetail(UserRow user, String bio, List<String> foodTags, Instant lastAccessAt,
+	record UserDetail(UserRow user, String bio, List<String> foodTags, ProfileDetailsResponse details,
+			Instant lastAccessAt,
 			List<UserOrganization> organizations, Activity activity) {
 	}
 

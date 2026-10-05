@@ -68,6 +68,17 @@ public class MeController {
 	}
 
 	/**
+	 * 상세 프로필(MBTI·퍼스널컬러·취미·나이·직급) 정하기. 다섯 항목 모두 필수이고 통째로 바꾼다(지우기는 없다).
+	 * 여기의 크기 제한은 큰 요청을 막는 방어선이고, 실제 규칙과 기획서의 오류 문구는 ProfileDetails가 확인한다.
+	 */
+	@PutMapping("/api/me/profile/details")
+	MeResponse changeDetails(@AuthenticationPrincipal LoginUser loginUser,
+			@Valid @RequestBody DetailsRequest request) {
+		return userService.changeDetails(loginUser.getUserId(), request.mbti(), request.personalColor(),
+				request.hobbies(), request.age(), request.jobTitle());
+	}
+
+	/**
 	 * 프로필 사진 올리기(multipart 파트 photo). 브라우저가 정사각형으로 잘라 보낸 사진을 서버가 256px JPEG로 다시 만든다.
 	 * consumes를 두지 않아, multipart가 아닌 요청도 415 대신 {"message"}가 있는 400으로 답한다(GlobalExceptionHandler).
 	 */
@@ -92,5 +103,13 @@ public class MeController {
 	record IntroRequest(@Size(max = 200, message = "한줄 소개는 50자 이하로 입력해 주세요.") String bio,
 			@Size(max = 20, message = "좋아하는 음식은 3개까지 적을 수 있어요.")
 			List<@Size(max = 100, message = "음식 이름은 10자 이하로 입력해 주세요.") String> foodTags) {
+	}
+
+	record DetailsRequest(@Size(max = 20, message = "4가지 성향을 모두 선택해 주세요.") String mbti,
+			@Size(max = 40, message = "퍼스널컬러를 선택해 주세요.") String personalColor,
+			@Size(max = 20, message = "취미는 5개까지 적을 수 있어요.")
+			List<@Size(max = 100, message = "취미는 10자 이하로 입력해 주세요.") String> hobbies,
+			Integer age,
+			@Size(max = 100, message = "직급을 입력해 주세요. (최대 15자)") String jobTitle) {
 	}
 }

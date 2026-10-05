@@ -50,4 +50,15 @@ public interface UserRepository extends JpaRepository<User, Long> {
 	@Modifying(clearAutomatically = true)
 	@Query("update User u set u.bio = :bio, u.foodTags = :foodTags where u.id = :id")
 	int updateIntro(Long id, String bio, String[] foodTags);
+
+	/**
+	 * 상세 프로필(MBTI·퍼스널컬러·취미·나이·직급)만 바꾼다. 소개처럼 엔티티 저장으로 쓰이지 않는 컬럼이라 이 쿼리로만 바꾼다.
+	 * 영속성 컨텍스트를 비우므로 바꾼 뒤에는 회원을 다시 읽는다.
+	 */
+	@Modifying(clearAutomatically = true)
+	@Query("""
+			update User u set u.mbti = :mbti, u.personalColor = :personalColor, u.hobbies = :hobbies, u.age = :age,
+				u.jobTitle = :jobTitle
+			where u.id = :id""")
+	int updateDetails(Long id, String mbti, PersonalColor personalColor, String[] hobbies, Short age, String jobTitle);
 }

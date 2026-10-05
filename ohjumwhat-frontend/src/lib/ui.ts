@@ -13,7 +13,7 @@ export function buttonClass(variant: ButtonVariant = 'primary', className = '') 
 }
 
 export const inputClass =
-  'w-full rounded-lg border border-border-strong bg-bg-surface px-3 py-2 text-sm placeholder:text-text-placeholder focus:border-border-brand focus:outline-none focus:ring-2 focus:ring-border-brand/20'
+  'w-full rounded-lg border border-border-strong bg-bg-surface px-3 py-2 text-sm placeholder:text-text-placeholder focus:border-border-brand focus:outline-none focus:ring-2 focus:ring-border-brand/20 aria-invalid:border-border-danger aria-invalid:focus:border-border-danger aria-invalid:focus:ring-border-danger/20'
 
 /**
  * Figma 「와이어프레임 · 데스크톱」의 2단: lg(1024px) 이상에서 본문 + 오른쪽 사이드(320px).

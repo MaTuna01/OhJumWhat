@@ -24,6 +24,7 @@ const me: Me = {
   customPhoto: false,
   bio: null,
   foodTags: [],
+  details: null,
   lastVisitedOrgId: 1,
   admin: false,
 }
