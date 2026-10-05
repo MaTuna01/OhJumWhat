@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import Badge from '../components/Badge.tsx'
 import Button from '../components/Button.tsx'
+import { UnreadBadge } from '../components/ChatUnread.tsx'
 import CreatePollModal from '../components/CreatePollModal.tsx'
 import MemberList from '../components/MemberList.tsx'
 import NoticeBanner from '../components/NoticeBanner.tsx'
@@ -9,6 +10,7 @@ import { PageLoader, Section } from '../components/PageState.tsx'
 import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { useNow } from '../hooks/useNow.ts'
 import { useOrgId } from '../hooks/useOrgId.ts'
+import { unreadLabel } from '../lib/chat.ts'
 import { daysLabel } from '../lib/daysOfWeek.ts'
 import { formatClock, formatPollDay, formatRemaining, formatTimeRange } from '../lib/time.ts'
 import { buttonClass, columnsClass } from '../lib/ui.ts'
@@ -193,8 +195,16 @@ function PollCard({ orgId, poll }: { orgId: number; poll: PollSummary }) {
       <div className="flex items-center gap-2">
         <span className="truncate font-bold">{poll.title}</span>
         <Badge tone={open ? 'brand' : 'neutral'}>{open ? '진행 중' : '마감'}</Badge>
-        <span className="ml-auto text-lg text-icon-muted" aria-hidden>
-          ›
+        <span className="ml-auto flex shrink-0 items-center gap-2">
+          {poll.unreadMessages > 0 && (
+            <UnreadBadge>
+              <span aria-hidden>💬 {unreadLabel(poll.unreadMessages)}</span>
+              <span className="sr-only">안 읽은 채팅 {poll.unreadMessages}개</span>
+            </UnreadBadge>
+          )}
+          <span className="text-lg text-icon-muted" aria-hidden>
+            ›
+          </span>
         </span>
       </div>
       <p className={`text-sm ${open ? 'font-medium text-text-brand' : 'text-text-tertiary'}`}>

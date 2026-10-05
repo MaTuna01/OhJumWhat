@@ -20,13 +20,15 @@ function readCookie(name: string): string | undefined {
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   body?: unknown
+  /** 화면을 떠나거나 탭을 숨기는 중에도 요청을 끝까지 보낸다(채팅 읽은 위치) */
+  keepalive?: boolean
 }
 
 /**
  * 같은 도메인의 백엔드를 세션 쿠키로 호출한다. body는 JSON으로 보내고, FormData(파일 올리기)는 그대로 보낸다.
  * GET이 아닌 요청에는 서버가 내려준 XSRF-TOKEN 쿠키 값을 X-XSRF-TOKEN 헤더로 붙인다.
  */
-export async function api<T>(path: string, { method = 'GET', body }: RequestOptions = {}): Promise<T> {
+export async function api<T>(path: string, { method = 'GET', body, keepalive }: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' }
   const form = body instanceof FormData
   // FormData는 브라우저가 경계(boundary)가 든 multipart Content-Type을 붙인다.
@@ -44,6 +46,7 @@ export async function api<T>(path: string, { method = 'GET', body }: RequestOpti
     method,
     headers,
     credentials: 'same-origin',
+    keepalive,
     body: body === undefined ? undefined : form ? body : JSON.stringify(body),
   })
 
