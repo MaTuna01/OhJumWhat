@@ -19,6 +19,12 @@ public record PushProperties(Web web, String serviceAccount) {
 		serviceAccount = blankToNull(serviceAccount);
 	}
 
+	/** 서비스 계정(비밀)은 가린다(설정 객체가 로그·오류 메시지·actuator에 찍혀도 새지 않게). */
+	@Override
+	public String toString() {
+		return "PushProperties[web=" + web + ", serviceAccount=" + (serviceAccount == null ? "null" : "****") + "]";
+	}
+
 	/** 비어 있는 설정 키 이름(값이 아니라 이름만). 모두 채워졌으면 빈 목록 */
 	List<String> missingKeys() {
 		List<String> missing = new ArrayList<>(web.missingKeys());

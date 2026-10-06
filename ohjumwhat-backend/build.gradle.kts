@@ -42,6 +42,8 @@ dependencies {
 	}
 	// SDK가 기본으로 쓰는 JSON 처리(JacksonFactory)는 빼 둔 Firestore 쪽에서 들어왔다. 없으면 FCM 클라이언트를 만들 때
 	// NoClassDefFoundError가 난다. Jackson 2는 core만 들어오고, 패키지가 달라 Spring의 Jackson 3와 섞이지 않는다.
+	// 버전은 firebase-admin이 쓰는 google-http-client와 같게 둔다(firebase-admin을 올리면
+	// ./gradlew dependencies에서 google-http-client 버전을 보고 함께 올린다).
 	implementation("com.google.http-client:google-http-client-jackson2:2.2.0")
 	compileOnly("org.projectlombok:lombok")
 	runtimeOnly("org.postgresql:postgresql")

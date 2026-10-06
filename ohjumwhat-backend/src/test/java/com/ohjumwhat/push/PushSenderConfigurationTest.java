@@ -53,6 +53,16 @@ class PushSenderConfigurationTest {
 	}
 
 	@Test
+	void 설정을_문자열로_찍어도_서비스_계정은_가린다() {
+		PushProperties properties = new PushProperties(
+				new PushProperties.Web("test-api-key", PROJECT, "test-app-id", "1234567890", "test-vapid-key"),
+				"c2VjcmV0LXNlcnZpY2UtYWNjb3VudA==");
+
+		assertThat(properties.toString()).doesNotContain("c2VjcmV0LXNlcnZpY2UtYWNjb3VudA==")
+			.contains("serviceAccount=****", "test-api-key");
+	}
+
+	@Test
 	void 서비스_계정을_읽지_못하면_꺼지고_서버는_뜬다(CapturedOutput output) throws Exception {
 		String notJson = base64("{not json: 비밀-값-12345");
 		String notServiceAccount = base64("""

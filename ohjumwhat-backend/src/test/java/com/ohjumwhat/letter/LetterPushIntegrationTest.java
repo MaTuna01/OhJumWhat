@@ -12,11 +12,15 @@ import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import com.ohjumwhat.FakePushSenderConfiguration.Sent;
 import com.ohjumwhat.user.User;
 
 /** 쪽지 푸시: 받은 쪽지함과 같은 이름 규칙, 익명 보호, 차단, 기기 정리 */
+@ExtendWith(OutputCaptureExtension.class)
 class LetterPushIntegrationTest extends LetterTestBase {
 
 	static final String LEE_PHONE = "fid_lee_phone_000001";
@@ -166,6 +170,54 @@ class LetterPushIntegrationTest extends LetterTestBase {
 
 		assertThat(pushSender.sent().get(0).fids()).containsExactlyInAnyOrder(LEE_PHONE, LEE_LAPTOP);
 		assertThat(fids()).containsExactly(LEE_LAPTOP);
+	}
+
+	@Test
+	void 보내는_사이에_다시_켠_기기는_지우지_않는다() throws Exception {
+		String session = loginSession(lee);
+		registerPushDevice(lee, session, LEE_PHONE).andExpect(status().isOk());
+		pushSender.markStale(LEE_PHONE);
+		// FCM이 「구독 해제」로 답하기 전에 같은 브라우저가 알림을 다시 켰다(새 구독).
+		pushSender.beforeSend(() -> {
+			clock.set(clock.instant().plusSeconds(1));
+			registerPushDevice(lee, session, LEE_PHONE).andExpect(status().isOk());
+		});
+
+		sendOk(kim, devId, lee, "안녕하세요", false);
+		pushDispatcher.drain();
+
+		assertThat(pushSender.sent()).hasSize(1);
+		assertThat(fids()).containsExactly(LEE_PHONE);
+	}
+
+	@Test
+	void 다른_사람이_같은_브라우저에서_로그인하면_그_기기로_원래_사람의_알림을_보내지_않는다() throws Exception {
+		String shared = loginSession(lee);
+		registerPushDevice(lee, shared, LEE_PHONE).andExpect(status().isOk());
+		turnOn(lee, LEE_LAPTOP);
+		// 이의 로그인이 남은 브라우저에서 박이 로그인했다: Spring Session은 세션 행을 그대로 두고 principal만 바꾼다.
+		jdbcTemplate.update("update spring_session set principal_name = ? where session_id = ?", park.getGoogleSub(),
+				shared);
+
+		sendOk(kim, devId, lee, "안녕하세요", true);
+		pushDispatcher.drain();
+
+		assertThat(pushSender.sent()).extracting(Sent::fids).containsExactly(List.of(LEE_LAPTOP));
+		assertThat(fids()).containsExactly(LEE_LAPTOP);
+	}
+
+	@Test
+	void 지우지_않을_실패는_오류_코드만_로그에_남긴다(CapturedOutput output) throws Exception {
+		turnOn(lee, LEE_PHONE);
+		turnOn(lee, LEE_LAPTOP);
+		pushSender.markFailed(LEE_PHONE, "THIRD_PARTY_AUTH_ERROR");
+
+		sendOk(kim, devId, lee, "안녕하세요", true);
+		pushDispatcher.drain();
+
+		assertThat(fids()).containsExactly(LEE_PHONE, LEE_LAPTOP);
+		assertThat(output).contains("푸시를 일부 기기에 보내지 못했어요: kind=LETTER, 오류=[THIRD_PARTY_AUTH_ERROR]")
+			.doesNotContain(LEE_PHONE, LEE_LAPTOP);
 	}
 
 	@Test

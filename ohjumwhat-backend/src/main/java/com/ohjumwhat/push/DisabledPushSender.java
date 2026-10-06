@@ -12,6 +12,6 @@ class DisabledPushSender implements PushSender {
 
 	@Override
 	public Result send(List<String> fids, PushMessage message) {
-		return new Result(0, List.of());
+		return new Result(0, List.of(), List.of());
 	}
 }

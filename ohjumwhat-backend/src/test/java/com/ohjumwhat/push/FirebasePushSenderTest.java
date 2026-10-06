@@ -31,6 +31,11 @@ class FirebasePushSenderTest {
 	}
 
 	@Test
+	void 오류_코드가_없으면_UNKNOWN이다() {
+		assertThat(FirebasePushSender.errorCode(null)).isEqualTo("UNKNOWN");
+	}
+
+	@Test
 	void FID로_보낼_메시지를_만든다() {
 		PushMessage message = PushMessages.letter(true, false, null).orElseThrow();
 

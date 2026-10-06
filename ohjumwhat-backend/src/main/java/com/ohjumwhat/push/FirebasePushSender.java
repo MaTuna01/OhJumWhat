@@ -5,7 +5,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
+import com.google.api.core.ApiFuture;
 import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
@@ -20,6 +26,11 @@ import com.google.firebase.messaging.WebpushConfig;
 /**
  * Firebase Admin SDK(FCM HTTP v1)로 보낸다. 기기는 토큰이 아니라 Firebase 설치 ID(FID)로 가리킨다.
  * 다른 Firebase 앱(기본 앱)과 섞이지 않게 이름 붙인 FirebaseApp을 쓰고, 서버가 멈출 때 지운다(close).
+ *
+ * <p>FCM 장애 때 푸시 작업 스레드가 오래 묶이지 않게 한 번 보내기를 SEND_TIMEOUT_SECONDS로 자른다. SDK는 FCM의 503을
+ * 최대 4번(간격 최대 60초) 다시 보내는데, 9.11.0의 공개 API로는 이 재시도와 인증 토큰 요청의 시간 제한(20초)을 바꿀 수 없다.
+ * 그래서 인증 토큰 요청의 재시도만 끄고(createWithCustomRetryStrategy), 전체 시간은 비동기 보내기를 기다리는 시간으로 자른다.
+ * 기다리기를 그만둔 요청은 SDK 스레드 풀(최대 100개)에서 마저 끝나거나 취소된다.
  */
 class FirebasePushSender implements PushSender, AutoCloseable {
 
@@ -28,6 +39,9 @@ class FirebasePushSender implements PushSender, AutoCloseable {
 	static final int CONNECT_TIMEOUT_MS = 3_000;
 
 	static final int READ_TIMEOUT_MS = 5_000;
+
+	/** 한 번 보내기(인증 토큰 받기 포함)를 기다리는 최대 시간 */
+	static final long SEND_TIMEOUT_SECONDS = 10;
 
 	/** 기기가 꺼져 있으면 FCM이 하루까지 들고 있다가 전한다(그보다 오래된 알림은 의미가 없다). */
 	static final String TTL_SECONDS = "86400";
@@ -52,7 +66,8 @@ class FirebasePushSender implements PushSender, AutoCloseable {
 	 */
 	static FirebasePushSender create(PushProperties properties) throws IOException {
 		byte[] json = Base64.getDecoder().decode(properties.serviceAccount().replaceAll("\\s", ""));
-		ServiceAccountCredentials credentials = ServiceAccountCredentials.fromStream(new ByteArrayInputStream(json));
+		ServiceAccountCredentials credentials = ServiceAccountCredentials.fromStream(new ByteArrayInputStream(json))
+			.createWithCustomRetryStrategy(false);
 		String projectId = properties.web().projectId();
 		if (!projectId.equals(credentials.getProjectId())) {
 			throw new IllegalStateException("서비스 계정의 프로젝트가 웹 설정(project-id)과 달라요.");
@@ -80,20 +95,56 @@ class FirebasePushSender implements PushSender, AutoCloseable {
 
 	@Override
 	public Result send(List<String> fids, PushMessage message) {
-		BatchResponse response;
-		try {
-			response = messaging.sendEachForMulticast(multicast(fids, message));
-		}
-		catch (FirebaseMessagingException e) {
-			throw new SendFailedException(String.valueOf(
-					e.getMessagingErrorCode() != null ? e.getMessagingErrorCode() : e.getErrorCode()));
-		}
-		List<MessagingErrorCode> errors = new ArrayList<>();
+		BatchResponse response = await(messaging.sendEachForMulticastAsync(multicast(fids, message)));
+		List<MessagingErrorCode> codes = new ArrayList<>();
+		Set<String> errorCodes = new TreeSet<>();
 		for (SendResponse each : response.getResponses()) {
-			errors.add(each.isSuccessful() || each.getException() == null ? null
-					: each.getException().getMessagingErrorCode());
+			if (each.isSuccessful()) {
+				codes.add(null);
+				continue;
+			}
+			MessagingErrorCode code = each.getException() == null ? null
+					: each.getException().getMessagingErrorCode();
+			codes.add(code);
+			if (!isStale(code)) {
+				errorCodes.add(errorCode(each.getException()));
+			}
 		}
-		return new Result(response.getSuccessCount(), staleFids(fids, errors));
+		return new Result(response.getSuccessCount(), staleFids(fids, codes), List.copyOf(errorCodes));
+	}
+
+	/** SEND_TIMEOUT_SECONDS까지만 기다린다. 요청 전체가 실패하거나 시간이 넘으면 오류 코드만 담아 알린다. */
+	private static BatchResponse await(ApiFuture<BatchResponse> future) {
+		try {
+			return future.get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		}
+		catch (TimeoutException e) {
+			future.cancel(true);
+			throw new SendFailedException("TIMEOUT");
+		}
+		catch (InterruptedException e) {
+			future.cancel(true);
+			Thread.currentThread().interrupt();
+			throw new SendFailedException("INTERRUPTED");
+		}
+		catch (ExecutionException e) {
+			Throwable cause = e.getCause();
+			if (cause instanceof FirebaseMessagingException messagingException) {
+				throw new SendFailedException(errorCode(messagingException));
+			}
+			throw new SendFailedException(cause == null ? "UNKNOWN" : cause.getClass().getSimpleName());
+		}
+	}
+
+	/** FCM 오류 코드(예: THIRD_PARTY_AUTH_ERROR), 없으면 일반 오류 코드(예: PERMISSION_DENIED) */
+	static String errorCode(FirebaseMessagingException e) {
+		if (e == null) {
+			return "UNKNOWN";
+		}
+		if (e.getMessagingErrorCode() != null) {
+			return e.getMessagingErrorCode().name();
+		}
+		return e.getErrorCode() != null ? e.getErrorCode().name() : "UNKNOWN";
 	}
 
 	/**

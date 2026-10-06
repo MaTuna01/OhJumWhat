@@ -66,12 +66,33 @@ class PushDeviceRepository {
 			.update();
 	}
 
-	/** 그 사람의 기기(최근 순) */
+	/**
+	 * 그 사람의 기기 중 묶인 로그인이 지금도 그 사람의 것인 기기(최근 순). 다른 사람의 로그인이 남은 브라우저에서 로그인하면
+	 * Spring Session은 세션 행(primary_id)을 그대로 두고 principal(google sub)만 바꾸므로, 그 기기로는 원래 사람의 알림을
+	 * 보내지 않는다.
+	 */
 	List<String> findFids(Long userId) {
-		return jdbc.sql("select fid from push_devices where user_id = :userId order by last_seen_at desc, id desc")
+		return jdbc.sql("""
+				select d.fid
+				from push_devices d
+				join spring_session s on s.primary_id = d.session_primary_id
+				join users u on u.id = d.user_id
+				where d.user_id = :userId and s.principal_name = u.google_sub
+				order by d.last_seen_at desc, d.id desc""")
 			.param("userId", userId)
 			.query(String.class)
 			.list();
+	}
+
+	/** 그 사람의 기기 중 묶인 로그인이 다른 사람에게 넘어간 기기를 지운다(findFids가 고르지 않는 기기). */
+	int deleteTakenOver(Long userId) {
+		return jdbc.sql("""
+				delete from push_devices d
+				using spring_session s, users u
+				where d.user_id = :userId and s.primary_id = d.session_primary_id and u.id = d.user_id
+				  and s.principal_name is distinct from u.google_sub""")
+			.param("userId", userId)
+			.update();
 	}
 
 	/**

@@ -21,11 +21,12 @@ import com.ohjumwhat.letter.LetterRepository;
 
 /**
  * 커밋된 일을 받는 사람의 기기로 알린다. 요청 스레드에서는 커밋 뒤에 작업을 맡기기만 하고 바로 돌아온다(PushDispatcher).
- * 작업 스레드에서 ① 받을 사람의 기기(없으면 끝) ② 커밋된 상태에서 문구용 데이터를 다시 읽고(읽기 전용 트랜잭션)
- * ③ 트랜잭션 밖에서 보내고 ④ 더는 받을 수 없는 기기를 지운다. 예외는 모두 잡아 경고 로그만 남긴다(알림이 실패해도 원래 요청은 성공이다).
+ * 작업 스레드에서 ① 받을 사람의 기기를 읽고(없으면 끝, 묶인 로그인이 다른 사람에게 넘어간 기기는 지운다) ② 커밋된 상태에서
+ * 문구용 데이터를 다시 읽고(읽기 전용 트랜잭션) ③ 트랜잭션 밖에서 보내고 ④ 더는 받을 수 없는 기기를 지운다.
+ * 예외는 모두 잡아 경고 로그만 남긴다(알림이 실패해도 원래 요청은 성공이다).
  *
- * <p>로그에는 종류·기기 수·보낸 수·받을 수 없는 기기 수만 남긴다. 이름·본문·FID·회원·쪽지 ID는 남기지 않는다(익명 쪽지의 받는 사람이
- * 로그 시각으로 이어지지 않게).
+ * <p>로그에는 종류·보낸 수·받을 수 없는 기기 수·오류 코드만 남긴다. 이름·본문·FID·회원·쪽지 ID는 남기지 않는다. 쪽지는 보낸
+ * 결과도 debug로만 남긴다(익명 쪽지를 받은 사람이 로그의 시각·기기 수로 짐작되지 않게).
  */
 @Slf4j
 @Component
@@ -93,6 +94,7 @@ class PushNotifier {
 	private void deliver(PushKind kind, Long userId, Supplier<Optional<PushMessage>> message) {
 		try {
 			Instant readAt = Instant.now(clock);
+			deviceRepository.deleteTakenOver(userId);
 			List<String> fids = deviceRepository.findFids(userId);
 			if (fids.isEmpty()) {
 				return;
@@ -105,8 +107,17 @@ class PushNotifier {
 			if (!result.staleFids().isEmpty()) {
 				deviceRepository.deleteStale(result.staleFids(), readAt);
 			}
-			log.info("푸시 보내기: kind={}, 기기 수={}, 보낸 수={}, 받을 수 없는 기기 수={}", kind, fids.size(), result.sent(),
-					result.staleFids().size());
+			if (!result.errorCodes().isEmpty()) {
+				log.warn("푸시를 일부 기기에 보내지 못했어요: kind={}, 오류={}", kind, result.errorCodes());
+			}
+			if (kind == PushKind.LETTER) {
+				log.debug("푸시 보내기: kind={}, 보낸 수={}, 받을 수 없는 기기 수={}", kind, result.sent(),
+						result.staleFids().size());
+			}
+			else {
+				log.info("푸시 보내기: kind={}, 보낸 수={}, 받을 수 없는 기기 수={}", kind, result.sent(),
+						result.staleFids().size());
+			}
 		}
 		catch (Exception e) {
 			// 오류 메시지에 FID·이름이 섞일 수 있어 종류만 남긴다(SendFailedException은 오류 코드만 담는다).
