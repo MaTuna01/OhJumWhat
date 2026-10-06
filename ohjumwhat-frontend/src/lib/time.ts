@@ -52,7 +52,7 @@ const monthDayFormat = new Intl.DateTimeFormat('ko-KR', { timeZone: TIME_ZONE, m
 const fullDateFormat = new Intl.DateTimeFormat('ko-KR', { timeZone: TIME_ZONE, year: 'numeric', month: 'long', day: 'numeric' })
 
 /** 한국 날짜 "YYYY-MM-DD". 서버의 LocalDate("2026-09-30")나 시각(ISO)을 모두 받는다. */
-function kstDayKey(value: string | number): string {
+export function kstDayKey(value: string | number): string {
   return dayKeyFormat.format(new Date(value))
 }
 

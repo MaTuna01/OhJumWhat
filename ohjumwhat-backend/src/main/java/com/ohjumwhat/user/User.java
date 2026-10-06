@@ -35,7 +35,11 @@ public class User {
 	@Column(nullable = false)
 	private String name;
 
-	/** 마이페이지에서 정한 별명(없으면 null). 있으면 구글 이름 대신 보여준다. */
+	/**
+	 * 마이페이지(또는 관리자 콘솔)에서 정한 별명(없으면 null). 있으면 구글 이름 대신 보여준다. UserRepository.updateNickname으로만
+	 * 바꾼다. photoKey처럼 엔티티를 저장할 때 쓰지 않는 컬럼이라, 같은 순간의 로그인이 옛 별명을 되써서 되돌리는 일이 없다.
+	 */
+	@Column(insertable = false, updatable = false, length = 20)
 	private String nickname;
 
 	/** 구글 프로필 사진 주소. 로그인 때마다 갱신한다. 화면에는 {@link #getPhotoUrl()}을 쓴다. */
@@ -86,8 +90,23 @@ public class User {
 
 	private Instant lastLoginAt;
 
-	/** 「새 소식」을 마지막으로 본 시각(없으면 null, 가입 시각으로 본다). UserRepository.markNoticesSeen으로만 바꾼다. */
+	/**
+	 * 「새 소식」을 마지막으로 본 시각(없으면 null, 가입 시각으로 본다). UserRepository.markNoticesSeen으로만 바꾼다.
+	 * photoKey처럼 엔티티를 저장할 때 쓰지 않는 컬럼이라, 같은 순간의 로그인이 옛 시각을 되써서 읽음이 풀리는 일이 없다.
+	 */
+	@Column(insertable = false, updatable = false)
 	private Instant noticesSeenAt;
+
+	/*
+	 * 방명록(V19): 내 방명록을 마지막으로 본 시각과, 제한된 내 글의 경고를 마지막으로 확인한 시각(없으면 null = 모두 새것).
+	 * 엔티티 저장으로 쓰지 않고 UserRepository.markGuestbookSeen·ackGuestbookWarnings로만 바꾼다(같은 순간의 로그인이
+	 * 옛 값을 되써서 본 글이 다시 새 글이 되지 않게).
+	 */
+	@Column(insertable = false, updatable = false)
+	private Instant guestbookSeenAt;
+
+	@Column(insertable = false, updatable = false)
+	private Instant guestbookWarningsSeenAt;
 
 	@Column(nullable = false)
 	private Instant createdAt;
@@ -110,11 +129,6 @@ public class User {
 		this.email = email;
 		this.name = name;
 		this.profileImageUrl = profileImageUrl;
-	}
-
-	/** null이면 별명을 지우고 구글 이름으로 돌아간다. */
-	public void changeNickname(String nickname) {
-		this.nickname = nickname;
 	}
 
 	public void recordLogin(Instant now) {
@@ -221,6 +235,14 @@ public class User {
 
 	public Instant getNoticesSeenAt() {
 		return noticesSeenAt;
+	}
+
+	public Instant getGuestbookSeenAt() {
+		return guestbookSeenAt;
+	}
+
+	public Instant getGuestbookWarningsSeenAt() {
+		return guestbookWarningsSeenAt;
 	}
 
 	public Instant getCreatedAt() {

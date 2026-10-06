@@ -3,16 +3,20 @@ package com.ohjumwhat.poll;
 import java.time.Instant;
 import java.util.List;
 
+import com.ohjumwhat.ranking.Adoption;
+
 /**
  * 투표 상세 화면 전체를 한 번에 그릴 수 있는 응답(폴링 대상).
  *
  * @param myOptionId myResponse가 OPTION일 때 내가 고른 메뉴
  * @param soloOptionIds 참여자가 한 명뿐인 메뉴
  * @param chatClosesAt 채팅이 닫히는 시각(마감 1시간 뒤). 그 뒤에는 읽기만 한다
+ * @param adoption 마감된 투표의 채택 결과(메뉴 메이커 랭킹). 진행 중이면 null
  */
 public record PollDetailResponse(Long id, Long organizationId, String title, PollStatus status, Instant opensAt,
 		Instant closesAt, Instant chatClosesAt, boolean scheduled, int memberCount, List<Option> options, MyResponse myResponse,
-		Long myOptionId, List<PersonResponse> passed, List<PersonResponse> nonRespondents, List<Long> soloOptionIds) {
+		Long myOptionId, List<PersonResponse> passed, List<PersonResponse> nonRespondents, List<Long> soloOptionIds,
+		Adoption adoption) {
 
 	/**
 	 * @param link 식당 지도 링크(없으면 null)

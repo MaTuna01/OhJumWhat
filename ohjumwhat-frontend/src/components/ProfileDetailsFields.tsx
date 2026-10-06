@@ -1,4 +1,4 @@
-import type { FocusEvent, ReactNode } from 'react'
+import type { FocusEvent, ReactNode, Ref } from 'react'
 import { pickTag, tagKey } from '../lib/profile.ts'
 import {
   ageInput,
@@ -27,13 +27,19 @@ type Props = {
   /** 항목에 포커스가 들어왔다. 버튼·라디오를 눌러도 포커스를 주지 않는 브라우저(Safari)에서도 앞 항목의 오류를 보이게 한다. */
   onEnter: (field: DetailField) => void
   disabled?: boolean
+  /** 제목 아래 안내. 없으면 본인 화면의 안내(관리자 「프로필 수정」은 관리자용 안내를 준다) */
+  description?: ReactNode
+  /** 제목 오른쪽(없으면 「모두 필수」). 관리자 「프로필 수정」은 「상세 프로필 지우기」를 둔다(Figma A03-M3) */
+  headerAction?: ReactNode
+  /** 제목에 포커스를 옮길 때(관리자가 상세 프로필을 지운 뒤) */
+  headingRef?: Ref<HTMLHeadingElement>
 }
 
 /**
  * 「프로필 수정」의 상세 프로필 섹션(Figma 03-M2 「상세 프로필」, 오류 03-M2E). 다섯 항목 모두 필수(*)다.
  * 오류는 그 항목에서 포커스가 벗어난 뒤에만 보인다(MBTI·취미는 묶음 밖으로 벗어날 때).
  */
-export default function ProfileDetailsFields({ form, onChange, errors, onLeave, onEnter, disabled }: Props) {
+export default function ProfileDetailsFields({ form, onChange, errors, onLeave, onEnter, disabled, description, headerAction, headingRef }: Props) {
   const set = (field: DetailField, patch: Partial<DetailsForm>) => onChange({ ...form, ...patch }, field)
   const hobbyTags = form.hobbies.tags
   const suggestions = HOBBY_SUGGESTIONS.filter((s) => !hobbyTags.some((t) => tagKey(t) === tagKey(s)))
@@ -43,10 +49,14 @@ export default function ProfileDetailsFields({ form, onChange, errors, onLeave, 
     <div className="space-y-4 border-t border-border-default pt-4">
       <div>
         <div className="flex items-center justify-between gap-2">
-          <h3 className="font-bold">상세 프로필</h3>
-          <span className="text-xs font-medium text-text-brand">모두 필수</span>
+          <h3 ref={headingRef} tabIndex={headingRef ? -1 : undefined} className="font-bold focus:outline-none">
+            상세 프로필
+          </h3>
+          {headerAction === undefined ? <span className="text-xs font-medium text-text-brand">모두 필수</span> : headerAction}
         </div>
-        <p className="mt-1 text-xs text-text-tertiary">같은 조직 멤버가 내 프로필을 열면 보여요. 다섯 항목을 모두 채워야 저장할 수 있어요.</p>
+        <p className="mt-1 text-xs text-text-tertiary">
+          {description ?? '같은 조직 멤버가 내 프로필을 열면 보여요. 다섯 항목을 모두 채워야 저장할 수 있어요.'}
+        </p>
       </div>
 
       <Field field="mbti" label="MBTI" error={errors.mbti} hint="4가지 성향에서 하나씩 골라요." group {...fieldProps}>

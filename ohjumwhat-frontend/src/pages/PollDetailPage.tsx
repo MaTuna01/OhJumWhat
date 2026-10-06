@@ -27,6 +27,7 @@ import { useClientConfig, useMapKey } from '../queries/config.ts'
 import { useMe } from '../queries/me.ts'
 import { useOrganization } from '../queries/orgs.ts'
 import { distancesByOption, placeOptionIds, usePlaces } from '../queries/places.ts'
+import { useRefreshRankingOnClose } from '../queries/ranking.ts'
 import {
   type PollDetail,
   type PollOption,
@@ -57,6 +58,7 @@ export default function PollDetailPage() {
   const connection = usePollChatSocket(pollId, poll.data?.chatClosesAt)
   const isDesktop = useMediaQuery(DESKTOP_QUERY)
   useDocumentTitle(poll.data?.title, org?.name)
+  useRefreshRankingOnClose(orgId, poll.data?.status)
 
   if (!Number.isInteger(pollId) || (poll.error instanceof ApiError && poll.error.status === 404)) {
     return (
@@ -334,6 +336,7 @@ function ClosedPoll({ orgId, poll, comments, chat }: { orgId: number; poll: Poll
   const { data: me } = useMe()
   const teams = confirmedTeams(poll)
   const myTeam = teams.find((t) => t.id === poll.myOptionId)
+  const adoption = poll.adoption
   const { distances, resolved, highlighted, mobileMap, desktopMap } = usePollMap(orgId, poll, teams, false)
 
   return (
@@ -371,12 +374,20 @@ function ClosedPoll({ orgId, poll, comments, chat }: { orgId: number; poll: Poll
         {teams.length > 0 && (
           <section className="space-y-2.5" aria-label="확정 팀">
             <h2 className="font-bold">확정 팀</h2>
+            {adoption && adoption.optionId == null && adoption.participants > 0 && (
+              // Figma 05b-W2: 메뉴를 고른 사람이 마감 당시 인원의 30%보다 적으면 랭킹에 넣지 않는다.
+              <p className="rounded-xl bg-bg-muted px-3 py-2.5 text-xs text-text-secondary">
+                메뉴를 고른 사람이 {adoption.participants}명이라 조직 인원 {adoption.headcount}명의 30%({adoption.required}명)보다 적어요. 이번
+                투표는 랭킹에 들어가지 않아요.
+              </p>
+            )}
             {teams.map((option) => (
               <div key={option.id} className="space-y-1.5">
                 <OptionCard
                   option={option}
                   meId={me?.id ?? -1}
                   result
+                  adopted={option.id === adoption?.optionId}
                   distance={distances.get(option.id)}
                   resolved={resolved.get(option.id)}
                   highlighted={highlighted === option.id}
@@ -388,6 +399,14 @@ function ClosedPoll({ orgId, poll, comments, chat }: { orgId: number; poll: Poll
                 )}
               </div>
             ))}
+            {adoption?.optionId != null && (
+              <p className="text-xs text-text-tertiary">
+                <span aria-hidden>👑 </span>채택: 메뉴를 고른 사람이 가장 많은 메뉴예요(같으면 먼저 제안한 메뉴).{' '}
+                {teams.find((t) => t.id === adoption.optionId)?.createdBy
+                  ? '제안한 사람에게 랭킹 1회가 쌓여요.'
+                  : '제안한 사람이 탈퇴해서 랭킹에는 들어가지 않아요.'}
+              </p>
+            )}
           </section>
         )}
       </div>

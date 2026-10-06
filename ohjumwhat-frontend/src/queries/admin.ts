@@ -19,8 +19,12 @@ export type AdminStats = {
   /** 최근 7일 가입 */
   newUserCount: number
   blockedCount: number
-  /** 처리 전 쪽지 신고 */
+  /** 처리 전 신고(쪽지 + 방명록) */
   openReportCount: number
+  /** 처리 전 쪽지 신고 */
+  openLetterReportCount: number
+  /** 처리 전 방명록 신고 */
+  openGuestbookReportCount: number
 }
 
 /** 쪽지 신고(받은 사람이 신고한 쪽지만). 익명 쪽지도 실제 보낸 사람을 보여준다. */
@@ -48,6 +52,35 @@ export type AdminLetterReport = {
   recipientEmail: string | null
 }
 
+/** 방명록 신고 처리: RESTRICTED = 글 제한, DISMISSED = 문제 없음 */
+export type GuestbookReportResolution = 'RESTRICTED' | 'DISMISSED'
+
+/** 방명록 신고(프로필 주인이 신고한 글만). 제한·삭제돼도 원문을 보여준다. */
+export type AdminGuestbookReport = {
+  id: number
+  reportedAt: string
+  reason: string | null
+  /** 처리 전이면 null */
+  resolution: GuestbookReportResolution | null
+  resolvedAt: string | null
+  resolvedByName: string | null
+  entryId: number
+  /** 원문(제한·삭제돼도 그대로) */
+  body: string
+  writtenAt: string
+  /** 주인·작성자가 지웠으면 그 시각(「삭제됨」) */
+  deletedAt: string | null
+  restrictedAt: string | null
+  /** 방명록 주인(= 신고한 사람). 강제 탈퇴했으면 null */
+  ownerId: number | null
+  ownerName: string | null
+  ownerEmail: string | null
+  /** 쓴 사람. 강제 탈퇴했으면 null */
+  authorId: number | null
+  authorName: string | null
+  authorEmail: string | null
+}
+
 export type AdminUser = {
   id: number
   /** 화면 이름(별명, 없으면 구글 이름) */
@@ -67,6 +100,8 @@ export type AdminUser = {
 
 export type AdminUserDetail = {
   user: AdminUser
+  /** 별명(없으면 null, 화면 이름은 구글 이름) */
+  nickname: string | null
   /** 한줄 소개(없으면 null) */
   bio: string | null
   /** 좋아하는 음식(없으면 빈 배열) */
@@ -136,6 +171,7 @@ export const adminKeys = {
   chat: (pollId: number) => ['admin', 'chat', pollId] as const,
   blocks: ['admin', 'blocks'] as const,
   letterReports: (status: 'open' | 'all') => ['admin', 'letter-reports', status] as const,
+  guestbookReports: (status: 'open' | 'all') => ['admin', 'guestbook-reports', status] as const,
 }
 
 const search = (q: string) => (q ? `?q=${encodeURIComponent(q)}` : '')
@@ -192,6 +228,14 @@ export function useAdminLetterReports(status: 'open' | 'all') {
   })
 }
 
+export function useAdminGuestbookReports(status: 'open' | 'all') {
+  return useQuery({
+    queryKey: adminKeys.guestbookReports(status),
+    queryFn: () => api<AdminGuestbookReport[]>(`/api/admin/guestbook-reports?status=${status}`),
+    placeholderData: keepPreviousData,
+  })
+}
+
 export function useAdminBlocks() {
   return useQuery({ queryKey: adminKeys.blocks, queryFn: () => api<AdminBlock[]>('/api/admin/blocks') })
 }
@@ -214,9 +258,46 @@ export const useWithdrawUser = () => useAdminMutation((userId: number) => api<vo
 export const useDeleteUserPhoto = () =>
   useAdminMutation((userId: number) => api<void>(`/api/admin/users/${userId}/photo`, { method: 'DELETE' }))
 
+/*
+ * 회원 프로필 수정(별명·소개·상세 프로필). 마이페이지와 같은 규칙·문구로 서버가 확인하고, 본인에게 따로 알리지 않는다.
+ * 모두 바뀐 회원 상세를 돌려준다(캐시는 useAdminMutation이 다시 불러와 맞춘다).
+ */
+
+/** 별명 바꾸기(null이면 구글 이름으로 돌아간다) */
+export const useAdminChangeNickname = (userId: number) =>
+  useAdminMutation((nickname: string | null) =>
+    api<AdminUserDetail>(`/api/admin/users/${userId}/nickname`, { method: 'PUT', body: { nickname } }),
+  )
+
+/** 한줄 소개와 좋아하는 음식 바꾸기(통째로 바꾼다. bio가 null이면 소개를, 빈 배열이면 음식을 지운다) */
+export const useAdminChangeIntro = (userId: number) =>
+  useAdminMutation((intro: { bio: string | null; foodTags: string[] }) =>
+    api<AdminUserDetail>(`/api/admin/users/${userId}/profile`, { method: 'PUT', body: intro }),
+  )
+
+/** 상세 프로필 바꾸기(다섯 항목 모두 필수, 통째로 바꾼다) */
+export const useAdminChangeDetails = (userId: number) =>
+  useAdminMutation((details: ProfileDetails) =>
+    api<AdminUserDetail>(`/api/admin/users/${userId}/profile/details`, { method: 'PUT', body: details }),
+  )
+
+/** 상세 프로필 지우기(다섯 항목을 한꺼번에). 본인이 다음에 들어오면 다시 채우기 안내를 본다. */
+export const useAdminClearDetails = (userId: number) =>
+  useAdminMutation<AdminUserDetail, void>(() =>
+    api<AdminUserDetail>(`/api/admin/users/${userId}/profile/details`, { method: 'DELETE' }),
+  )
+
 /** 쪽지 신고 처리 완료 */
 export const useResolveLetterReport = () =>
   useAdminMutation((reportId: number) => api<void>(`/api/admin/letter-reports/${reportId}/resolve`, { method: 'POST' }))
+
+/** 방명록 신고 「글 제한」: 모두에게 「관리자에 의해 제한된 게시글입니다」로 보이고 작성자에게 경고 안내가 간다(되돌릴 수 없다). */
+export const useRestrictGuestbookReport = () =>
+  useAdminMutation((reportId: number) => api<void>(`/api/admin/guestbook-reports/${reportId}/restrict`, { method: 'POST' }))
+
+/** 방명록 신고 「문제 없음」: 글은 그대로 두고 신고만 처리한다. */
+export const useDismissGuestbookReport = () =>
+  useAdminMutation((reportId: number) => api<void>(`/api/admin/guestbook-reports/${reportId}/dismiss`, { method: 'POST' }))
 
 export const useUnblock = () => useAdminMutation((blockId: number) => api<void>(`/api/admin/blocks/${blockId}`, { method: 'DELETE' }))
 

@@ -28,12 +28,21 @@ public interface UserRepository extends JpaRepository<User, Long> {
 	Optional<User> findByIdForUpdate(Long id);
 
 	/**
-	 * 「새 소식」을 본 시각만 바꾼다. 엔티티 전체를 저장하면 같은 순간의 로그인·별명 변경을 덮어쓸 수 있어서
-	 * 이 컬럼만 고친다. 바뀐 행 수(회원이 없으면 0)를 돌려준다.
+	 * 「새 소식」을 본 시각만 바꾼다. 엔티티 전체를 저장하면 같은 순간의 로그인을 덮어쓸 수 있어서
+	 * 이 컬럼만 고친다. User.noticesSeenAt은 엔티티 저장으로 쓰이지 않는 컬럼이라(로그인이 되쓰지 않게) 이 쿼리로만 바꾼다.
+	 * 영속성 컨텍스트를 비우므로 바꾼 뒤에는 회원을 다시 읽는다. 바뀐 행 수(회원이 없으면 0)를 돌려준다.
 	 */
-	@Modifying
+	@Modifying(clearAutomatically = true)
 	@Query("update User u set u.noticesSeenAt = :seenAt where u.id = :id")
 	int markNoticesSeen(Long id, Instant seenAt);
+
+	/**
+	 * 별명만 바꾼다(null이면 지워 구글 이름으로 돌아간다). User.nickname은 엔티티 저장으로 쓰이지 않는 컬럼이라(로그인이 되쓰지
+	 * 않게) 이 쿼리로만 바꾼다. 영속성 컨텍스트를 비우므로 바꾼 뒤에는 회원을 다시 읽는다.
+	 */
+	@Modifying(clearAutomatically = true)
+	@Query("update User u set u.nickname = :nickname where u.id = :id")
+	int updateNickname(Long id, String nickname);
 
 	/**
 	 * 올린 프로필 사진의 키만 바꾼다(null이면 구글 사진으로 돌아간다). User.photoKey는 엔티티 저장으로 쓰이지 않는 컬럼이라
@@ -52,6 +61,23 @@ public interface UserRepository extends JpaRepository<User, Long> {
 	int updateIntro(Long id, String bio, String[] foodTags);
 
 	/**
+	 * 내 방명록을 본 시각을 until로 올린다(뒤로 가지 않는다, 지금 시각을 넘지 않게 자르는 것은 GuestbookService가 한다).
+	 * 엔티티 저장으로 쓰이지 않는 컬럼이라 이 쿼리로만 바꾼다. 바뀐 행 수(이미 같거나 뒤면 0)를 돌려준다.
+	 */
+	@Modifying(clearAutomatically = true)
+	@Query("""
+			update User u set u.guestbookSeenAt = :until
+			where u.id = :id and (u.guestbookSeenAt is null or u.guestbookSeenAt < :until)""")
+	int markGuestbookSeen(Long id, Instant until);
+
+	/** 방명록 경고를 확인한 시각을 until로 올린다(markGuestbookSeen과 같은 규칙). */
+	@Modifying(clearAutomatically = true)
+	@Query("""
+			update User u set u.guestbookWarningsSeenAt = :until
+			where u.id = :id and (u.guestbookWarningsSeenAt is null or u.guestbookWarningsSeenAt < :until)""")
+	int ackGuestbookWarnings(Long id, Instant until);
+
+	/**
 	 * 상세 프로필(MBTI·퍼스널컬러·취미·나이·직급)만 바꾼다. 소개처럼 엔티티 저장으로 쓰이지 않는 컬럼이라 이 쿼리로만 바꾼다.
 	 * 영속성 컨텍스트를 비우므로 바꾼 뒤에는 회원을 다시 읽는다.
 	 */
@@ -61,4 +87,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
 				u.jobTitle = :jobTitle
 			where u.id = :id""")
 	int updateDetails(Long id, String mbti, PersonalColor personalColor, String[] hobbies, Short age, String jobTitle);
+
+	/**
+	 * 상세 프로필 다섯 항목을 한꺼번에 비운다(관리자 「상세 프로필 지우기」). DB CHECK가 「모두 비었거나 모두 채워졌거나」만
+	 * 받으므로 함께 비운다. 취미 컬럼은 NOT NULL(기본값 빈 배열, V15)이라 빈 배열로 비운다. updateDetails처럼 영속성 컨텍스트를
+	 * 비우므로 바꾼 뒤에는 회원을 다시 읽는다.
+	 */
+	default int clearDetails(Long id) {
+		return updateDetails(id, null, null, new String[0], null, null);
+	}
 }

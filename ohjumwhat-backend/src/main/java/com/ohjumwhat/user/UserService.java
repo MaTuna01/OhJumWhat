@@ -109,11 +109,16 @@ public class UserService {
 		return toMe(findMe(userId));
 	}
 
-	/** 별명 정하기·바꾸기. 비우면 별명을 지우고 구글 이름으로 돌아간다. */
+	/**
+	 * 별명 정하기·바꾸기. 비우면 별명을 지우고 구글 이름으로 돌아간다. 로그인과 겹쳐도 되쓰이지 않게
+	 * 엔티티가 아니라 update 쿼리로 저장한다.
+	 */
 	@Transactional
 	public MeResponse changeNickname(Long userId, String rawNickname) {
+		if (!saveNickname(userId, rawNickname)) {
+			throw ApiException.unauthorized("다시 로그인해 주세요.");
+		}
 		User user = findMe(userId);
-		user.changeNickname(Nicknames.normalize(rawNickname));
 		log.info("별명 변경: userId={}, 별명 있음={}", userId, user.getNickname() != null);
 		return toMe(user);
 	}
@@ -124,33 +129,71 @@ public class UserService {
 	 */
 	@Transactional
 	public MeResponse changeIntro(Long userId, String rawBio, List<String> rawFoodTags) {
-		String bio = ProfileIntro.bio(rawBio);
-		List<String> foodTags = ProfileIntro.foodTags(rawFoodTags);
-		if (userRepository.updateIntro(userId, bio, foodTags.toArray(String[]::new)) == 0) {
+		if (!saveIntro(userId, rawBio, rawFoodTags)) {
 			throw ApiException.unauthorized("다시 로그인해 주세요.");
 		}
-		log.info("프로필 소개 변경: userId={}, 소개 있음={}, 음식 {}개", userId, bio != null, foodTags.size());
-		return toMe(findMe(userId));
+		User user = findMe(userId);
+		log.info("프로필 소개 변경: userId={}, 소개 있음={}, 음식 {}개", userId, user.getBio() != null,
+				user.getFoodTags().size());
+		return toMe(user);
 	}
 
 	/**
-	 * 상세 프로필(MBTI·퍼스널컬러·취미·나이·직급)을 통째로 바꾼다. 다섯 항목 모두 필수라 지우는 방법은 없다.
+	 * 상세 프로필(MBTI·퍼스널컬러·취미·나이·직급)을 통째로 바꾼다. 다섯 항목 모두 필수라 본인은 지울 수 없다(관리자의
+	 * 「상세 프로필 지우기」만 UserRepository.clearDetails로 한꺼번에 비운다).
 	 * 화면의 입력 순서대로 확인해 처음 걸린 항목의 문구로 답한다. 소개처럼 update 쿼리로 저장한다.
 	 */
 	@Transactional
 	public MeResponse changeDetails(Long userId, String rawMbti, String rawPersonalColor, List<String> rawHobbies,
+			Integer rawAge, String rawJobTitle) {
+		if (!saveDetails(userId, rawMbti, rawPersonalColor, rawHobbies, rawAge, rawJobTitle)) {
+			throw ApiException.unauthorized("다시 로그인해 주세요.");
+		}
+		User user = findMe(userId);
+		log.info("상세 프로필 변경: userId={}, 취미 {}개", userId,
+				user.getDetails() == null ? 0 : user.getDetails().hobbies().size());
+		return toMe(user);
+	}
+
+	/*
+	 * 아래 세 메서드는 마이페이지(위)와 관리자 콘솔(AdminService)이 같은 규칙·같은 방법으로 저장하도록 함께 쓴다.
+	 * 회원을 찾지 못했을 때의 응답(401·404)과 로그는 부르는 쪽이 정한다.
+	 */
+
+	/**
+	 * 별명을 정리해(Nicknames 규칙, 비우면 지워 구글 이름으로 돌아간다) update 쿼리로 저장한다. 회원이 없으면 false.
+	 * 영속성 컨텍스트를 비우므로 저장한 뒤에는 회원을 다시 읽는다.
+	 */
+	@Transactional
+	public boolean saveNickname(Long userId, String rawNickname) {
+		return userRepository.updateNickname(userId, Nicknames.normalize(rawNickname)) > 0;
+	}
+
+	/**
+	 * 한줄 소개와 좋아하는 음식을 정리해(ProfileIntro 규칙, 비우면 지운다) update 쿼리로 저장한다. 회원이 없으면 false.
+	 * 영속성 컨텍스트를 비우므로 저장한 뒤에는 회원을 다시 읽는다.
+	 */
+	@Transactional
+	public boolean saveIntro(Long userId, String rawBio, List<String> rawFoodTags) {
+		String bio = ProfileIntro.bio(rawBio);
+		List<String> foodTags = ProfileIntro.foodTags(rawFoodTags);
+		return userRepository.updateIntro(userId, bio, foodTags.toArray(String[]::new)) > 0;
+	}
+
+	/**
+	 * 상세 프로필을 정리해(ProfileDetails 규칙, 화면의 입력 순서대로 확인해 처음 걸린 항목의 문구로 400) update 쿼리로 저장한다.
+	 * 회원이 없으면 false. 영속성 컨텍스트를 비우므로 저장한 뒤에는 회원을 다시 읽는다.
+	 */
+	@Transactional
+	public boolean saveDetails(Long userId, String rawMbti, String rawPersonalColor, List<String> rawHobbies,
 			Integer rawAge, String rawJobTitle) {
 		String mbti = ProfileDetails.mbti(rawMbti);
 		PersonalColor personalColor = ProfileDetails.personalColor(rawPersonalColor);
 		List<String> hobbies = ProfileDetails.hobbies(rawHobbies);
 		short age = ProfileDetails.age(rawAge);
 		String jobTitle = ProfileDetails.jobTitle(rawJobTitle);
-		if (userRepository.updateDetails(userId, mbti, personalColor, hobbies.toArray(String[]::new), age,
-				jobTitle) == 0) {
-			throw ApiException.unauthorized("다시 로그인해 주세요.");
-		}
-		log.info("상세 프로필 변경: userId={}, 취미 {}개", userId, hobbies.size());
-		return toMe(findMe(userId));
+		return userRepository.updateDetails(userId, mbti, personalColor, hobbies.toArray(String[]::new), age,
+				jobTitle) > 0;
 	}
 
 	/**

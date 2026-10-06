@@ -6,12 +6,15 @@ import { serviceLabel } from '../lib/link.ts'
 import type { PollOption } from '../queries/polls.ts'
 import Badge from './Badge.tsx'
 import PersonChip from './PersonChip.tsx'
+import { AdoptedBadge } from './RankingBadges.tsx'
 
 type Props = {
   option: PollOption
   meId: number
   /** 마감 후 결과 모드: 누를 수 없고 확정 인원을 보여준다. */
   result?: boolean
+  /** 결과 모드에서 채택된 메뉴(메뉴 메이커 랭킹): 「👑 채택」과 제안한 사람을 보여준다(Figma 05b-W). */
+  adopted?: boolean
   selected?: boolean
   onSelect?: () => void
   onDelete?: () => void
@@ -32,18 +35,19 @@ type Props = {
 
 /**
  * Figma OptionCard. 카드 전체를 누르면 그 메뉴에 참여한다(한 사람은 한 메뉴만). 내가 고른 카드를 다시 누르면 참여를 취소한다(미응답).
- * 상태: 기본 / 내 선택(오렌지 테두리) / 혼자(배지) / 비어 있음(내가 추가했으면 삭제) / 결과
+ * 상태: 기본 / 내 선택(오렌지 테두리) / 혼자(배지) / 비어 있음(내가 추가했으면 삭제) / 결과(채택된 메뉴는 「👑 채택」)
  * 식당이 있으면 「식당 이름 · 네이버 지도 ↗」(이름이 없으면 「지도 · 서비스 ↗」, Figma OptionCard Link=true, 05-L)를 보여주고,
  * 위치를 찾았으면 조직 위치에서의 거리·도보 시간(Figma Distance=true, 05-G)을 함께 보여준다.
  * 카드 아래 「💬 댓글 N」(Figma Comments=true, 05-K)을 누르면 댓글을 펼친다. 마감된 투표에서 댓글이 없으면 버튼을 숨긴다.
  * 지도 마커에서 찾아올 수 있게 id="option-{id}"를 둔다.
  */
-export default function OptionCard({ option, meId, result, selected, onSelect, onDelete, onEditLink, disabled, distance, resolved, highlighted, commentsOpen, onToggleComments }: Props) {
+export default function OptionCard({ option, meId, result, adopted, selected, onSelect, onDelete, onEditLink, disabled, distance, resolved, highlighted, commentsOpen, onToggleComments }: Props) {
   const count = option.voters.length
   const solo = count === 1
   const interactive = !result && !disabled
   const canEditLink = !result && option.mine && onEditLink != null
   const creator = option.mine ? '내가 추가' : `${withJosa(option.createdBy?.name ?? '탈퇴한 사용자', '이/가')} 추가`
+  const proposer = option.mine ? '내가' : (option.createdBy?.name ?? '탈퇴한 사용자')
   const placeLink = resolved?.link ?? option.link
   const placeLabel = resolved?.name ?? option.placeName ?? '지도'
   const commentLabel = onToggleComments ? commentToggleLabel(option.commentCount, result === true) : null
@@ -80,8 +84,13 @@ export default function OptionCard({ option, meId, result, selected, onSelect, o
           <p className="flex items-baseline gap-2">
             <span className="truncate font-bold">{option.name}</span>
             <span className={`shrink-0 text-sm font-bold ${selected ? 'text-text-brand' : 'text-text-tertiary'}`}>{count}명</span>
+            {result && adopted && (
+              <span className="self-center">
+                <AdoptedBadge />
+              </span>
+            )}
           </p>
-          <p className="mt-0.5 text-xs text-text-tertiary">{result ? '확정 팀' : creator}</p>
+          <p className="mt-0.5 text-xs text-text-tertiary">{result ? (adopted ? `확정 팀 · ${proposer} 제안` : '확정 팀') : creator}</p>
           {(option.link || canEditLink) && (
             <div className="mt-1.5 flex flex-wrap items-center gap-2">
               {placeLink && (

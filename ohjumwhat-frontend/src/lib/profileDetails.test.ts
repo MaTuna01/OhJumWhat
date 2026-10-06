@@ -8,6 +8,7 @@ import {
   detailsChange,
   HOBBY_RULE,
   initialDetailsForm,
+  isBlankDetailsForm,
   missingDetailLabels,
   parseAge,
   personalColorLabel,
@@ -156,6 +157,29 @@ describe('detailsChange', () => {
   it('처음 채우면 바뀐 것이고, 오류가 있으면 저장할 값이 없다', () => {
     expect(detailsChange({ ...me, details: null }, filled).changed).toBe(true)
     expect(detailsChange(me, { ...filled, personalColor: '' }).details).toBeNull()
+  })
+
+  it('관리자 회원 상세처럼 상세 프로필만 있는 값과도 비교한다', () => {
+    expect(detailsChange({ details }, filled)).toEqual({ details, changed: false })
+    expect(detailsChange({ details: null }, filled).changed).toBe(true)
+  })
+})
+
+describe('isBlankDetailsForm', () => {
+  const blank = initialDetailsForm(null)
+
+  it('다섯 항목이 모두 비었으면 빈 폼이다(공백만 적은 칸도 빈 칸)', () => {
+    expect(isBlankDetailsForm(blank)).toBe(true)
+    expect(isBlankDetailsForm({ ...blank, age: ' ', jobTitle: '  ', hobbies: { tags: [], draft: ' ', error: null } })).toBe(true)
+  })
+
+  it('하나라도 고르거나 적었으면 빈 폼이 아니다(취미는 더하지 않은 글도)', () => {
+    expect(isBlankDetailsForm(filled)).toBe(false)
+    expect(isBlankDetailsForm({ ...blank, mbti: ['E', null, null, null] })).toBe(false)
+    expect(isBlankDetailsForm({ ...blank, personalColor: 'SPRING_WARM' })).toBe(false)
+    expect(isBlankDetailsForm({ ...blank, hobbies: { tags: [], draft: '러닝', error: null } })).toBe(false)
+    expect(isBlankDetailsForm({ ...blank, age: '3' })).toBe(false)
+    expect(isBlankDetailsForm({ ...blank, jobTitle: '팀장' })).toBe(false)
   })
 })
 

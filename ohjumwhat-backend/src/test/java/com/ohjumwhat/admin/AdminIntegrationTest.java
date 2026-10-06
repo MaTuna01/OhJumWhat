@@ -145,8 +145,7 @@ class AdminIntegrationTest extends IntegrationTest {
 
 	@Test
 	void 회원_목록은_별명과_구글_이름을_같이_보여주고_별명으로도_찾는다() throws Exception {
-		lee.changeNickname("점심요정");
-		userRepository.save(lee);
+		userService.changeNickname(lee.getId(), "점심요정");
 
 		mockMvc.perform(get("/api/admin/users").param("q", "요정").with(loginAs(admin)))
 			.andExpect(jsonPath("$", hasSize(1)))
