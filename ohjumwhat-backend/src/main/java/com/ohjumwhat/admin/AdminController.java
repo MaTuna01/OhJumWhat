@@ -2,12 +2,17 @@ package com.ohjumwhat.admin;
 
 import java.util.List;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -75,6 +80,39 @@ class AdminController {
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	void deleteUserPhoto(@AuthenticationPrincipal LoginUser admin, @PathVariable Long userId) {
 		adminService.deleteUserPhoto(admin.getUserId(), userId);
+	}
+
+	/*
+	 * 회원 프로필 수정(별명·소개·상세 프로필). 규칙과 오류 문구는 마이페이지(MeController)와 같고, 본인에게 따로 알리지 않는다.
+	 * 모두 바뀐 회원 상세(GET /users/{userId}와 같은 응답)를 돌려준다.
+	 */
+
+	/** 별명 바꾸기. nickname이 비어 있으면 구글 이름으로 돌아간다. */
+	@PutMapping("/users/{userId}/nickname")
+	AdminResponses.UserDetail changeNickname(@AuthenticationPrincipal LoginUser admin, @PathVariable Long userId,
+			@Valid @RequestBody NicknameRequest request) {
+		return adminService.changeNickname(admin.getUserId(), userId, request.nickname());
+	}
+
+	/** 한줄 소개와 좋아하는 음식 바꾸기(통째로 바꾼다). bio가 비면 소개를, foodTags가 비면 음식을 지운다. */
+	@PutMapping("/users/{userId}/profile")
+	AdminResponses.UserDetail changeIntro(@AuthenticationPrincipal LoginUser admin, @PathVariable Long userId,
+			@Valid @RequestBody IntroRequest request) {
+		return adminService.changeIntro(admin.getUserId(), userId, request.bio(), request.foodTags());
+	}
+
+	/** 상세 프로필 바꾸기(다섯 항목 모두 필수, 통째로 바꾼다). */
+	@PutMapping("/users/{userId}/profile/details")
+	AdminResponses.UserDetail changeDetails(@AuthenticationPrincipal LoginUser admin, @PathVariable Long userId,
+			@Valid @RequestBody DetailsRequest request) {
+		return adminService.changeDetails(admin.getUserId(), userId, request.mbti(), request.personalColor(),
+				request.hobbies(), request.age(), request.jobTitle());
+	}
+
+	/** 상세 프로필 지우기(다섯 항목을 한꺼번에) */
+	@DeleteMapping("/users/{userId}/profile/details")
+	AdminResponses.UserDetail clearDetails(@AuthenticationPrincipal LoginUser admin, @PathVariable Long userId) {
+		return adminService.clearDetails(admin.getUserId(), userId);
 	}
 
 	/** 쪽지 신고(받은 사람이 신고한 쪽지만, 익명이어도 실제 보낸 사람까지). status: open(기본)·all */
@@ -188,5 +226,23 @@ class AdminController {
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	void deleteSchedule(@AuthenticationPrincipal LoginUser admin, @PathVariable Long scheduleId) {
 		adminService.deleteSchedule(admin.getUserId(), scheduleId);
+	}
+
+	// 프로필 수정 요청: MeController와 같은 방어선(큰 요청을 막는 크기 제한)이다. 실제 규칙은 UserService가 확인한다.
+
+	record NicknameRequest(@Size(max = 100, message = "이름은 20자 이하로 입력해 주세요.") String nickname) {
+	}
+
+	record IntroRequest(@Size(max = 200, message = "한줄 소개는 50자 이하로 입력해 주세요.") String bio,
+			@Size(max = 20, message = "좋아하는 음식은 3개까지 적을 수 있어요.")
+			List<@Size(max = 100, message = "음식 이름은 10자 이하로 입력해 주세요.") String> foodTags) {
+	}
+
+	record DetailsRequest(@Size(max = 20, message = "4가지 성향을 모두 선택해 주세요.") String mbti,
+			@Size(max = 40, message = "퍼스널컬러를 선택해 주세요.") String personalColor,
+			@Size(max = 20, message = "취미는 5개까지 적을 수 있어요.")
+			List<@Size(max = 100, message = "취미는 10자 이하로 입력해 주세요.") String> hobbies,
+			Integer age,
+			@Size(max = 100, message = "직급을 입력해 주세요. (최대 15자)") String jobTitle) {
 	}
 }

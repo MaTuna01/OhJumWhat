@@ -79,4 +79,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
 				u.jobTitle = :jobTitle
 			where u.id = :id""")
 	int updateDetails(Long id, String mbti, PersonalColor personalColor, String[] hobbies, Short age, String jobTitle);
+
+	/**
+	 * 상세 프로필 다섯 항목을 한꺼번에 비운다(관리자 「상세 프로필 지우기」). DB CHECK가 「모두 비었거나 모두 채워졌거나」만
+	 * 받으므로 함께 비운다. 취미 컬럼은 NOT NULL(기본값 빈 배열, V15)이라 빈 배열로 비운다. updateDetails처럼 영속성 컨텍스트를
+	 * 비우므로 바꾼 뒤에는 회원을 다시 읽는다.
+	 */
+	default int clearDetails(Long id) {
+		return updateDetails(id, null, null, new String[0], null, null);
+	}
 }

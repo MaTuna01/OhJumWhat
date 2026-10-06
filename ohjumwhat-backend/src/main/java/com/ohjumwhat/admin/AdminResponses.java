@@ -41,14 +41,15 @@ final class AdminResponses {
 	}
 
 	/**
+	 * @param nickname 별명(없으면 null, 화면 이름은 구글 이름). 관리자 「프로필 수정」이 지금 값과 비교한다.
 	 * @param bio 한줄 소개(없으면 null)
 	 * @param foodTags 좋아하는 음식(없으면 빈 목록)
 	 * @param details 상세 프로필(채우지 않았으면 null)
 	 * @param lastAccessAt 세션의 마지막 요청 시각(로그인은 30일 유지되므로 최근 로그인보다 최근 활동에 가깝다)
 	 */
-	record UserDetail(UserRow user, String bio, List<String> foodTags, ProfileDetailsResponse details,
-			Instant lastAccessAt,
-			List<UserOrganization> organizations, Activity activity) {
+	record UserDetail(UserRow user, String nickname, String bio, List<String> foodTags,
+			ProfileDetailsResponse details, Instant lastAccessAt, List<UserOrganization> organizations,
+			Activity activity) {
 	}
 
 	record UserOrganization(Long id, String name, long memberCount, Instant joinedAt, Instant lastVisitedAt) {
