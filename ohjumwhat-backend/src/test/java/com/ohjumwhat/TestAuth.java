@@ -2,7 +2,9 @@ package com.ohjumwhat;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oidcLogin;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.UUID;
 
 import jakarta.servlet.http.Cookie;
@@ -41,6 +43,21 @@ public final class TestAuth {
 		return request -> {
 			String token = UUID.randomUUID().toString();
 			request.setCookies(new Cookie("XSRF-TOKEN", token));
+			request.addHeader("X-XSRF-TOKEN", token);
+			return request;
+		};
+	}
+
+	/**
+	 * xsrf()에 더해 그 로그인 세션의 SESSION 쿠키도 보낸다(세션 ID를 base64로, Spring Session 기본값).
+	 * xsrf()는 쿠키를 통째로 바꾸므로 두 쿠키를 함께 만든다. 세션 행은 IntegrationTest.loginSession으로 만든다.
+	 */
+	public static RequestPostProcessor xsrf(String sessionId) {
+		return request -> {
+			String token = UUID.randomUUID().toString();
+			request.setCookies(new Cookie("SESSION",
+					Base64.getEncoder().encodeToString(sessionId.getBytes(StandardCharsets.UTF_8))),
+					new Cookie("XSRF-TOKEN", token));
 			request.addHeader("X-XSRF-TOKEN", token);
 			return request;
 		};

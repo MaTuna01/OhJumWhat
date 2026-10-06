@@ -51,6 +51,13 @@ public interface LetterRepository extends JpaRepository<Letter, Long> {
 	@Query(SENT_ROW + "where l.id = :id")
 	Optional<LetterRow> findSentRow(Long id);
 
+	/**
+	 * 받은 쪽지함에 보이는 쪽지 한 통을 받은 쪽지함과 같은 모양으로(푸시 문구). 익명 쪽지는 보낸 사람 이름을 고르지 않는다.
+	 * 받는 사람이 지웠거나 차단했으면 비어 있다.
+	 */
+	@Query(RECEIVED_ROW + "where l.id = :id and" + VISIBLE_RECEIVED)
+	Optional<LetterRow> findReceivedRow(Long id, Long userId);
+
 	@Query("select count(l) from Letter l where l.readAt is null and" + VISIBLE_RECEIVED)
 	long countUnread(Long userId);
 
