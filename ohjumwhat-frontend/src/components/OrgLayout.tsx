@@ -10,6 +10,7 @@ const tabs = [
   { to: '', label: '투표', end: true },
   { to: 'schedules', label: '정기 투표', end: false },
   { to: 'stats', label: '통계', end: false },
+  { to: 'ranking', label: '랭킹', end: false },
   { to: 'settings', label: '설정', end: false },
 ]
 
@@ -51,6 +52,7 @@ export default function OrgLayout() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold tracking-tight">{org.data.name}</h1>
           <p className="mt-1 text-sm text-text-tertiary">멤버 {org.data.memberCount}명</p>
+          {/* 탭 다섯 개가 320px 화면에도 한 줄에 들어가도록 좁은 화면에서는 좌우 여백을 줄인다. */}
           <nav className="mt-4 flex gap-1 border-b border-border-default" aria-label="조직 메뉴">
             {tabs.map((tab) => (
               <NavLink
@@ -58,7 +60,7 @@ export default function OrgLayout() {
                 to={tab.to === '' ? `/orgs/${orgId}` : `/orgs/${orgId}/${tab.to}`}
                 end={tab.end}
                 className={({ isActive }) =>
-                  `-mb-px border-b-2 px-3 py-2 text-sm font-medium ${
+                  `-mb-px shrink-0 border-b-2 px-2.5 py-2 text-sm font-medium whitespace-nowrap min-[360px]:px-3 ${
                     isActive ? 'border-border-brand text-text-brand' : 'border-transparent text-text-tertiary hover:text-text-primary'
                   }`
                 }

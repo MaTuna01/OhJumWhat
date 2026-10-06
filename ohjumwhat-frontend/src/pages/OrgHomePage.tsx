@@ -7,6 +7,7 @@ import CreatePollModal from '../components/CreatePollModal.tsx'
 import MemberList from '../components/MemberList.tsx'
 import NoticeBanner from '../components/NoticeBanner.tsx'
 import { PageLoader, Section } from '../components/PageState.tsx'
+import { RankingCard, RankingHint } from '../components/RankingTeaser.tsx'
 import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { useNow } from '../hooks/useNow.ts'
 import { useOrgId } from '../hooks/useOrgId.ts'
@@ -18,7 +19,7 @@ import { type PollHistoryItem, type PollSummary, usePollHistory, useTodayPolls }
 import { useOrganization } from '../queries/orgs.ts'
 import { useSchedules } from '../queries/schedules.ts'
 
-/** Figma 04 조직 홈: 새 소식 배너(04-B), 오늘 열린 투표 카드와 투표 만들기, 지난 투표(04-H) */
+/** Figma 04 조직 홈: 새 소식 배너(04-B), 오늘 열린 투표 카드와 투표 만들기, 이번 주 메뉴 메이커(04-R), 지난 투표(04-H) */
 export default function OrgHomePage() {
   const orgId = useOrgId()
   const polls = useTodayPolls(orgId)
@@ -53,12 +54,14 @@ export default function OrgHomePage() {
             ))}
           </ul>
         )}
+        <RankingHint orgId={orgId} />
         <PollHistory orgId={orgId} />
         <ScheduleHint orgId={orgId} />
       </div>
-      {/* 데스크톱 사이드: 정기 투표 요약과 멤버. 모바일은 위의 한 줄 요약(ScheduleHint)만 보여준다. */}
+      {/* 데스크톱 사이드: 정기 투표 요약, 이번 주 메뉴 메이커, 멤버. 모바일은 본문의 요약(RankingHint, ScheduleHint)만 보여준다. */}
       <aside className="hidden space-y-4 lg:block">
         <ScheduleCard orgId={orgId} />
+        <RankingCard orgId={orgId} />
         <MemberList orgId={orgId} limit={6} />
       </aside>
       <CreatePollModal orgId={orgId} open={creating} onClose={() => setCreating(false)} />

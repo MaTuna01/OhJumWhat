@@ -2,6 +2,7 @@ package com.ohjumwhat.notice;
 
 import static com.ohjumwhat.TestAuth.loginAs;
 import static com.ohjumwhat.TestAuth.xsrf;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
@@ -10,16 +11,19 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.ohjumwhat.IntegrationTest;
 import com.ohjumwhat.user.User;
 import com.ohjumwhat.user.UserRepository;
+import com.ohjumwhat.user.UserService;
 
 class NoticeIntegrationTest extends IntegrationTest {
 
@@ -27,7 +31,13 @@ class NoticeIntegrationTest extends IntegrationTest {
 	UserRepository userRepository;
 
 	@Autowired
+	UserService userService;
+
+	@Autowired
 	NoticeRepository noticeRepository;
+
+	@Autowired
+	TransactionTemplate transactionTemplate;
 
 	User kim;
 
@@ -134,6 +144,45 @@ class NoticeIntegrationTest extends IntegrationTest {
 
 		mockMvc.perform(get("/api/notices/unread").with(loginAs(lee))).andExpect(jsonPath("$.count").value(0));
 		mockMvc.perform(get("/api/notices/unread").with(loginAs(kim))).andExpect(jsonPath("$.count").value(1));
+	}
+
+	@Test
+	void 새_소식을_본_뒤_다시_로그인해도_읽음은_그대로다() throws Exception {
+		noticeRepository.save(Notice.release("1.5.0", "별명이 생겼어요", "본문", minutesAfterJoin(1)));
+		clock.set(minutesAfterJoin(2));
+		mockMvc.perform(post("/api/notices/seen").with(loginAs(kim)).with(xsrf()))
+			.andExpect(status().isNoContent());
+
+		userService.login("sub-kim", "kim@example.com", true, "김철수(새 이름)", null);
+
+		mockMvc.perform(get("/api/notices/unread").with(loginAs(kim))).andExpect(jsonPath("$.count").value(0));
+	}
+
+	@Test
+	void 새_소식을_보는_순간_로그인이_겹쳐도_로그인이_읽음을_되돌리지_않는다() {
+		Instant seenAt = Instant.parse("2026-10-30T02:00:00Z");
+		// 로그인이 회원을 읽은 뒤, 커밋하기 전에 새 소식을 본 상황
+		transactionTemplate.executeWithoutResult(status -> {
+			User user = userRepository.findById(kim.getId()).orElseThrow();
+			jdbcTemplate.update("update users set notices_seen_at = ? where id = ?", Timestamp.from(seenAt),
+					kim.getId());
+			user.updateProfile("kim@example.com", "김철수", null);
+			user.recordLogin(clock.instant());
+			userRepository.flush();
+		});
+
+		assertThat(userRepository.findById(kim.getId()).orElseThrow().getNoticesSeenAt()).isEqualTo(seenAt);
+	}
+
+	@Test
+	void 읽은_시각을_바꾼_뒤_같은_트랜잭션에서_다시_읽어도_새_시각이다() {
+		Instant seenAt = Instant.parse("2026-10-30T02:00:00Z");
+		transactionTemplate.executeWithoutResult(status -> {
+			userRepository.findById(kim.getId()).orElseThrow();
+			userRepository.markNoticesSeen(kim.getId(), seenAt);
+
+			assertThat(userRepository.findById(kim.getId()).orElseThrow().getNoticesSeenAt()).isEqualTo(seenAt);
+		});
 	}
 
 	@Test

@@ -5,6 +5,7 @@ import { guestbookTabLabel } from '../lib/guestbook.ts'
 import { useGuestbook } from '../queries/guestbook.ts'
 import { useMe } from '../queries/me.ts'
 import { type Member, useMembers } from '../queries/orgs.ts'
+import { useMonthlyMakers } from '../queries/ranking.ts'
 import type { Person } from '../queries/polls.ts'
 import Avatar from './Avatar.tsx'
 import Button from './Button.tsx'
@@ -12,6 +13,7 @@ import FoodTags from './FoodTags.tsx'
 import { GuestbookPanel } from './Guestbook.tsx'
 import Modal from './Modal.tsx'
 import ProfileDetailList from './ProfileDetailList.tsx'
+import { MakerBadge } from './RankingBadges.tsx'
 
 type Props = {
   orgId: number
@@ -22,6 +24,7 @@ type Props = {
 
 /**
  * 멤버 프로필(Figma 07-P·07-P2·07-P4·07-P5): 사진·이름 아래 탭 [프로필 정보] | [방명록 N]. 보기 전용이라 ✕로 닫는다.
+ * 지난달 메뉴 메이커 1위면 이름 아래에 「🏅 이달의 메뉴 메이커」(07-P3)를 붙인다.
  * 방명록에서 다른 사람을 누르면 그 사람의 프로필로 바뀌고, 사람마다 새로 그려져 탭이 「프로필 정보」로 돌아간다.
  */
 export default function MemberProfileModal({ orgId, person, onClose }: Props) {
@@ -41,6 +44,7 @@ type Tab = 'info' | 'guestbook'
 function MemberProfile({ orgId, person, onClose }: { orgId: number; person: Person; onClose: () => void }) {
   const members = useMembers(orgId)
   const { data: me } = useMe()
+  const makers = useMonthlyMakers(orgId)
   const member = members.data?.find((m) => m.userId === person.userId)
   const name = member?.name ?? person.name
   const isMe = person.userId === me?.id
@@ -55,6 +59,7 @@ function MemberProfile({ orgId, person, onClose }: { orgId: number; person: Pers
         <p className="truncate text-lg font-bold">{name}</p>
         {isMe && <span className="shrink-0 rounded-full bg-bg-muted px-2 py-0.5 text-xs text-text-tertiary">나</span>}
       </div>
+      {member && makers.has(member.userId) && <MakerBadge />}
       {members.isPending ? (
         <p role="status" className="text-sm text-text-tertiary">
           불러오는 중…

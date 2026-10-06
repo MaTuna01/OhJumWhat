@@ -32,6 +32,13 @@ export type PollOption = {
   commentCount: number
 }
 
+/**
+ * 마감된 투표의 채택 결과(메뉴 메이커 랭킹, 서버 ranking/MenuAdoption).
+ * optionId는 메뉴를 고른 사람이 가장 많은 메뉴(같으면 먼저 추가한 메뉴)이고, 메뉴를 고른 사람(participants)이
+ * 마감 당시 인원(headcount)의 30%(required, 올림)보다 적으면 null이다.
+ */
+export type Adoption = { optionId: number | null; participants: number; headcount: number; required: number }
+
 export type PollDetail = {
   id: number
   organizationId: number
@@ -49,6 +56,8 @@ export type PollDetail = {
   passed: Person[]
   nonRespondents: Person[]
   soloOptionIds: number[]
+  /** 마감된 투표의 채택 결과. 진행 중이면 null */
+  adoption: Adoption | null
 }
 
 export type PollSummary = {

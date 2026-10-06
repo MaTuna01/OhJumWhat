@@ -29,9 +29,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
 	/**
 	 * 「새 소식」을 본 시각만 바꾼다. 엔티티 전체를 저장하면 같은 순간의 로그인·별명 변경을 덮어쓸 수 있어서
-	 * 이 컬럼만 고친다. 바뀐 행 수(회원이 없으면 0)를 돌려준다.
+	 * 이 컬럼만 고친다. User.noticesSeenAt은 엔티티 저장으로 쓰이지 않는 컬럼이라(로그인이 되쓰지 않게) 이 쿼리로만 바꾼다.
+	 * 영속성 컨텍스트를 비우므로 바꾼 뒤에는 회원을 다시 읽는다. 바뀐 행 수(회원이 없으면 0)를 돌려준다.
 	 */
-	@Modifying
+	@Modifying(clearAutomatically = true)
 	@Query("update User u set u.noticesSeenAt = :seenAt where u.id = :id")
 	int markNoticesSeen(Long id, Instant seenAt);
 

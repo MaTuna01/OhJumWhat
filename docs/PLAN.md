@@ -37,6 +37,7 @@
 | 22 | 상세 프로필(Notion 「22. 프로필 항목 추가」): MBTI·퍼스널컬러·취미·나이·직급. 「프로필 수정」에서 다섯 항목 모두 필수(지우기 없음), 마이페이지·멤버 프로필·관리자 회원 상세에 보인다 | 완료(v1.10.0) | [#75](https://github.com/MaTuna01/OhJumWhat/pull/75) |
 | 21 | 쪽지(Notion 「21. 같은 조직에 추가된 사용자들끼리 쪽지 주고받기 기능」): 같은 조직 멤버끼리 한 통씩 주고받기, 익명·익명 쪽지에도 답장, 받은 사람의 차단(실명은 사람, 익명은 쪽지 한 통 단위)·신고, 관리자 「신고」 탭, 상단 바 안 읽은 쪽지 배지 | 완료(v1.10.0) | [#76](https://github.com/MaTuna01/OhJumWhat/pull/76), 익명 보호 수정 [#78](https://github.com/MaTuna01/OhJumWhat/pull/78) |
 | 18 | 채팅 안 읽은 메시지 알림(Notion 「18. 채팅에 메시지가 오면 알림」): 읽은 위치를 서버에 저장, 채팅 버튼 빨간 배지·도착 미리보기, 「여기부터 새 메시지」·「새 메시지 N ↓」, 데스크톱 화면 밖 떠 있는 버튼, 조직 홈 카드 「💬 N」 | 완료(v1.9.0) | [#69](https://github.com/MaTuna01/OhJumWhat/pull/69) |
+| - | 메뉴 채택 랭킹(메뉴 메이커, Notion 「15. 메뉴 채택 랭킹 기능 추가」): 마감된 투표마다 가장 많이 고른 메뉴(30% 이상)를 제안한 사람에게 1회, 조직 「랭킹」 탭(주간·월간, 12개월 전까지, TOP3 포디움·채택 기록), 조직 홈 이번 주 TOP3, 결과 화면 「👑 채택」, 지난달 1위 「이달의 메뉴 메이커」 배지. 스키마 변경 없음 | 구현 완료 · dev PR 검토 중 | [#88](https://github.com/MaTuna01/OhJumWhat/pull/88) |
 | 20 | 방명록(Notion 「20. 방명록 기능 추가」): 사람마다 방명록 하나(조직을 같이 쓰는 사람이 쓰고 봄), 100자 한 줄·5초에 한 번, 10개씩 쪽 넘기기, 쓴 사람·주인 지우기, 주인만 신고 → 관리자 「글 제한」·「문제 없음」, 상단 바 새 방명록 점·마이페이지 NEW·글 제한 경고. 1차는 화면 안 알림, FCM 웹 푸시(방명록·쪽지)는 다음 PR | 진행 중(이슈 [#91](https://github.com/MaTuna01/OhJumWhat/issues/91)) | - |
 
 확장 기능(8~13단계)의 순서와 체크리스트는 Notion Tasks에 있다. 기획서 「나중에」 목록을 구현 난이도 순으로 정렬했다: 8 투표 조기 마감·수정·삭제 → 9 메뉴에 식당 지도 링크 → 10 메뉴 통계 → 11 식당 정보·지도 연동(검색 API는 약관상 결과를 저장할 수 없어 네이버 공유 링크 방식으로, 결과 지도는 다음 단계) → 12 중복 투표 → 13 최소 인원 미달 자동 해산. 14 공지사항(새 소식)은 배포마다 바뀐 점을 알리려고 나중에 추가했다.
@@ -122,6 +123,7 @@ ohjumwhat/
 | 투표 관리 | `PUT /api/polls/{pollId}` (title, closesAt "HH:mm"), `POST /api/polls/{pollId}/close` (지금 마감), `DELETE /api/polls/{pollId}` (수동 투표만) — 진행 중일 때 멤버 누구나 | 완료 |
 | 메뉴 | `POST /api/polls/{pollId}/options` (name, 식당 선택: link·placeName·placeAddress 또는 kakaoPlaceId·placeQuery), `DELETE /api/polls/{pollId}/options/{optionId}`, `PUT /api/polls/{pollId}/options/{optionId}/link` (같은 식당 값), `GET /api/orgs/{id}/menu-names?q=` (자동완성: 이름 + 마지막으로 먹은 날 + 지난번 식당) | 완료 |
 | 통계 | `GET /api/orgs/{id}/menu-stats?days=` (없으면 전체), `GET /api/orgs/{id}/menu-recommendations` | 완료 |
+| 랭킹 | `GET /api/orgs/{id}/ranking?period=week\|month&date=YYYY-MM-DD` (그 날짜가 들어 있는 주·달, 없으면 오늘. 12개월 전보다 앞이나 앞으로의 날짜는 400). 투표 상세의 `adoption`(마감된 투표의 채택 메뉴) | 완료 |
 | 지도 | `GET /api/config` (네이버 지도 키, 위치 찾기 가능 여부), `GET /api/orgs/{id}/places?optionIds=` (조직·식당 좌표, 카카오 식당은 이름까지, 볼 때마다 찾음, 30개까지), `GET /api/orgs/{id}/places/search?q=` (근처 식당 찾기, 45개까지, 이름·분류가 맞는 곳이 앞) | 완료 |
 | 참여 | `PUT /api/polls/{pollId}/vote` `{optionId: number \| null}` (null이면 "오늘은 패스"), `DELETE /api/polls/{pollId}/vote` (응답 취소 → 미응답, 진행 중에만) | 완료 |
 | 정기 | `GET/POST /api/orgs/{id}/schedules`, `PUT/DELETE /api/orgs/{id}/schedules/{sid}` | 완료 |
@@ -143,7 +145,7 @@ ohjumwhat/
 ## 프론트엔드 설계
 - **라우트**
   - `/login`, `/invite/:token`, `/me`, `/`(진입 분기)
-  - `/orgs/:orgId`(`OrgLayout` 아래: 홈, `polls/:pollId`, `schedules`, `settings`)
+  - `/orgs/:orgId`(`OrgLayout` 아래: 홈, `polls/:pollId`, `schedules`, `stats`, `ranking`, `settings`)
 - **진입 분기**: 기억해 둔 경로(초대 링크) → 최근 조직 → `/me`. 로그인이 필요한 화면은 `RequireAuth`로 감싼다.
 - **API**: `lib/api.ts`의 `api()`로만 호출한다(XSRF 헤더, 에러 메시지). 서버 상태 훅과 query key는 `src/queries/`에 둔다.
 - **폴링**(4단계): `usePollDetail`은 OPEN이면 `refetchInterval: 3000`, CLOSED면 멈춘다. 백그라운드 탭에서는 폴링하지 않는다. 참여 클릭은 낙관적 업데이트로 처리한다.

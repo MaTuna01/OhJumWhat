@@ -24,6 +24,7 @@ const base: PollDetail = {
   passed: [],
   nonRespondents: [{ userId: 1, name: '김철수', profileImageUrl: null }],
   soloOptionIds: [100],
+  adoption: null,
 }
 
 describe('applyVote', () => {

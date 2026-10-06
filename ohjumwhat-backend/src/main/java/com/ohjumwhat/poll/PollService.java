@@ -36,6 +36,8 @@ import com.ohjumwhat.menu.MenuOptionRepository;
 import com.ohjumwhat.organization.MemberResponse;
 import com.ohjumwhat.organization.MembershipRepository;
 import com.ohjumwhat.organization.MembershipService;
+import com.ohjumwhat.ranking.Adoption;
+import com.ohjumwhat.ranking.MenuAdoption;
 import com.ohjumwhat.user.UserRepository;
 import com.ohjumwhat.vote.Vote;
 import com.ohjumwhat.vote.VoteRepository;
@@ -217,7 +219,7 @@ public class PollService {
 		}
 	}
 
-	/** 투표 상세 화면 전체: 메뉴별 참여자, 내 응답, 패스, 미응답자, 참여자가 한 명뿐인 메뉴 */
+	/** 투표 상세 화면 전체: 메뉴별 참여자, 내 응답, 패스, 미응답자, 참여자가 한 명뿐인 메뉴, (마감됐으면) 채택 메뉴 */
 	@Transactional(readOnly = true)
 	public PollDetailResponse detail(Poll poll, Long userId) {
 		boolean closed = poll.isClosed(Instant.now(clock));
@@ -271,11 +273,14 @@ public class PollService {
 
 		Vote myVote = votes.stream().filter(v -> v.getUserId().equals(userId)).findFirst().orElse(null);
 		MyResponse myResponse = myVote == null ? MyResponse.NONE : myVote.isPass() ? MyResponse.PASS : MyResponse.OPTION;
+		Adoption adoption = closed ? MenuAdoption.decide(votes,
+				members.stream().collect(Collectors.toMap(MemberResponse::userId, MemberResponse::joinedAt)),
+				poll.getClosesAt()) : null;
 
 		return new PollDetailResponse(poll.getId(), poll.getOrganizationId(), poll.getTitle(),
 				closed ? PollStatus.CLOSED : PollStatus.OPEN, poll.getOpensAt(), poll.getClosesAt(),
 				poll.getChatClosesAt(), poll.getScheduleId() != null, members.size(), optionResponses, myResponse,
-				myVote == null ? null : myVote.getOptionId(), passed, nonRespondents, soloOptionIds);
+				myVote == null ? null : myVote.getOptionId(), passed, nonRespondents, soloOptionIds, adoption);
 	}
 
 	private static PollHistoryResponse.Item historyItem(Poll poll, Long userId, List<MenuOption> options,

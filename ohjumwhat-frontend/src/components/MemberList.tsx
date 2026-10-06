@@ -1,9 +1,11 @@
 import { Link } from 'react-router'
 import { useMe } from '../queries/me.ts'
 import { useMembers } from '../queries/orgs.ts'
+import { useMonthlyMakers } from '../queries/ranking.ts'
 import Avatar from './Avatar.tsx'
 import { PageLoader, Section } from './PageState.tsx'
 import { ProfileButton } from './ProfileViewer.tsx'
+import { MakerBadge } from './RankingBadges.tsx'
 
 type Props = {
   orgId: number
@@ -12,10 +14,14 @@ type Props = {
   className?: string
 }
 
-/** Figma 「멤버 N명」 카드. 조직 설정 화면과 데스크톱 조직 홈의 사이드에서 쓴다. 사람을 누르면 프로필(07-P)을 연다. */
+/**
+ * Figma 「멤버 N명」 카드. 조직 설정 화면과 데스크톱 조직 홈의 사이드에서 쓴다. 사람을 누르면 프로필(07-P)을 연다.
+ * 지난달 메뉴 메이커 1위는 이름 옆에 🏅(MakerBadge Compact, D04-R)를 붙인다.
+ */
 export default function MemberList({ orgId, limit, className }: Props) {
   const members = useMembers(orgId)
   const { data: me } = useMe()
+  const makers = useMonthlyMakers(orgId)
   const shown = limit ? members.data?.slice(0, limit) : members.data
   const rest = (members.data?.length ?? 0) - (shown?.length ?? 0)
 
@@ -33,6 +39,7 @@ export default function MemberList({ orgId, limit, className }: Props) {
                 <ProfileButton person={member} className="-m-1 flex w-[calc(100%+0.5rem)] min-w-0 items-center gap-2.5 rounded-lg p-1 hover:bg-bg-subtle">
                   <Avatar name={member.name} imageUrl={member.profileImageUrl} />
                   <span className="truncate text-sm">{member.name}</span>
+                  {makers.has(member.userId) && <MakerBadge compact />}
                   {member.userId === me?.id && (
                     <span className="shrink-0 rounded-full bg-bg-muted px-2 py-0.5 text-xs text-text-tertiary">나</span>
                   )}
