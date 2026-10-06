@@ -113,6 +113,27 @@ class AdminProfileEditIntegrationTest extends IntegrationTest {
 	}
 
 	@Test
+	void 관리자가_지운_별명은_옛_엔티티를_저장하거나_로그인해도_돌아오지_않는다() throws Exception {
+		userService.changeNickname(lee.getId(), "나쁜 이름");
+		// 관리자가 지우기 전에 읽어 둔 회원(옛 별명을 들고 있다)
+		User stale = userRepository.findById(lee.getId()).orElseThrow();
+
+		edit(admin, "/nickname", lee, "{\"nickname\": \"\"}")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.user.name").value("이영희"))
+			.andExpect(jsonPath("$.nickname").value(nullValue()));
+		userRepository.save(stale);
+		userService.login("sub-lee", "lee@example.com", true, "이영희(새 이름)", null);
+
+		mockMvc.perform(get("/api/admin/users/" + lee.getId()).with(loginAs(admin)))
+			.andExpect(jsonPath("$.user.name").value("이영희(새 이름)"))
+			.andExpect(jsonPath("$.user.googleName").value("이영희(새 이름)"))
+			.andExpect(jsonPath("$.nickname").value(nullValue()));
+		mockMvc.perform(get("/api/orgs/" + devOrgId + "/members").with(loginAs(kim)))
+			.andExpect(jsonPath("$[*].name", contains("김철수", "이영희(새 이름)")));
+	}
+
+	@Test
 	void 소개를_바꾸면_본인_정보와_멤버_목록에_보이고_비우면_지운다() throws Exception {
 		edit(admin, "/profile", lee, """
 				{"bio": "  국물   요리가 좋아요 ", "foodTags": ["#마라탕", " 김치 찌개 ", "김치찌개", "  "]}""")

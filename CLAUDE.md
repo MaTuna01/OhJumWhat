@@ -84,7 +84,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 로그인 버튼은 `/oauth2/authorization/google`로 이동한다. 로그인에 성공하면 서버는 항상 `/`로 보낸다.
 - 그다음 어디로 갈지는 프론트 `RootRedirect`가 정한다. `lib/entry.ts` 순서대로 sessionStorage에 기억해 둔 경로(초대 링크) → 최근 조직 → `/me`로 보낸다.
 - `GoogleOidcUserService`가 google_sub 기준으로 users를 upsert하고, 세션 principal로 `LoginUser`(users.id 포함)를 둔다. 컨트롤러에서는 `@AuthenticationPrincipal LoginUser`로 받는다.
-- 화면에 보이는 사람 이름은 **별명(`users.nickname`, V5), 없으면 구글 이름(`users.name`)**이다(`User.getDisplayName()`, JPQL은 `coalesce(u.nickname, u.name)`). 구글 이름은 로그인 때마다 갱신되고 별명은 그대로 둔다. 별명은 마이페이지 「프로필 수정」(`PUT /api/me/nickname`, 20자, 비우면 구글 이름)으로 정한다. 사람 이름을 새로 내려주는 쿼리·응답을 만들 때도 이 규칙을 따른다(관리자 콘솔은 `googleName`도 함께 준다).
+- 화면에 보이는 사람 이름은 **별명(`users.nickname`, V5), 없으면 구글 이름(`users.name`)**이다(`User.getDisplayName()`, JPQL은 `coalesce(u.nickname, u.name)`). 구글 이름은 로그인 때마다 갱신되고 별명은 그대로 둔다. 별명은 마이페이지 「프로필 수정」(`PUT /api/me/nickname`, 20자, 비우면 구글 이름)으로 정한다. `nickname`도 아래 `photo_key`처럼 엔티티에서 `insertable/updatable=false`이고 `UserRepository.updateNickname`으로만 바꾼다(같은 순간의 로그인이 옛 별명을 되써서 되돌리지 않게, #95). 사람 이름을 새로 내려주는 쿼리·응답을 만들 때도 이 규칙을 따른다(관리자 콘솔은 `googleName`도 함께 준다).
 - 사진도 같은 규칙이다: **올린 사진(`users.photo_key`, V10), 없으면 구글 사진(`users.profile_image_url`)**. 응답의 `profileImageUrl`은 보여줄 사진이고, `User.getPhotoUrl()`·`User.photoUrl(key, googleUrl)`이 만든다. JPQL은 `u.photoKey, u.profileImageUrl`을 함께 고르고 DTO의 보조 생성자가 주소를 만든다(예: `MemberResponse`, `AdminResponses.UserRow`). 사람 사진을 새로 내려주는 쿼리도 이렇게 한다.
   - 사진 파일은 디스크(`ohjumwhat.photos.dir`)에 `{key}.jpg`(256px JPEG)로 두고, `GET /api/photos/{key}.jpg`(로그인 필요, `Cache-Control: private, immutable`)로 보낸다. 새로 올리면 키가 바뀐다.
   - 올리기는 `POST /api/me/photo`(multipart `photo`), 되돌리기는 `DELETE /api/me/photo`다. 브라우저가 512px로 잘라 보내고, 서버(`ProfilePhotoImages`)가 2048px 이하 JPEG·PNG만 받아 256px JPEG로 다시 그린다(EXIF 제거).
@@ -224,7 +224,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 회원 상세의 「올린 사진 지우기」(`DELETE /api/admin/users/{id}/photo`, 204)는 부적절한 사진 대응용이다. 구글 사진으로 돌아가고, 올린 사진이 없으면 아무것도 하지 않는다.
 - 회원 상세의 「프로필 수정」(이슈 #93, Figma `A03-M3`)은 부적절한 프로필 대응용이다. 별명(비우면 구글 이름, 구글 이름은 로그인 때마다 바뀌어 고칠 수 없다)·한줄 소개·좋아하는 음식·상세 프로필을 고치고 지운다. 사진 지우기처럼 본인에게 알리지 않고, 다른 관리자와 자기 자신도 고칠 수 있다.
   - API: `PUT /api/admin/users/{id}/nickname {nickname}`, `PUT …/profile {bio, foodTags}`, `PUT …/profile/details {mbti, personalColor, hobbies, age, jobTitle}`, `DELETE …/profile/details`. 모두 회원 상세(`GET /api/admin/users/{id}`와 같은 응답, 비교용 `nickname` 포함)를 돌려주고, 없는 회원은 404다(요청 형식·크기 검사(`@Valid`) 다음이라 형식이 틀리면 400이 먼저다).
-  - 규칙·오류 문구는 마이페이지와 같다: `UserService`의 `applyNickname`·`saveIntro`·`saveDetails`를 마이페이지와 함께 쓴다(별명은 엔티티로, 소개·상세 프로필은 update 쿼리로). `AdminService`가 사진 지우기처럼 회원 행을 잠그고 부르고, 로그에는 값 없이 `adminId`·`userId`와 바뀐 부분만 남긴다.
+  - 규칙·오류 문구는 마이페이지와 같다: `UserService`의 `saveNickname`·`saveIntro`·`saveDetails`를 마이페이지와 함께 쓴다(모두 update 쿼리로 저장한다). `AdminService`가 사진 지우기처럼 회원 행을 잠그고 부르고, 로그에는 값 없이 `adminId`·`userId`와 바뀐 부분만 남긴다.
   - 상세 프로필은 「모두 비었거나 모두 채워졌거나」(DB CHECK)라 고치려면 다섯 항목이 모두 있어야 하고, 「상세 프로필 지우기」(`UserRepository.clearDetails`, 취미는 NOT NULL이라 빈 배열)는 다섯 항목을 한꺼번에 비운다(확인 창 `A03-M4`, 「저장」을 누르지 않아도 바로 지워진다). 본인이 다음에 들어오면 다시 채우기 안내(`03-N4`)를 본다.
   - 화면(`AdminProfileModal`)은 바뀐 것만 이름 → 소개 → 상세 프로필 순서로 보낸다. 상세 프로필이 비어 있던 회원은 비워 둔 채 저장할 수 있고(채우기 시작했으면 다섯 항목 모두, 「입력 비우기」로 되돌린다), 채운 회원은 고치거나 지운다.
 - `OrganizationService.leave`(본인 탈퇴, 없으면 404)와 `removeMember`(관리자용, 없으면 아무것도 안 함)는 같은 내부 로직을 쓴다. 같은 트랜잭션 안에서 예외를 내면 트랜잭션 전체가 롤백되므로 관리자 작업은 `removeMember`를 쓴다.
@@ -240,7 +240,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 테스트에서는 `ohjumwhat.release-notes.enabled=false`로 끄고 `NoticeService.syncReleaseNotes`를 직접 부른다(시작 때 넣은 행이 첫 테스트까지 남기 때문).
 - 개발자 노트는 관리자 콘솔 「공지」(`/api/admin/notices`)에서 쓰고 고치고 지운다. 업데이트 글은 콘솔에서 고칠 수 없다(409).
 - 안 읽은 공지 = `published_at > coalesce(users.notices_seen_at, users.created_at)`. 새로 가입한 사람에게 지난 공지는 안 읽음이 아니다. 공지별 읽음은 없다.
-  - `/notices`를 열거나 배너를 닫으면 `POST /api/notices/seen`이 `notices_seen_at`만 update한다(엔티티를 저장하면 같은 순간의 로그인·별명 변경을 덮어쓸 수 있다). 거꾸로 로그인이 옛 시각을 되써서 읽음이 풀리지 않도록, 이 컬럼도 `photo_key`처럼 엔티티에서 `insertable/updatable=false`이고 `UserRepository.markNoticesSeen`으로만 바꾼다.
+  - `/notices`를 열거나 배너를 닫으면 `POST /api/notices/seen`이 `notices_seen_at`만 update한다(엔티티를 저장하면 같은 순간의 로그인을 덮어쓸 수 있다). 거꾸로 로그인이 옛 시각을 되써서 읽음이 풀리지 않도록, 이 컬럼도 `photo_key`처럼 엔티티에서 `insertable/updatable=false`이고 `UserRepository.markNoticesSeen`으로만 바꾼다.
   - `users.created_at`은 `Clock`이 아니라 실제 시각이다. 안 읽음 테스트의 게시 시각은 회원의 실제 가입 시각을 기준으로 정한다.
 - 화면: 상단 바 종 아이콘(`NoticeBell`, 안 읽으면 점), 조직 홈 맨 위 배너(`NoticeBanner`, 속한 조직이 없으면 마이페이지, 투표 상세에는 없음), `/notices`(`NoticesPage`, 연 시점 기준 NEW).
   - 본문은 일반 텍스트다(`lib/noticeBody.ts`): 빈 줄 = 문단, "- " = 목록, http(s) 주소 = 새 탭 링크. HTML·마크다운은 해석하지 않는다.
