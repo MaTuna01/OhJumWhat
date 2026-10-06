@@ -109,11 +109,16 @@ public class UserService {
 		return toMe(findMe(userId));
 	}
 
-	/** 별명 정하기·바꾸기. 비우면 별명을 지우고 구글 이름으로 돌아간다. */
+	/**
+	 * 별명 정하기·바꾸기. 비우면 별명을 지우고 구글 이름으로 돌아간다. 로그인과 겹쳐도 되쓰이지 않게
+	 * 엔티티가 아니라 update 쿼리로 저장한다.
+	 */
 	@Transactional
 	public MeResponse changeNickname(Long userId, String rawNickname) {
+		if (!saveNickname(userId, rawNickname)) {
+			throw ApiException.unauthorized("다시 로그인해 주세요.");
+		}
 		User user = findMe(userId);
-		applyNickname(user, rawNickname);
 		log.info("별명 변경: userId={}, 별명 있음={}", userId, user.getNickname() != null);
 		return toMe(user);
 	}
@@ -155,9 +160,13 @@ public class UserService {
 	 * 회원을 찾지 못했을 때의 응답(401·404)과 로그는 부르는 쪽이 정한다.
 	 */
 
-	/** 별명을 정리해 바꾼다(Nicknames 규칙, 비우면 지워 구글 이름으로 돌아간다). 엔티티는 부르는 쪽의 트랜잭션에서 읽은 것이다. */
-	public void applyNickname(User user, String rawNickname) {
-		user.changeNickname(Nicknames.normalize(rawNickname));
+	/**
+	 * 별명을 정리해(Nicknames 규칙, 비우면 지워 구글 이름으로 돌아간다) update 쿼리로 저장한다. 회원이 없으면 false.
+	 * 영속성 컨텍스트를 비우므로 저장한 뒤에는 회원을 다시 읽는다.
+	 */
+	@Transactional
+	public boolean saveNickname(Long userId, String rawNickname) {
+		return userRepository.updateNickname(userId, Nicknames.normalize(rawNickname)) > 0;
 	}
 
 	/**

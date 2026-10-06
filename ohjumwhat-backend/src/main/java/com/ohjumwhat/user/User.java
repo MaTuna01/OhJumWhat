@@ -35,7 +35,11 @@ public class User {
 	@Column(nullable = false)
 	private String name;
 
-	/** 마이페이지에서 정한 별명(없으면 null). 있으면 구글 이름 대신 보여준다. */
+	/**
+	 * 마이페이지(또는 관리자 콘솔)에서 정한 별명(없으면 null). 있으면 구글 이름 대신 보여준다. UserRepository.updateNickname으로만
+	 * 바꾼다. photoKey처럼 엔티티를 저장할 때 쓰지 않는 컬럼이라, 같은 순간의 로그인이 옛 별명을 되써서 되돌리는 일이 없다.
+	 */
+	@Column(insertable = false, updatable = false, length = 20)
 	private String nickname;
 
 	/** 구글 프로필 사진 주소. 로그인 때마다 갱신한다. 화면에는 {@link #getPhotoUrl()}을 쓴다. */
@@ -125,11 +129,6 @@ public class User {
 		this.email = email;
 		this.name = name;
 		this.profileImageUrl = profileImageUrl;
-	}
-
-	/** null이면 별명을 지우고 구글 이름으로 돌아간다. */
-	public void changeNickname(String nickname) {
-		this.nickname = nickname;
 	}
 
 	public void recordLogin(Instant now) {

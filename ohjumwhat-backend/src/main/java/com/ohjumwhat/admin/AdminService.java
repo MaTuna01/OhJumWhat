@@ -220,10 +220,11 @@ public class AdminService {
 	/** 별명 바꾸기. 비우면 별명을 지우고 구글 이름으로 돌아간다(구글 이름은 로그인 때마다 바뀌어 고칠 수 없다). */
 	@Transactional
 	public AdminResponses.UserDetail changeNickname(Long adminId, Long userId, String rawNickname) {
-		User user = lockUser(userId);
-		userService.applyNickname(user, rawNickname);
-		log.info("관리자 별명 변경: adminId={}, userId={}, 별명 있음={}", adminId, userId, user.getNickname() != null);
-		return user(userId);
+		lockUser(userId);
+		userService.saveNickname(userId, rawNickname);
+		AdminResponses.UserDetail detail = user(userId);
+		log.info("관리자 별명 변경: adminId={}, userId={}, 별명 있음={}", adminId, userId, detail.nickname() != null);
+		return detail;
 	}
 
 	/** 한줄 소개와 좋아하는 음식 바꾸기(통째로 바꾼다, 비우면 지운다). */

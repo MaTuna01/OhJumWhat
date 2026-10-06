@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.ohjumwhat.IntegrationTest;
 import com.ohjumwhat.menu.MenuService;
@@ -46,6 +47,9 @@ class NicknameIntegrationTest extends IntegrationTest {
 
 	@Autowired
 	VoteService voteService;
+
+	@Autowired
+	TransactionTemplate transactionTemplate;
 
 	User kim;
 
@@ -92,6 +96,35 @@ class NicknameIntegrationTest extends IntegrationTest {
 		mockMvc.perform(get("/api/me").with(loginAs(kim)))
 			.andExpect(jsonPath("$.name").value("점심요정"))
 			.andExpect(jsonPath("$.googleName").value("김철수(새 이름)"));
+	}
+
+	@Test
+	void 별명을_바꾼_뒤_옛_엔티티를_저장하거나_로그인해도_별명은_그대로다() throws Exception {
+		changeNickname(kim, "점심요정").andExpect(jsonPath("$.nickname").value("점심요정"));
+
+		// 별명을 모르는 옛 엔티티를 저장해도 되쓰지 않는다.
+		userRepository.save(kim);
+		// 로그인은 회원 행을 다시 쓴다(구글 이름·최근 로그인 시각).
+		userService.login("sub-kim", "kim@example.com", true, "김철수(새 이름)", null);
+
+		User saved = userRepository.findById(kim.getId()).orElseThrow();
+		assertThat(saved.getNickname()).isEqualTo("점심요정");
+		assertThat(saved.getName()).isEqualTo("김철수(새 이름)");
+		mockMvc.perform(get("/api/me").with(loginAs(kim))).andExpect(jsonPath("$.name").value("점심요정"));
+	}
+
+	@Test
+	void 별명을_바꾸는_순간_로그인이_겹쳐도_로그인이_옛_별명으로_되돌리지_않는다() {
+		// 로그인이 회원을 읽은 뒤, 커밋하기 전에 별명이 바뀐 상황
+		transactionTemplate.executeWithoutResult(status -> {
+			User user = userRepository.findById(kim.getId()).orElseThrow();
+			jdbcTemplate.update("update users set nickname = '점심요정' where id = ?", kim.getId());
+			user.updateProfile("kim@example.com", "김철수", null);
+			user.recordLogin(clock.instant());
+			userRepository.flush();
+		});
+
+		assertThat(userRepository.findById(kim.getId()).orElseThrow().getNickname()).isEqualTo("점심요정");
 	}
 
 	@Test
