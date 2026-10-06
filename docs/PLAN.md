@@ -206,7 +206,7 @@ ohjumwhat/
 ## 다음 단계
 아래 순서대로 한다(진행 현황 표의 예정 행과 같은 순서).
 
-- **방명록 2차 — 웹 푸시(FCM)**: v1.11.1로 낸다(#103). 배포 뒤 운영(https)에서 CSP 위반이 없는지, 안드로이드·아이폰(홈 화면 앱) 실기기에서 알림이 오는지 확인한다.
+- **방명록 2차 — 웹 푸시(FCM)**: v1.11.1로 배포한다(#103). 배포 뒤 운영(https)에서 CSP 위반이 없는지, 안드로이드·아이폰(홈 화면 앱) 실기기에서 알림이 오는지 확인한다.
 - **19. 채팅에서 사진 전송**: Notion Tasks 「시작 전」.
 - **12. 중복 투표(관심 표시 후 최종 한 곳 확정)**: Notion Tasks 「시작 전」. 지금은 votes가 (poll, user)당 한 행이라 참여 규칙(서버 `PollService.detail`·화면 `applyVote`)과 스키마가 함께 바뀐다.
 - **13. 최소 인원 미달 메뉴 자동 해산 후 재선택**: Notion Tasks 「시작 전」, 12 다음에 한다.
@@ -219,7 +219,7 @@ ohjumwhat/
   - 백그라운드 작업(정기 투표 열기, 채팅 연결 정리)은 `ohjumwhat.scheduler.enabled=false`로 끄고 직접 부른다.
   - 외부 API(카카오 로컬, naver.me)는 Fake 설정이 대신한다. 업데이트 글 파일 형식은 `ReleaseNoteTest`가 확인한다.
 - **프론트**: Vitest로 유틸·규칙(`src/lib/`)과 진입 분기 로직을 테스트한다.
-- v1.11.0 기준 백엔드 329개, 프론트 171개다.
+- v1.11.1 기준 백엔드 378개, 프론트 231개다.
 - CI(`ci.yml`, `dev`·`main`으로 가는 PR, `dev` push, `main` 배포 전): `./gradlew test`, `npm run lint`, `npm test`, `npm run build`
 
 ## 검증 (end-to-end)

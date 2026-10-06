@@ -7,9 +7,9 @@
 - 웹 푸시 알림(#102, #103): 새 방명록(→ 주인)·글 제한 경고(→ 쓴 사람)·새 쪽지(→ 받은 사람)를 FCM 웹 푸시로도 알린다(Notion 「20. 방명록 기능 추가」 2차). 화면 안 배지는 그대로다. 기존 알림의 고도화라 PATCH로 올렸다.
   - 마이페이지 「알림」 카드의 「이 기기에서 알림 받기」로 사람이 직접 켠다(Figma 03-N6·03-N6b·D03-N6). 서버에 푸시 설정이 없으면 카드를 숨긴다. 아이폰·아이패드는 iOS 16.4 이상에서 홈 화면에 추가한 오점왓으로만 받는다(웹 앱 매니페스트·아이콘 추가).
   - `PUT/DELETE /api/push/devices/{fid}`, `GET /api/config`의 `push`. 기기(FID)는 로그인 세션(`spring_session.primary_id`)에 FK CASCADE로 묶여 로그아웃·만료·강제 탈퇴 때 함께 지워지고, 보낼 때는 세션의 지금 로그인 주인이 기기 주인과 같은 기기만 쓴다(열린 세션에서 다른 계정이 로그인한 경우).
-  - 커밋 뒤 이벤트 → 내부 디스패처 → firebase-admin 9.11.0(FID 발송). 문구에는 이름만 넣고(익명 쪽지는 이름 없음) 차단으로 버린 쪽지는 보내지 않는다. 로그에는 kind·개수만 남긴다.
+  - 커밋 뒤 이벤트 → 내부 디스패처 → firebase-admin 9.11.0(FID 발송). 문구에는 이름만 넣고(익명 쪽지는 이름 없음) 차단으로 버린 쪽지는 보내지 않는다. 로그에는 kind·개수·실패 오류 코드 이름만 남긴다(FID·이름·본문 없음).
   - 화면은 firebase 12(dynamic import, FID 방식 `register`·`onRegistered`), 서비스 워커 `public/firebase-messaging-sw.js`(SDK 없이, 크롬에서 오점왓 창을 보고 있으면 알림 대신 화면만 새로 고침).
-  - 운영 CSP(`deploy/Caddyfile`): `connect-src`에 `firebaseinstallations`·`fcmregistrations.googleapis.com`, `worker-src`·`manifest-src 'self'`. 준비 순서는 `docs/DEPLOY.md` 「5-2. Firebase 푸시」.
+  - 운영 CSP(`deploy/Caddyfile`): `connect-src`에 `https://firebaseinstallations.googleapis.com`·`https://fcmregistrations.googleapis.com`, `worker-src`·`manifest-src 'self'`. 매니페스트는 `application/manifest+json`, 서비스 워커·매니페스트는 `no-cache`로 보낸다(`PwaFileHeadersTest`). 준비 순서는 `docs/DEPLOY.md` 「5-2. Firebase 푸시」.
 - 문서(#100, #101): `docs/PLAN.md`를 지금 코드·작업 규칙에 맞게 갱신(패키지·스키마·REST API·라우트, 예정 작업).
 - DB: V20(`push_devices`) 마이그레이션. **새 설정 키**: `FIREBASE_API_KEY`·`FIREBASE_PROJECT_ID`·`FIREBASE_APP_ID`·`FIREBASE_MESSAGING_SENDER_ID`·`FIREBASE_VAPID_KEY`·`FIREBASE_SERVICE_ACCOUNT_BASE64`(비어 있으면 푸시만 꺼진다).
 
