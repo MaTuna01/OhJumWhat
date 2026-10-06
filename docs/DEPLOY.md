@@ -160,7 +160,7 @@ gh secret set DEPLOY_SSH_KEY -R MaTuna01/OhJumWhat < ohjumwhat.pem
 
 키 교체·끄기
 - 서비스 계정 키 교체: 같은 서비스 계정에 새 JSON 키를 만들어 `.env`를 바꾸고 `docker compose up -d`(앱 재시작) → 콘솔에서 옛 키를 삭제한다.
-- VAPID 키를 다시 만들면 이미 켠 기기의 구독이 무효가 된다. 화면이 다음에 열릴 때 다시 등록하지만, 그 사이 알림은 못 받는다.
+- VAPID 키를 다시 만들면 이미 켠 기기의 구독이 옛 키라 보내기가 실패한다. 화면이 다음에 열릴 때 구독의 키가 다른 것을 보고 구독을 새로 만들어 다시 등록하지만(`lib/pushClient.ts`), 그 사이 알림은 못 받는다. 그래도 안 오면 마이페이지에서 알림을 껐다 켜면 된다(끌 때 브라우저 구독도 지운다).
 - 푸시를 끄려면 `.env`에서 `FIREBASE_SERVICE_ACCOUNT_BASE64`를 비우고 앱을 재시작한다(화면 안 배지 알림은 그대로).
 - 운영 CSP에 Firebase 출처(`connect-src`의 `https://firebaseinstallations.googleapis.com`·`https://fcmregistrations.googleapis.com`, `worker-src 'self'`, `manifest-src 'self'`)가 들어 있다. 고치면 https로 확인한다.
 - 아이폰·아이패드는 iOS 16.4 이상에서 **홈 화면에 추가한 오점왓**으로만 푸시를 받는다(홈 화면 앱은 Safari와 로그인이 따로라 다시 로그인한다).

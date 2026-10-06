@@ -41,7 +41,7 @@
 | - | 메뉴 채택 랭킹(메뉴 메이커, Notion 「15. 메뉴 채택 랭킹 기능 추가」): 마감된 투표마다 가장 많이 고른 메뉴(30% 이상)를 제안한 사람에게 1회, 조직 「랭킹」 탭(주간·월간, 12개월 전까지, TOP3 포디움·채택 기록), 조직 홈 이번 주 TOP3, 결과 화면 「👑 채택」, 지난달 1위 「이달의 메뉴 메이커」 배지. 스키마 변경 없음 | 완료(v1.11.0) | [#88](https://github.com/MaTuna01/OhJumWhat/pull/88) |
 | 20 | 방명록(Notion 「20. 방명록 기능 추가」): 사람마다 방명록 하나(조직을 같이 쓰는 사람이 쓰고 봄), 100자 한 줄·5초에 한 번, 10개씩 쪽 넘기기, 쓴 사람·주인 지우기, 주인만 신고 → 관리자 「글 제한」·「문제 없음」, 상단 바 새 방명록 점·마이페이지 NEW·글 제한 경고. 1차는 화면 안 알림, FCM 웹 푸시(방명록·쪽지)는 2차 | 1차 완료(v1.11.0) | [#92](https://github.com/MaTuna01/OhJumWhat/pull/92) |
 | - | 관리자 회원 프로필 수정·지우기: 회원 상세 「프로필 수정」에서 별명(비우면 구글 이름)·한줄 소개·좋아하는 음식·상세 프로필을 고치고, 「상세 프로필 지우기」로 다섯 항목을 한꺼번에 지운다. 규칙·문구는 마이페이지와 같고 본인에게 알리지 않는다(다른 관리자·자기 자신도 된다). 스키마 변경 없음 | 완료(v1.11.0) | [#94](https://github.com/MaTuna01/OhJumWhat/pull/94), 별명 되쓰기 수정 [#96](https://github.com/MaTuna01/OhJumWhat/pull/96) |
-| 20 | 방명록 2차: FCM 웹 푸시(새 방명록·글 제한 경고·새 쪽지) | 다음 단계 | - |
+| 20 | 방명록 2차: FCM 웹 푸시(새 방명록·글 제한 경고·새 쪽지). 마이페이지 「이 기기에서 알림 받기」, 기기는 로그인 세션에 묶음, 이름만 넣은 문구, 아이폰은 홈 화면 앱(iOS 16.4+) | 구현 완료 · dev PR 검토 중(v1.11.1로 낼 예정) | 이슈 [#102](https://github.com/MaTuna01/OhJumWhat/issues/102) |
 | 19 | 채팅에서 사진 전송(Notion 「19. 채팅에서 사진 전송 기능 추가」) | 시작 전 | - |
 | 12 | 중복 투표(관심 표시 후 최종 한 곳 확정) | 시작 전 | - |
 | 13 | 최소 인원 미달 메뉴 자동 해산 후 재선택(12 다음) | 시작 전 | - |
@@ -99,6 +99,7 @@ ohjumwhat/
 - `guestbook`: 방명록(쓰기·지우기·신고, 화면 안 알림)
 - `ranking`: 메뉴 채택 랭킹(채택 규칙 `MenuAdoption`, 기간 `RankingPeriod`)
 - `notice`: 새 소식(업데이트 글 파일 동기화 `ReleaseNoteSync`, 개발자 노트)
+- `push`: 웹 푸시(FCM). 기기(FID) 등록, 커밋 뒤 발송(`PushNotifier` → `PushDispatcher` → `FirebasePushSender`)
 - `admin`: 관리자 콘솔(회원·조직·투표·차단·신고·공지, 강제 탈퇴)
 - `common`: `Clock`, 공통 예외 처리, SPA 포워딩, 화면 설정(`/api/config`), 사용자 글 정리(`UserText`), 속도 제한(`SlidingWindowRateLimiter`)
 
@@ -122,6 +123,7 @@ ohjumwhat/
 - V17: 쪽지 차단 유일 제약을 실명(사람 단위)·익명(쪽지 한 통 단위)으로 나눔, 차단 대상 FK `SET NULL`
 - V18: `letters.recipient_id` `SET NULL`(받은 사람이 강제 탈퇴해도 쪽지·신고를 남긴다)
 - V19: `guestbook_entries`·`guestbook_reports`(방명록, 소프트 삭제), `users.guestbook_seen_at`·`guestbook_warnings_seen_at`
+- V20: `push_devices`(웹 푸시 기기 FID. `spring_session.primary_id`에 CASCADE로 묶어 로그아웃·만료·강제 탈퇴 때 함께 지운다, 한 사람 10대)
 - UNIQUE: memberships(org, user), votes(poll, user), polls(schedule_id, poll_date), menu_options(poll_id, name)
 - CHECK: close_time > open_time, closes_at > opens_at. 인덱스: polls(organization_id, poll_date)
 - FK
@@ -165,6 +167,7 @@ ohjumwhat/
 | 새 소식 | `GET /api/notices?page=` (최신순 10개씩, 항목마다 unread), `GET /api/notices/unread` (안 읽은 수·가장 최근 것), `POST /api/notices/seen` | 완료 |
 | 쪽지 | `GET /api/letters?box=received\|sent&before=` (20통씩), `GET /api/letters/unread`, `POST /api/letters` (같은 조직 멤버에게, 500자, 10분에 10통), `POST /api/letters/{id}/reply`, `PUT /api/letters/{id}/read`, `DELETE /api/letters/{id}` (내 쪽에서만), `POST /api/letters/{id}/block`·`report`, `GET /api/letters/blocks`, `DELETE /api/letters/blocks/{id}` | 완료 |
 | 방명록 | `GET /api/guestbook/users/{ownerId}?page=` (10개씩 최신순), `POST /api/guestbook/users/{ownerId}` (100자, 5초에 한 번), `DELETE /api/guestbook/entries/{id}`, `POST /api/guestbook/entries/{id}/report` (주인만), `GET /api/guestbook/alerts`, `POST /api/guestbook/seen`, `POST /api/guestbook/warnings/ack` | 완료 |
+| 웹 푸시 | `PUT /api/push/devices/{fid}` (이 기기 등록, `{created}`, 푸시가 꺼져 있으면 409), `DELETE /api/push/devices/{fid}` (해제, 내 것만), `GET /api/config`의 `push`(공개 웹 설정, 꺼져 있으면 null) | 완료 |
 | 관리자 | `GET /api/admin/stats`, `GET /api/admin/users?q=`, `GET/DELETE /api/admin/users/{id}` (상세·강제 탈퇴), `GET /api/admin/blocks`, `DELETE /api/admin/blocks/{id}` (차단 풀기), `GET /api/admin/orgs?q=`, `GET/DELETE /api/admin/orgs/{id}`, `DELETE /api/admin/orgs/{id}/members/{userId}`, `GET/DELETE /api/admin/polls/{id}` (정기 규칙도 함께 지우기 `withSchedule`), `DELETE /api/admin/menu-options/{id}`, `DELETE /api/admin/schedules/{id}` | 완료 |
 | 관리자 사진 | `DELETE /api/admin/users/{id}/photo` (올린 프로필 사진 지우기, 구글 사진으로) | 완료 |
 | 관리자 프로필 | `PUT /api/admin/users/{id}/nickname` (별명, 비우면 구글 이름), `PUT /api/admin/users/{id}/profile` (한줄 소개·좋아하는 음식, 통째로), `PUT /api/admin/users/{id}/profile/details` (상세 프로필, 다섯 항목 모두), `DELETE /api/admin/users/{id}/profile/details` (다섯 항목 한꺼번에 지우기) — 모두 회원 상세를 돌려주고 마이페이지와 같은 규칙·문구 | 완료 |
@@ -203,7 +206,7 @@ ohjumwhat/
 ## 다음 단계
 아래 순서대로 한다(진행 현황 표의 예정 행과 같은 순서).
 
-- **방명록 2차 — 웹 푸시(FCM)**: 새 방명록·글 제한 경고·새 쪽지를 알린다. 방명록은 1차가 트랜잭션 안에서 발행하는 `GuestbookEntryCreatedEvent`·`GuestbookEntryRestrictedEvent`(ID만, 본문 없음)를 커밋 뒤에 받고, 새 쪽지 이벤트는 2차에서 새로 만든다. 새 외부 리소스라 운영 CSP(`deploy/Caddyfile`)도 함께 고친다.
+- **방명록 2차 — 웹 푸시(FCM)**: 구현을 마치고 dev PR 검토 중이다(이슈 #102, v1.11.1). 배포 뒤 운영(https)에서 CSP 위반이 없는지, 안드로이드·아이폰(홈 화면 앱) 실기기에서 알림이 오는지 확인한다.
 - **19. 채팅에서 사진 전송**: Notion Tasks 「시작 전」.
 - **12. 중복 투표(관심 표시 후 최종 한 곳 확정)**: Notion Tasks 「시작 전」. 지금은 votes가 (poll, user)당 한 행이라 참여 규칙(서버 `PollService.detail`·화면 `applyVote`)과 스키마가 함께 바뀐다.
 - **13. 최소 인원 미달 메뉴 자동 해산 후 재선택**: Notion Tasks 「시작 전」, 12 다음에 한다.
