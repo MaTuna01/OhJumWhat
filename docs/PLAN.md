@@ -39,6 +39,7 @@
 | 18 | 채팅 안 읽은 메시지 알림(Notion 「18. 채팅에 메시지가 오면 알림」): 읽은 위치를 서버에 저장, 채팅 버튼 빨간 배지·도착 미리보기, 「여기부터 새 메시지」·「새 메시지 N ↓」, 데스크톱 화면 밖 떠 있는 버튼, 조직 홈 카드 「💬 N」 | 완료(v1.9.0) | [#69](https://github.com/MaTuna01/OhJumWhat/pull/69) |
 | - | 메뉴 채택 랭킹(메뉴 메이커, Notion 「15. 메뉴 채택 랭킹 기능 추가」): 마감된 투표마다 가장 많이 고른 메뉴(30% 이상)를 제안한 사람에게 1회, 조직 「랭킹」 탭(주간·월간, 12개월 전까지, TOP3 포디움·채택 기록), 조직 홈 이번 주 TOP3, 결과 화면 「👑 채택」, 지난달 1위 「이달의 메뉴 메이커」 배지. 스키마 변경 없음 | 구현 완료 · dev PR 검토 중 | [#88](https://github.com/MaTuna01/OhJumWhat/pull/88) |
 | 20 | 방명록(Notion 「20. 방명록 기능 추가」): 사람마다 방명록 하나(조직을 같이 쓰는 사람이 쓰고 봄), 100자 한 줄·5초에 한 번, 10개씩 쪽 넘기기, 쓴 사람·주인 지우기, 주인만 신고 → 관리자 「글 제한」·「문제 없음」, 상단 바 새 방명록 점·마이페이지 NEW·글 제한 경고. 1차는 화면 안 알림, FCM 웹 푸시(방명록·쪽지)는 다음 PR | 진행 중(이슈 [#91](https://github.com/MaTuna01/OhJumWhat/issues/91)) | - |
+| - | 관리자 회원 프로필 수정·지우기: 회원 상세 「프로필 수정」에서 별명(비우면 구글 이름)·한줄 소개·좋아하는 음식·상세 프로필을 고치고, 「상세 프로필 지우기」로 다섯 항목을 한꺼번에 지운다. 규칙·문구는 마이페이지와 같고 본인에게 알리지 않는다(다른 관리자·자기 자신도 된다). 스키마 변경 없음 | 진행 중(이슈 [#93](https://github.com/MaTuna01/OhJumWhat/issues/93)) | - |
 
 확장 기능(8~13단계)의 순서와 체크리스트는 Notion Tasks에 있다. 기획서 「나중에」 목록을 구현 난이도 순으로 정렬했다: 8 투표 조기 마감·수정·삭제 → 9 메뉴에 식당 지도 링크 → 10 메뉴 통계 → 11 식당 정보·지도 연동(검색 API는 약관상 결과를 저장할 수 없어 네이버 공유 링크 방식으로, 결과 지도는 다음 단계) → 12 중복 투표 → 13 최소 인원 미달 자동 해산. 14 공지사항(새 소식)은 배포마다 바뀐 점을 알리려고 나중에 추가했다.
 
@@ -129,6 +130,7 @@ ohjumwhat/
 | 정기 | `GET/POST /api/orgs/{id}/schedules`, `PUT/DELETE /api/orgs/{id}/schedules/{sid}` | 완료 |
 | 새 소식 | `GET /api/notices?page=` (최신순 10개씩, 항목마다 unread), `GET /api/notices/unread` (안 읽은 수·가장 최근 것), `POST /api/notices/seen` | 완료 |
 | 관리자 사진 | `DELETE /api/admin/users/{id}/photo` (올린 프로필 사진 지우기, 구글 사진으로) | 완료 |
+| 관리자 프로필 | `PUT /api/admin/users/{id}/nickname` (별명, 비우면 구글 이름), `PUT /api/admin/users/{id}/profile` (한줄 소개·좋아하는 음식, 통째로), `PUT /api/admin/users/{id}/profile/details` (상세 프로필, 다섯 항목 모두), `DELETE /api/admin/users/{id}/profile/details` (다섯 항목 한꺼번에 지우기) — 모두 회원 상세를 돌려주고 마이페이지와 같은 규칙·문구 | 진행 중(#93) |
 | 관리자 공지 | `POST /api/admin/notices`, `PUT/DELETE /api/admin/notices/{id}` (개발자 노트만, 업데이트 글은 409) | 완료 |
 | 방명록 | `GET /api/guestbook/users/{ownerId}?page=` (10개씩 최신순), `POST /api/guestbook/users/{ownerId}` (100자, 5초에 한 번), `DELETE /api/guestbook/entries/{id}`, `POST /api/guestbook/entries/{id}/report` (주인만), `GET /api/guestbook/alerts`, `POST /api/guestbook/seen`, `POST /api/guestbook/warnings/ack` | 진행 중(#91) |
 | 관리자 방명록 신고 | `GET /api/admin/guestbook-reports?status=open\|all`, `POST /api/admin/guestbook-reports/{id}/restrict`·`dismiss` | 진행 중(#91) |

@@ -108,6 +108,18 @@ export function parseAge(input: string): number | null {
   return age >= AGE_MIN && age <= AGE_MAX ? age : null
 }
 
+/** 다섯 항목 모두 비었는지(취미는 아직 더하지 않은 글까지). 관리자 「프로필 수정」은 비어 있으면 상세 프로필을 건너뛴다. */
+export function isBlankDetailsForm(form: DetailsForm): boolean {
+  return (
+    form.mbti.every((letter) => letter === null) &&
+    !form.personalColor &&
+    form.hobbies.tags.length === 0 &&
+    !form.hobbies.draft.trim() &&
+    !form.age.trim() &&
+    !form.jobTitle.trim()
+  )
+}
+
 /** 항목별 오류 문구(문제가 없는 항목은 빠진다). 취미는 아직 더하지 않은 글까지 넣어 확인한다. */
 export function detailErrors(form: DetailsForm): Partial<Record<DetailField, string>> {
   const errors: Partial<Record<DetailField, string>> = {}
@@ -133,7 +145,7 @@ export function missingDetailLabels(errors: Partial<Record<DetailField, string>>
  * 저장할 상세 프로필과 지금과 달라졌는지. 오류가 있으면 details는 null이다.
  * 비교는 서버가 정리한 값과 같은 기준(공백 정리, 취미 순서)으로 한다.
  */
-export function detailsChange(me: Me, form: DetailsForm): { details: ProfileDetails | null; changed: boolean } {
+export function detailsChange(current: Pick<Me, 'details'>, form: DetailsForm): { details: ProfileDetails | null; changed: boolean } {
   if (Object.keys(detailErrors(form)).length > 0) return { details: null, changed: true }
   const details: ProfileDetails = {
     mbti: form.mbti.join(''),
@@ -142,7 +154,7 @@ export function detailsChange(me: Me, form: DetailsForm): { details: ProfileDeta
     age: parseAge(form.age) as number,
     jobTitle: singleLine(form.jobTitle),
   }
-  const now = me.details
+  const now = current.details
   const changed =
     now === null ||
     now.mbti !== details.mbti ||

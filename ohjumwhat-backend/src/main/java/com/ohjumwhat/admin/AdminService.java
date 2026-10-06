@@ -40,6 +40,7 @@ import com.ohjumwhat.user.BlockedAccountRepository;
 import com.ohjumwhat.user.ProfilePhotoStorage;
 import com.ohjumwhat.user.User;
 import com.ohjumwhat.user.UserRepository;
+import com.ohjumwhat.user.UserService;
 import com.ohjumwhat.vote.VoteRepository;
 
 /**
@@ -63,6 +64,8 @@ public class AdminService {
 	private final AdminRepository adminRepository;
 
 	private final UserRepository userRepository;
+
+	private final UserService userService;
 
 	private final BlockedAccountRepository blockedAccountRepository;
 
@@ -96,7 +99,7 @@ public class AdminService {
 
 	private final Clock clock;
 
-	public AdminService(AdminRepository adminRepository, UserRepository userRepository,
+	public AdminService(AdminRepository adminRepository, UserRepository userRepository, UserService userService,
 			BlockedAccountRepository blockedAccountRepository, OrganizationRepository organizationRepository,
 			MembershipRepository membershipRepository, OrganizationService organizationService,
 			PollRepository pollRepository, PollService pollService, MenuOptionRepository menuOptionRepository,
@@ -106,6 +109,7 @@ public class AdminService {
 			ApplicationEventPublisher events, Clock clock) {
 		this.adminRepository = adminRepository;
 		this.userRepository = userRepository;
+		this.userService = userService;
 		this.blockedAccountRepository = blockedAccountRepository;
 		this.organizationRepository = organizationRepository;
 		this.membershipRepository = membershipRepository;
@@ -153,9 +157,9 @@ public class AdminService {
 				user.getGoogleSub());
 		AdminResponses.Activity activity = new AdminResponses.Activity(adminRepository.countPollsCreatedBy(userId),
 				adminRepository.countMenusAddedBy(userId), adminRepository.countResponsesBy(userId));
-		return new AdminResponses.UserDetail(row, user.getBio(), user.getFoodTags(), user.getDetails(),
-				lastAccess == null ? null : Instant.ofEpochMilli(lastAccess), adminRepository.findOrganizationsOfUser(userId),
-				activity);
+		return new AdminResponses.UserDetail(row, user.getNickname(), user.getBio(), user.getFoodTags(),
+				user.getDetails(), lastAccess == null ? null : Instant.ofEpochMilli(lastAccess),
+				adminRepository.findOrganizationsOfUser(userId), activity);
 	}
 
 	/**
@@ -205,6 +209,53 @@ public class AdminService {
 		userRepository.updatePhotoKey(userId, null);
 		photoStorage.deleteAfterCommit(photoKey);
 		log.info("관리자 프로필 사진 삭제: adminId={}, userId={}", adminId, userId);
+	}
+
+	/*
+	 * 프로필 수정(별명·소개·상세 프로필): 부적절한 프로필 대응. 마이페이지와 같은 규칙·같은 문구로 UserService가 정리해 저장하고,
+	 * 본인에게 따로 알리지 않는다(사진 지우기처럼). 다른 관리자와 자기 자신도 고칠 수 있다. 사진 지우기처럼 회원 행을 잠가
+	 * 같은 회원의 강제 탈퇴와 겹치지 않게 하고, 바뀐 회원 상세(GET /users/{id}와 같은 응답)를 돌려준다. 로그에 값은 남기지 않는다.
+	 */
+
+	/** 별명 바꾸기. 비우면 별명을 지우고 구글 이름으로 돌아간다(구글 이름은 로그인 때마다 바뀌어 고칠 수 없다). */
+	@Transactional
+	public AdminResponses.UserDetail changeNickname(Long adminId, Long userId, String rawNickname) {
+		User user = lockUser(userId);
+		userService.applyNickname(user, rawNickname);
+		log.info("관리자 별명 변경: adminId={}, userId={}, 별명 있음={}", adminId, userId, user.getNickname() != null);
+		return user(userId);
+	}
+
+	/** 한줄 소개와 좋아하는 음식 바꾸기(통째로 바꾼다, 비우면 지운다). */
+	@Transactional
+	public AdminResponses.UserDetail changeIntro(Long adminId, Long userId, String rawBio, List<String> rawFoodTags) {
+		lockUser(userId);
+		userService.saveIntro(userId, rawBio, rawFoodTags);
+		AdminResponses.UserDetail detail = user(userId);
+		log.info("관리자 프로필 소개 변경: adminId={}, userId={}, 소개 있음={}, 음식 {}개", adminId, userId,
+				detail.bio() != null, detail.foodTags().size());
+		return detail;
+	}
+
+	/** 상세 프로필 바꾸기. 마이페이지처럼 다섯 항목 모두 필수다(DB CHECK: 모두 비었거나 모두 채워졌거나). */
+	@Transactional
+	public AdminResponses.UserDetail changeDetails(Long adminId, Long userId, String rawMbti, String rawPersonalColor,
+			List<String> rawHobbies, Integer rawAge, String rawJobTitle) {
+		lockUser(userId);
+		userService.saveDetails(userId, rawMbti, rawPersonalColor, rawHobbies, rawAge, rawJobTitle);
+		log.info("관리자 상세 프로필 변경: adminId={}, userId={}", adminId, userId);
+		return user(userId);
+	}
+
+	/** 상세 프로필 지우기: 다섯 항목을 한꺼번에 비운다. 본인이 다음에 들어오면 다시 채우기 안내를 본다. 비어 있으면 그대로 둔다. */
+	@Transactional
+	public AdminResponses.UserDetail clearDetails(Long adminId, Long userId) {
+		User user = lockUser(userId);
+		if (user.getDetails() != null) {
+			userRepository.clearDetails(userId);
+			log.info("관리자 상세 프로필 삭제: adminId={}, userId={}", adminId, userId);
+		}
+		return user(userId);
 	}
 
 	@Transactional(readOnly = true)
@@ -318,6 +369,11 @@ public class AdminService {
 		scheduleRepository.delete(schedule);
 		log.info("관리자 정기 투표 규칙 삭제: adminId={}, organizationId={}, scheduleId={}", adminId,
 				schedule.getOrganizationId(), scheduleId);
+	}
+
+	/** 회원 행을 잠그고 읽는다(같은 회원의 강제 탈퇴·다른 관리자의 처리와 겹치지 않게). 없으면 404 */
+	private User lockUser(Long userId) {
+		return userRepository.findByIdForUpdate(userId).orElseThrow(() -> ApiException.notFound(USER_NOT_FOUND));
 	}
 
 	private Poll findPoll(Long pollId) {
