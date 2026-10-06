@@ -1,16 +1,19 @@
-import { useState } from 'react'
-import { Link } from 'react-router'
+import { useEffect, useState } from 'react'
+import { Link, useLocation } from 'react-router'
 import Avatar from '../components/Avatar.tsx'
 import Button from '../components/Button.tsx'
 import CreateOrgModal from '../components/CreateOrgModal.tsx'
 import FoodTags from '../components/FoodTags.tsx'
+import { GuestbookPanel } from '../components/Guestbook.tsx'
 import LeaveOrgDialog from '../components/LeaveOrgDialog.tsx'
 import NoticeBanner from '../components/NoticeBanner.tsx'
 import { PageLoader, Section } from '../components/PageState.tsx'
 import ProfileDetailList from '../components/ProfileDetailList.tsx'
 import ProfileModal from '../components/ProfileModal.tsx'
 import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
+import { guestbookTabLabel } from '../lib/guestbook.ts'
 import { buttonClass, columnsClass } from '../lib/ui.ts'
+import { useGuestbook } from '../queries/guestbook.ts'
 import { useLogout, useMe } from '../queries/me.ts'
 import { type MyOrganization, useMyOrganizations } from '../queries/orgs.ts'
 
@@ -21,9 +24,19 @@ export default function MyPage() {
   const [creating, setCreating] = useState(false)
   const [leaving, setLeaving] = useState<MyOrganization | null>(null)
   const [editing, setEditing] = useState(false)
+  // 제목 옆 글 수. 아래 방명록 목록의 0쪽과 같은 캐시를 쓴다.
+  const guestbook = useGuestbook(me?.id ?? 0, 0, me != null)
+  const location = useLocation()
   useDocumentTitle('마이페이지')
 
+  // 프로필 메뉴의 「새 방명록 N」(/me#guestbook)으로 오면 내 조직·방명록을 받아 자리가 잡힌 뒤 방명록으로 내려간다.
+  const ready = !orgs.isPending && !guestbook.isPending
+  useEffect(() => {
+    if (location.hash === '#guestbook' && ready) document.getElementById('guestbook')?.scrollIntoView({ block: 'start' })
+  }, [location.key, location.hash, ready])
+
   if (!me) return null
+  const guestbookCount = guestbookTabLabel(guestbook.data?.totalCount)
 
   return (
     <div className="space-y-6">
@@ -31,7 +44,7 @@ export default function MyPage() {
       {/* 속한 조직이 없으면 조직 홈 대신 이 화면으로 오므로 새 소식 배너를 여기에 둔다. */}
       {orgs.data?.length === 0 && <NoticeBanner />}
 
-      {/* 모바일은 내 정보 → 내 조직 → 로그아웃 순서로 쌓고, 데스크톱은 내 조직을 본문, 나머지를 오른쪽 사이드에 둔다. */}
+      {/* 모바일은 내 정보 → 내 조직 → 방명록 → 로그아웃 순서로 쌓고, 데스크톱은 내 조직·방명록을 본문, 나머지를 오른쪽 사이드에 둔다. */}
       <div className={`flex flex-col gap-6 lg:grid-rows-[auto_1fr] lg:gap-y-4 ${columnsClass}`}>
         <Section
           title="내 정보"
@@ -79,49 +92,64 @@ export default function MyPage() {
           )}
         </Section>
 
-        <Section
-          title="내 조직"
-          className="lg:col-start-1 lg:row-span-2 lg:row-start-1"
-          action={
-            <Button onClick={() => setCreating(true)} className="py-1.5">
-              조직 만들기
-            </Button>
-          }
-        >
-          {orgs.isPending ? (
-            <PageLoader />
-          ) : orgs.isError ? (
-            <p className="text-sm text-text-danger">{orgs.error.message}</p>
-          ) : orgs.data.length === 0 ? (
-            <p className="rounded-xl bg-bg-subtle px-4 py-8 text-center text-sm text-text-tertiary">
-              아직 속한 조직이 없어요.
-              <br />
-              조직을 만들거나 초대 링크로 참여하세요.
-            </p>
-          ) : (
-            <ul className="divide-y divide-border-default">
-              {orgs.data.map((org) => (
-                <li key={org.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{org.name}</p>
-                    <p className="mt-0.5 flex items-center gap-2 text-sm text-text-tertiary">
-                      멤버 {org.memberCount}명
-                      {org.hasOpenPollToday && (
-                        <span className="rounded-full bg-bg-brand-muted px-2 py-0.5 text-xs font-medium text-text-brand-strong">투표 진행 중</span>
-                      )}
-                    </p>
-                  </div>
-                  <Link to={`/orgs/${org.id}`} className={buttonClass('secondary', 'py-1.5')}>
-                    들어가기
-                  </Link>
-                  <Button variant="ghost" onClick={() => setLeaving(org)} className="py-1.5 text-text-tertiary">
-                    탈퇴
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Section>
+        <div className="flex min-w-0 flex-col gap-6 lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:gap-4">
+          <Section
+            title="내 조직"
+            action={
+              <Button onClick={() => setCreating(true)} className="py-1.5">
+                조직 만들기
+              </Button>
+            }
+          >
+            {orgs.isPending ? (
+              <PageLoader />
+            ) : orgs.isError ? (
+              <p className="text-sm text-text-danger">{orgs.error.message}</p>
+            ) : orgs.data.length === 0 ? (
+              <p className="rounded-xl bg-bg-subtle px-4 py-8 text-center text-sm text-text-tertiary">
+                아직 속한 조직이 없어요.
+                <br />
+                조직을 만들거나 초대 링크로 참여하세요.
+              </p>
+            ) : (
+              <ul className="divide-y divide-border-default">
+                {orgs.data.map((org) => (
+                  <li key={org.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">{org.name}</p>
+                      <p className="mt-0.5 flex items-center gap-2 text-sm text-text-tertiary">
+                        멤버 {org.memberCount}명
+                        {org.hasOpenPollToday && (
+                          <span className="rounded-full bg-bg-brand-muted px-2 py-0.5 text-xs font-medium text-text-brand-strong">투표 진행 중</span>
+                        )}
+                      </p>
+                    </div>
+                    <Link to={`/orgs/${org.id}`} className={buttonClass('secondary', 'py-1.5')}>
+                      들어가기
+                    </Link>
+                    <Button variant="ghost" onClick={() => setLeaving(org)} className="py-1.5 text-text-tertiary">
+                      탈퇴
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Section>
+
+          {/* Figma 03-N5·D03-N5: 받은 방명록을 모아 보는 곳이라 입력창이 없다(지우기·신고·NEW). */}
+          <Section
+            id="guestbook"
+            title={
+              <>
+                방명록
+                {guestbookCount && <span className="ml-2 text-text-tertiary">{guestbookCount}</span>}
+              </>
+            }
+            className="scroll-mt-20"
+          >
+            <GuestbookPanel ownerId={me.id} ownerName={me.name} />
+          </Section>
+        </div>
 
         <div className="flex justify-end lg:col-start-2 lg:row-start-2">
           <Button variant="ghost" onClick={() => logout.mutate()} disabled={logout.isPending}>

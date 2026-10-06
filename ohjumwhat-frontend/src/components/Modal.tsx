@@ -29,7 +29,10 @@ export default function Modal({ open, onClose, title, children, size = 'md', clo
   return (
     <dialog
       ref={ref}
-      onClose={onClose}
+      // React는 안쪽 <dialog>(프로필 모달 안의 지우기 확인·신고)의 close 이벤트도 여기로 올려 보내므로 자기 자신이 닫힐 때만 받는다.
+      onClose={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
       onPointerDown={(e) => {
         pressedOutside.current = e.target === ref.current
       }}

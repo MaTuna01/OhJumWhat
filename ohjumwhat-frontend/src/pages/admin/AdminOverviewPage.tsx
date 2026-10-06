@@ -32,7 +32,11 @@ export default function AdminOverviewPage() {
           <StatCard label="최근 7일 가입" value={stats.data.newUserCount} />
           <StatCard label="차단한 계정" value={stats.data.blockedCount} />
           <Link to="/admin/reports" className="rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-brand">
-            <StatCard label="처리할 신고" value={stats.data.openReportCount} hint="신고 탭 ›" />
+            <StatCard
+              label="처리할 신고"
+              value={stats.data.openReportCount}
+              hint={`쪽지 ${stats.data.openLetterReportCount} · 방명록 ${stats.data.openGuestbookReportCount} ›`}
+            />
           </Link>
         </div>
       )}

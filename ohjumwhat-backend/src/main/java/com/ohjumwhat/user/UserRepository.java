@@ -53,6 +53,23 @@ public interface UserRepository extends JpaRepository<User, Long> {
 	int updateIntro(Long id, String bio, String[] foodTags);
 
 	/**
+	 * 내 방명록을 본 시각을 until로 올린다(뒤로 가지 않는다, 지금 시각을 넘지 않게 자르는 것은 GuestbookService가 한다).
+	 * 엔티티 저장으로 쓰이지 않는 컬럼이라 이 쿼리로만 바꾼다. 바뀐 행 수(이미 같거나 뒤면 0)를 돌려준다.
+	 */
+	@Modifying(clearAutomatically = true)
+	@Query("""
+			update User u set u.guestbookSeenAt = :until
+			where u.id = :id and (u.guestbookSeenAt is null or u.guestbookSeenAt < :until)""")
+	int markGuestbookSeen(Long id, Instant until);
+
+	/** 방명록 경고를 확인한 시각을 until로 올린다(markGuestbookSeen과 같은 규칙). */
+	@Modifying(clearAutomatically = true)
+	@Query("""
+			update User u set u.guestbookWarningsSeenAt = :until
+			where u.id = :id and (u.guestbookWarningsSeenAt is null or u.guestbookWarningsSeenAt < :until)""")
+	int ackGuestbookWarnings(Long id, Instant until);
+
+	/**
 	 * 상세 프로필(MBTI·퍼스널컬러·취미·나이·직급)만 바꾼다. 소개처럼 엔티티 저장으로 쓰이지 않는 컬럼이라 이 쿼리로만 바꾼다.
 	 * 영속성 컨텍스트를 비우므로 바꾼 뒤에는 회원을 다시 읽는다.
 	 */

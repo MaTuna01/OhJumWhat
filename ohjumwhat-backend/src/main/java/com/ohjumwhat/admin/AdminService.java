@@ -15,6 +15,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ohjumwhat.common.ApiException;
+import com.ohjumwhat.guestbook.GuestbookReportRepository;
+import com.ohjumwhat.guestbook.GuestbookService;
 import com.ohjumwhat.letter.LetterReportRepository;
 import com.ohjumwhat.menu.MenuOption;
 import com.ohjumwhat.menu.MenuOptionRepository;
@@ -86,6 +88,10 @@ public class AdminService {
 
 	private final LetterReportRepository letterReportRepository;
 
+	private final GuestbookReportRepository guestbookReportRepository;
+
+	private final GuestbookService guestbookService;
+
 	private final ApplicationEventPublisher events;
 
 	private final Clock clock;
@@ -96,6 +102,7 @@ public class AdminService {
 			PollRepository pollRepository, PollService pollService, MenuOptionRepository menuOptionRepository,
 			VoteRepository voteRepository, PollScheduleRepository scheduleRepository, JdbcTemplate jdbcTemplate,
 			ProfilePhotoStorage photoStorage, LetterReportRepository letterReportRepository,
+			GuestbookReportRepository guestbookReportRepository, GuestbookService guestbookService,
 			ApplicationEventPublisher events, Clock clock) {
 		this.adminRepository = adminRepository;
 		this.userRepository = userRepository;
@@ -111,6 +118,8 @@ public class AdminService {
 		this.jdbcTemplate = jdbcTemplate;
 		this.photoStorage = photoStorage;
 		this.letterReportRepository = letterReportRepository;
+		this.guestbookReportRepository = guestbookReportRepository;
+		this.guestbookService = guestbookService;
 		this.events = events;
 		this.clock = clock;
 	}
@@ -118,10 +127,12 @@ public class AdminService {
 	@Transactional(readOnly = true)
 	public AdminResponses.Stats stats() {
 		Instant now = Instant.now(clock);
+		long openLetterReports = letterReportRepository.countOpen();
+		long openGuestbookReports = guestbookReportRepository.countOpen();
 		return new AdminResponses.Stats(adminRepository.countUsers(), adminRepository.countOrganizations(),
 				adminRepository.countPollsOn(LocalDate.now(clock)), adminRepository.countOpenPolls(now),
 				adminRepository.countUsersSince(now.minus(7, ChronoUnit.DAYS)), adminRepository.countBlocks(),
-				letterReportRepository.countOpen());
+				openLetterReports + openGuestbookReports, openLetterReports, openGuestbookReports);
 	}
 
 	// 회원
@@ -151,6 +162,8 @@ public class AdminService {
 	 * 강제 탈퇴: 모든 조직에서 탈퇴(마지막 멤버였던 조직은 삭제) → 같은 구글 계정 차단 → 회원 삭제 → 로그인 세션 만료.
 	 * 회원을 지우면 그 사람의 응답은 모두 지워지고(CASCADE), 올린 메뉴는 작성자만 비운 채 남는다(SET NULL).
 	 * 올린 프로필 사진 파일은 커밋한 뒤에 지운다. 그 사람이 보낸 쪽지의 열린 신고는 처리 완료로 한다(지우면 보낸 사람을 알 수 없다).
+	 * 그 사람이 쓴 방명록 글의 처리 전 신고도 「글 제한」으로 처리하고 그 글을 제한한다. 글은 쓴 사람만 비운 채(「탈퇴한 사용자」)
+	 * 남고, 그 사람의 방명록에 남은 글과 신고도 주인만 비운 채 남는다.
 	 */
 	@Transactional
 	public void withdraw(Long adminId, Long userId) {
@@ -168,6 +181,7 @@ public class AdminService {
 			}
 		}
 		int resolvedReports = letterReportRepository.resolveOpenAgainst(userId, adminId, Instant.now(clock));
+		int restrictedGuestbookReports = guestbookService.restrictOpenReportsAgainst(userId, adminId);
 		BlockedAccount block = blockedAccountRepository.save(new BlockedAccount(user, adminId, Instant.now(clock)));
 		photoStorage.deleteAfterCommit(user.getPhotoKey());
 		userRepository.delete(user);
@@ -175,8 +189,9 @@ public class AdminService {
 		// 세션 저장소 API는 별도 트랜잭션으로 커밋되므로, 같은 트랜잭션에서 지우도록 SQL을 쓴다.
 		int expiredSessions = jdbcTemplate.update("delete from spring_session where principal_name = ?",
 				block.getGoogleSub());
-		log.info("관리자 강제 탈퇴: adminId={}, userId={}, blockId={}, 삭제된 조직 수={}, 만료한 세션 수={}, 처리한 쪽지 신고 수={}",
-				adminId, userId, block.getId(), deletedOrganizations, expiredSessions, resolvedReports);
+		log.info("관리자 강제 탈퇴: adminId={}, userId={}, blockId={}, 삭제된 조직 수={}, 만료한 세션 수={}, 처리한 쪽지 신고 수={}, "
+				+ "글 제한으로 처리한 방명록 신고 수={}", adminId, userId, block.getId(), deletedOrganizations, expiredSessions,
+				resolvedReports, restrictedGuestbookReports);
 	}
 
 	/** 올린 프로필 사진 지우기(부적절한 사진 대응). 구글 사진으로 돌아가고, 파일은 커밋한 뒤에 지운다. 올린 사진이 없으면 그대로 둔다. */

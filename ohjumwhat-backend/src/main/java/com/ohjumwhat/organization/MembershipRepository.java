@@ -33,6 +33,15 @@ public interface MembershipRepository extends JpaRepository<Membership, Long> {
 			order by m.joinedAt, m.id""")
 	List<MemberResponse> findMembers(Long organizationId);
 
+	/** 두 사람이 조직을 하나라도 같이 쓰는지(방명록을 보고 쓸 수 있는지) */
+	@Query("""
+			select case when count(m) > 0 then true else false end
+			from Membership m
+			where m.userId = :userId
+				and exists (select o.id from Membership o
+					where o.organizationId = m.organizationId and o.userId = :otherUserId)""")
+	boolean sharesOrganization(Long userId, Long otherUserId);
+
 	/** 강제 탈퇴: 그 회원이 속한 조직 ID(잠금 순서를 맞추기 위해 오름차순) */
 	@Query("select m.organizationId from Membership m where m.userId = :userId order by m.organizationId")
 	List<Long> findOrganizationIdsByUserId(Long userId);

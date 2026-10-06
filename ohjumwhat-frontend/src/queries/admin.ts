@@ -19,8 +19,12 @@ export type AdminStats = {
   /** 최근 7일 가입 */
   newUserCount: number
   blockedCount: number
-  /** 처리 전 쪽지 신고 */
+  /** 처리 전 신고(쪽지 + 방명록) */
   openReportCount: number
+  /** 처리 전 쪽지 신고 */
+  openLetterReportCount: number
+  /** 처리 전 방명록 신고 */
+  openGuestbookReportCount: number
 }
 
 /** 쪽지 신고(받은 사람이 신고한 쪽지만). 익명 쪽지도 실제 보낸 사람을 보여준다. */
@@ -46,6 +50,35 @@ export type AdminLetterReport = {
   recipientId: number | null
   recipientName: string | null
   recipientEmail: string | null
+}
+
+/** 방명록 신고 처리: RESTRICTED = 글 제한, DISMISSED = 문제 없음 */
+export type GuestbookReportResolution = 'RESTRICTED' | 'DISMISSED'
+
+/** 방명록 신고(프로필 주인이 신고한 글만). 제한·삭제돼도 원문을 보여준다. */
+export type AdminGuestbookReport = {
+  id: number
+  reportedAt: string
+  reason: string | null
+  /** 처리 전이면 null */
+  resolution: GuestbookReportResolution | null
+  resolvedAt: string | null
+  resolvedByName: string | null
+  entryId: number
+  /** 원문(제한·삭제돼도 그대로) */
+  body: string
+  writtenAt: string
+  /** 주인·작성자가 지웠으면 그 시각(「삭제됨」) */
+  deletedAt: string | null
+  restrictedAt: string | null
+  /** 방명록 주인(= 신고한 사람). 강제 탈퇴했으면 null */
+  ownerId: number | null
+  ownerName: string | null
+  ownerEmail: string | null
+  /** 쓴 사람. 강제 탈퇴했으면 null */
+  authorId: number | null
+  authorName: string | null
+  authorEmail: string | null
 }
 
 export type AdminUser = {
@@ -136,6 +169,7 @@ export const adminKeys = {
   chat: (pollId: number) => ['admin', 'chat', pollId] as const,
   blocks: ['admin', 'blocks'] as const,
   letterReports: (status: 'open' | 'all') => ['admin', 'letter-reports', status] as const,
+  guestbookReports: (status: 'open' | 'all') => ['admin', 'guestbook-reports', status] as const,
 }
 
 const search = (q: string) => (q ? `?q=${encodeURIComponent(q)}` : '')
@@ -192,6 +226,14 @@ export function useAdminLetterReports(status: 'open' | 'all') {
   })
 }
 
+export function useAdminGuestbookReports(status: 'open' | 'all') {
+  return useQuery({
+    queryKey: adminKeys.guestbookReports(status),
+    queryFn: () => api<AdminGuestbookReport[]>(`/api/admin/guestbook-reports?status=${status}`),
+    placeholderData: keepPreviousData,
+  })
+}
+
 export function useAdminBlocks() {
   return useQuery({ queryKey: adminKeys.blocks, queryFn: () => api<AdminBlock[]>('/api/admin/blocks') })
 }
@@ -217,6 +259,14 @@ export const useDeleteUserPhoto = () =>
 /** 쪽지 신고 처리 완료 */
 export const useResolveLetterReport = () =>
   useAdminMutation((reportId: number) => api<void>(`/api/admin/letter-reports/${reportId}/resolve`, { method: 'POST' }))
+
+/** 방명록 신고 「글 제한」: 모두에게 「관리자에 의해 제한된 게시글입니다」로 보이고 작성자에게 경고 안내가 간다(되돌릴 수 없다). */
+export const useRestrictGuestbookReport = () =>
+  useAdminMutation((reportId: number) => api<void>(`/api/admin/guestbook-reports/${reportId}/restrict`, { method: 'POST' }))
+
+/** 방명록 신고 「문제 없음」: 글은 그대로 두고 신고만 처리한다. */
+export const useDismissGuestbookReport = () =>
+  useAdminMutation((reportId: number) => api<void>(`/api/admin/guestbook-reports/${reportId}/dismiss`, { method: 'POST' }))
 
 export const useUnblock = () => useAdminMutation((blockId: number) => api<void>(`/api/admin/blocks/${blockId}`, { method: 'DELETE' }))
 

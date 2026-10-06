@@ -93,6 +93,17 @@ public class User {
 	@Column(insertable = false, updatable = false)
 	private Instant noticesSeenAt;
 
+	/*
+	 * 방명록(V19): 내 방명록을 마지막으로 본 시각과, 제한된 내 글의 경고를 마지막으로 확인한 시각(없으면 null = 모두 새것).
+	 * 엔티티 저장으로 쓰지 않고 UserRepository.markGuestbookSeen·ackGuestbookWarnings로만 바꾼다(같은 순간의 로그인이
+	 * 옛 값을 되써서 본 글이 다시 새 글이 되지 않게).
+	 */
+	@Column(insertable = false, updatable = false)
+	private Instant guestbookSeenAt;
+
+	@Column(insertable = false, updatable = false)
+	private Instant guestbookWarningsSeenAt;
+
 	@Column(nullable = false)
 	private Instant createdAt;
 
@@ -225,6 +236,14 @@ public class User {
 
 	public Instant getNoticesSeenAt() {
 		return noticesSeenAt;
+	}
+
+	public Instant getGuestbookSeenAt() {
+		return guestbookSeenAt;
+	}
+
+	public Instant getGuestbookWarningsSeenAt() {
+		return guestbookWarningsSeenAt;
 	}
 
 	public Instant getCreatedAt() {
