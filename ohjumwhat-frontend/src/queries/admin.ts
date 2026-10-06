@@ -100,6 +100,8 @@ export type AdminUser = {
 
 export type AdminUserDetail = {
   user: AdminUser
+  /** 별명(없으면 null, 화면 이름은 구글 이름) */
+  nickname: string | null
   /** 한줄 소개(없으면 null) */
   bio: string | null
   /** 좋아하는 음식(없으면 빈 배열) */
@@ -255,6 +257,35 @@ export const useWithdrawUser = () => useAdminMutation((userId: number) => api<vo
 /** 올린 프로필 사진 지우기(구글 사진으로 돌아간다) */
 export const useDeleteUserPhoto = () =>
   useAdminMutation((userId: number) => api<void>(`/api/admin/users/${userId}/photo`, { method: 'DELETE' }))
+
+/*
+ * 회원 프로필 수정(별명·소개·상세 프로필). 마이페이지와 같은 규칙·문구로 서버가 확인하고, 본인에게 따로 알리지 않는다.
+ * 모두 바뀐 회원 상세를 돌려준다(캐시는 useAdminMutation이 다시 불러와 맞춘다).
+ */
+
+/** 별명 바꾸기(null이면 구글 이름으로 돌아간다) */
+export const useAdminChangeNickname = (userId: number) =>
+  useAdminMutation((nickname: string | null) =>
+    api<AdminUserDetail>(`/api/admin/users/${userId}/nickname`, { method: 'PUT', body: { nickname } }),
+  )
+
+/** 한줄 소개와 좋아하는 음식 바꾸기(통째로 바꾼다. bio가 null이면 소개를, 빈 배열이면 음식을 지운다) */
+export const useAdminChangeIntro = (userId: number) =>
+  useAdminMutation((intro: { bio: string | null; foodTags: string[] }) =>
+    api<AdminUserDetail>(`/api/admin/users/${userId}/profile`, { method: 'PUT', body: intro }),
+  )
+
+/** 상세 프로필 바꾸기(다섯 항목 모두 필수, 통째로 바꾼다) */
+export const useAdminChangeDetails = (userId: number) =>
+  useAdminMutation((details: ProfileDetails) =>
+    api<AdminUserDetail>(`/api/admin/users/${userId}/profile/details`, { method: 'PUT', body: details }),
+  )
+
+/** 상세 프로필 지우기(다섯 항목을 한꺼번에). 본인이 다음에 들어오면 다시 채우기 안내를 본다. */
+export const useAdminClearDetails = (userId: number) =>
+  useAdminMutation<AdminUserDetail, void>(() =>
+    api<AdminUserDetail>(`/api/admin/users/${userId}/profile/details`, { method: 'DELETE' }),
+  )
 
 /** 쪽지 신고 처리 완료 */
 export const useResolveLetterReport = () =>

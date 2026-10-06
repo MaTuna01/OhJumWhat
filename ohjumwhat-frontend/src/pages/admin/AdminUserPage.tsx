@@ -1,6 +1,7 @@
 import { type ReactNode, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { DangerZone, EmptyRow, ListRow, StatCard } from '../../components/AdminParts.tsx'
+import AdminProfileModal from '../../components/AdminProfileModal.tsx'
 import Avatar from '../../components/Avatar.tsx'
 import Badge from '../../components/Badge.tsx'
 import Button from '../../components/Button.tsx'
@@ -16,7 +17,7 @@ import { columnsClass } from '../../lib/ui.ts'
 import { useAdminUser, useDeleteUserPhoto, useWithdrawUser } from '../../queries/admin.ts'
 import { useMe } from '../../queries/me.ts'
 
-/** Figma A03·DA03 회원 상세: 프로필(올린 사진 지우기 A03-M2), 활동, 소속 조직, 강제 탈퇴(A03-M) */
+/** Figma A03·DA03 회원 상세: 프로필(프로필 수정 A03-M3, 올린 사진 지우기 A03-M2), 활동, 소속 조직, 강제 탈퇴(A03-M) */
 export default function AdminUserPage() {
   const userId = Number(useParams().userId)
   const detail = useAdminUser(userId)
@@ -27,6 +28,7 @@ export default function AdminUserPage() {
   const now = useNow(60_000)
   const [confirming, setConfirming] = useState(false)
   const [clearingPhoto, setClearingPhoto] = useState(false)
+  const [editing, setEditing] = useState(false)
   useDocumentTitle(detail.data?.user.name, '관리자 콘솔')
 
   const back = (
@@ -57,13 +59,16 @@ export default function AdminUserPage() {
           <section className="space-y-4 rounded-2xl border border-border-default bg-bg-surface p-5">
             <div className="flex items-center gap-3">
               <Avatar name={user.name} imageUrl={user.profileImageUrl} size="lg" />
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-2">
                   <span className="truncate text-lg font-bold">{user.name}</span>
                   {isAdmin && <Badge tone="brand">관리자</Badge>}
                 </p>
                 <p className="truncate text-sm text-text-tertiary">{user.email}</p>
               </div>
+              <Button variant="secondary" onClick={() => setEditing(true)} className="shrink-0 py-1.5">
+                프로필 수정
+              </Button>
             </div>
             <dl className="space-y-2 text-sm">
               {user.googleName !== user.name && <InfoRow label="구글 이름" value={user.googleName} />}
@@ -132,6 +137,8 @@ export default function AdminUserPage() {
           )}
         </aside>
       </div>
+
+      <AdminProfileModal detail={detail.data} open={editing} onClose={() => setEditing(false)} />
 
       <ConfirmDialog
         open={clearingPhoto}

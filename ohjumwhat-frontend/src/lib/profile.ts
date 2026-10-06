@@ -34,12 +34,12 @@ export function photoChange(pending: PendingPhoto): PhotoChange | null {
 
 /**
  * 이름 입력을 별명으로. 비우면 null(구글 이름)이고, 화면 이름과 같으면 바뀌지 않은 것으로 본다.
- * 글자 수는 서버(Nicknames)처럼 코드 포인트로 센다.
+ * 글자 수는 서버(Nicknames)처럼 코드 포인트로 센다. 관리자 「프로필 수정」은 회원 상세의 이름·별명을 준다.
  */
-export function nicknameChange(me: Me, input: string) {
+export function nicknameChange(current: Pick<Me, 'name' | 'nickname'>, input: string) {
   const trimmed = input.trim().replace(/\s+/g, ' ')
   const nickname = trimmed || null
-  const changed = nickname === null ? me.nickname !== null : nickname !== me.name
+  const changed = nickname === null ? current.nickname !== null : nickname !== current.name
   return { nickname, changed, length: [...trimmed].length }
 }
 
@@ -153,9 +153,9 @@ export function pendingTags(state: TagState, rule: TagRule): { tags: string[]; e
 }
 
 /** 한줄 소개·좋아하는 음식 입력을 저장할 값으로. 소개를 비우면 null이고, 둘 다 지금과 같으면 바뀌지 않은 것이다. */
-export function introChange(me: Me, bioInput: string, foodTags: string[]) {
+export function introChange(current: Pick<Me, 'bio' | 'foodTags'>, bioInput: string, foodTags: string[]) {
   const trimmed = singleLine(bioInput)
   const bio = trimmed || null
-  const tagsChanged = foodTags.length !== me.foodTags.length || foodTags.some((tag, i) => tag !== me.foodTags[i])
-  return { bio, foodTags, changed: bio !== me.bio || tagsChanged, bioLength: charCount(trimmed) }
+  const tagsChanged = foodTags.length !== current.foodTags.length || foodTags.some((tag, i) => tag !== current.foodTags[i])
+  return { bio, foodTags, changed: bio !== current.bio || tagsChanged, bioLength: charCount(trimmed) }
 }
