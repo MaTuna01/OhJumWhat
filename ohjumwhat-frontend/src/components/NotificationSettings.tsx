@@ -72,7 +72,7 @@ function NotificationCard({ userId, push, className }: { userId: number; push: P
 function Notice({ title, warning = false, children }: { title: string; warning?: boolean; children: ReactNode }) {
   return (
     <div className={`space-y-1 rounded-xl px-3.5 py-3 ${warning ? 'bg-bg-warning-soft' : 'bg-bg-subtle'}`}>
-      <p className={`text-[13px] font-medium ${warning ? 'text-text-warning' : ''}`}>{title}</p>
+      <p className={`text-sm font-medium ${warning ? 'text-text-warning' : ''}`}>{title}</p>
       <p className="text-xs text-text-secondary">{children}</p>
     </div>
   )

@@ -10,12 +10,20 @@ const BADGE = '/icons/badge-96.png'
 const FALLBACK = { kind: '', title: '오점왓에 새 소식이 있어요', url: '/', tag: 'ohjumwhat' }
 
 /**
- * 같은 출처의 경로(/로 시작, //는 아님)만 받는다.
+ * 같은 출처의 경로만 받는다. 글자로만 보면 URL 해석이 지우는 탭·줄바꿈("/\t/evil.example" → //evil.example)을
+ * 놓치므로 실제로 해석한 출처를 비교한다.
  * @param {unknown} url
  * @returns {string | null}
  */
 function internalPath(url) {
-  return typeof url === 'string' && url.startsWith('/') && !url.startsWith('//') && !url.startsWith('/\\') ? url : null
+  if (typeof url !== 'string' || !url) return null
+  const origin = sw.location.origin
+  try {
+    const target = new URL(url, origin)
+    return target.origin === origin ? target.pathname + target.search + target.hash : null
+  } catch {
+    return null
+  }
 }
 
 /**

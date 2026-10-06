@@ -1,7 +1,7 @@
 import type { Messaging } from 'firebase/messaging'
 import type { PushWebConfig } from '../queries/config.ts'
 import { api } from './api.ts'
-import { withTimeout } from './push.ts'
+import { sameVapidKey, withTimeout } from './push.ts'
 
 // 웹 푸시(FCM) 등록. Firebase SDK는 알림을 켠 사람만 받도록 dynamic import로 따로 둔다.
 // 서버에는 기기를 FID(Firebase 설치 ID)로 알린다: onRegistered → PUT, onUnregistered → DELETE /api/push/devices/{fid}
@@ -130,9 +130,13 @@ export function registerPush(config: PushWebConfig): Promise<void> {
   return exclusive(async () => {
     const { sdk, messaging } = await getClient(config)
     const { registration, fresh } = await registerWorker()
-    // SDK는 FCM 등록을 7일에 한 번만 새로 한다. 서비스 워커를 새로 깔았거나 구독이 없어졌으면(사이트 데이터 삭제 등)
+    const subscription = await registration.pushManager.getSubscription()
+    // VAPID 키를 바꿨으면 옛 키로 만든 구독으로는 보낼 수 없다. SDK는 있는 구독을 그대로 다시 쓰므로 브라우저 구독부터 지운다.
+    const keyChanged = subscription !== null && !sameVapidKey(subscription.options.applicationServerKey, config.vapidKey)
+    if (keyChanged) await subscription.unsubscribe().catch(() => false)
+    // SDK는 FCM 등록을 7일에 한 번만 새로 한다. 서비스 워커를 새로 깔았거나 구독이 없거나 키가 바뀌었으면
     // 남아 있는 옛 등록을 지워서 이번 구독으로 다시 등록하게 한다. 처음 켜는 기기면 지울 것이 없어 실패해도 된다.
-    if (fresh || !(await registration.pushManager.getSubscription())) {
+    if (fresh || !subscription || keyChanged) {
       await sdk.messaging.unregister(messaging).catch(() => {})
     }
     await sdk.messaging.register(messaging, { vapidKey: config.vapidKey, serviceWorkerRegistration: registration })
@@ -140,12 +144,30 @@ export function registerPush(config: PushWebConfig): Promise<void> {
   })
 }
 
-/** 끄기: FCM 등록을 지우고(onUnregistered → 서버의 기기도 지운다) 기다린다. */
+/**
+ * 끄기: FCM 등록을 지우고(onUnregistered → 서버의 기기도 지운다) 브라우저 푸시 구독도 지운다.
+ * 다시 켜면 새 구독(지금 VAPID 키)으로 등록되므로, 구독이 꼬인 기기도 껐다 켜면 고쳐진다.
+ */
 export function unregisterPush(config: PushWebConfig): Promise<void> {
   return exclusive(async () => {
     const { sdk, messaging } = await getClient(config)
-    await release(sdk, messaging)
+    try {
+      await release(sdk, messaging)
+    } finally {
+      await unsubscribeBrowser()
+    }
   })
+}
+
+// 실패해도 다음에 켤 때 구독을 다시 확인하므로 넘어간다.
+async function unsubscribeBrowser() {
+  try {
+    const registration = await navigator.serviceWorker.getRegistration('/')
+    const subscription = await registration?.pushManager.getSubscription()
+    await subscription?.unsubscribe()
+  } catch {
+    // 무시
+  }
 }
 
 async function release(sdk: Sdk, messaging: Messaging) {

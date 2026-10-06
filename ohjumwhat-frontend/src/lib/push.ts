@@ -97,6 +97,23 @@ export function pushInvalidations(kind: unknown): readonly (readonly unknown[])[
   }
 }
 
+/**
+ * 브라우저 푸시 구독의 applicationServerKey가 지금 VAPID 키(base64url)와 같은지.
+ * 키를 바꾸면 옛 구독으로는 보낼 수 없어서 구독을 새로 만들어야 한다. 브라우저가 키를 알려 주지 않거나 키를 읽을 수 없으면 같다고 본다.
+ */
+export function sameVapidKey(applicationServerKey: ArrayBuffer | null | undefined, vapidKey: string): boolean {
+  if (!applicationServerKey) return true
+  let expected: Uint8Array
+  try {
+    const base64 = vapidKey.replace(/-/g, '+').replace(/_/g, '/')
+    expected = Uint8Array.from(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')), (c) => c.charCodeAt(0))
+  } catch {
+    return true
+  }
+  const actual = new Uint8Array(applicationServerKey)
+  return actual.length === expected.length && actual.every((byte, i) => byte === expected[i])
+}
+
 /** ms 안에 끝나지 않으면 실패한다(원래 작업은 멈추지 않는다). */
 export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -114,7 +131,16 @@ export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   })
 }
 
-/** 알림 클릭으로 옮겨 갈 경로. 같은 출처의 경로(/로 시작, //는 아님)만 받는다. */
-export function internalPath(url: unknown): string | null {
-  return typeof url === 'string' && url.startsWith('/') && !url.startsWith('//') && !url.startsWith('/\\') ? url : null
+/**
+ * 알림 클릭으로 옮겨 갈 경로. 같은 출처의 경로만 받는다(서비스 워커의 internalPath와 같은 규칙).
+ * 글자로만 보면 URL 해석이 지우는 탭·줄바꿈("/\t/evil.example" → //evil.example)을 놓치므로 실제로 해석한 출처를 비교한다.
+ */
+export function internalPath(url: unknown, origin: string = window.location.origin): string | null {
+  if (typeof url !== 'string' || !url) return null
+  try {
+    const target = new URL(url, origin)
+    return target.origin === origin ? target.pathname + target.search + target.hash : null
+  } catch {
+    return null
+  }
 }

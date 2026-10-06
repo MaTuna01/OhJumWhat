@@ -8,6 +8,7 @@ import {
   pushInvalidations,
   pushSupport,
   readPushSetting,
+  sameVapidKey,
   withTimeout,
   writePushSetting,
 } from './push.ts'
@@ -134,12 +135,41 @@ describe('pushInvalidations', () => {
 })
 
 describe('internalPath', () => {
+  const origin = 'https://www.ohjumwhat.cloud'
+
   it('같은 출처의 경로만 받는다', () => {
-    expect(internalPath('/me#guestbook')).toBe('/me#guestbook')
-    expect(internalPath('/letters')).toBe('/letters')
-    for (const url of ['https://evil.example/', '//evil.example', '/\\evil.example', 'javascript:alert(1)', '', null, 1]) {
-      expect(internalPath(url)).toBeNull()
+    expect(internalPath('/me#guestbook', origin)).toBe('/me#guestbook')
+    expect(internalPath('/letters?box=sent', origin)).toBe('/letters?box=sent')
+    expect(internalPath(`${origin}/letters`, origin)).toBe('/letters')
+  })
+
+  it('URL 해석이 다른 출처로 바꾸는 주소는 거절한다(탭·줄바꿈·역슬래시·스킴 없는 주소)', () => {
+    const urls = ['/\t/evil.example', '/\n/evil.example', '/\r/evil.example', '//evil.example', '/\\evil.example', 'https://evil.example', 'javascript:alert(1)', 'http://[', '', null, 1]
+    for (const url of urls) {
+      expect(internalPath(url, origin), String(url)).toBeNull()
     }
+  })
+})
+
+describe('sameVapidKey', () => {
+  // 공개 키는 65바이트(비압축 P-256 점)
+  const bytes = Uint8Array.from({ length: 65 }, (_, i) => (i * 37 + 4) % 256)
+  const base64url = (b: Uint8Array) => btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  const vapidKey = base64url(bytes)
+
+  it('구독의 키와 VAPID 키(base64url)를 바이트로 비교한다', () => {
+    expect(vapidKey).toMatch(/[-_]/)
+    expect(sameVapidKey(bytes.slice().buffer, vapidKey)).toBe(true)
+    const other = bytes.slice()
+    other[10] ^= 1
+    expect(sameVapidKey(other.buffer, vapidKey)).toBe(false)
+    expect(sameVapidKey(bytes.slice(0, 64).buffer, vapidKey)).toBe(false)
+  })
+
+  it('브라우저가 키를 알려 주지 않거나 키를 읽을 수 없으면 같다고 본다', () => {
+    expect(sameVapidKey(null, vapidKey)).toBe(true)
+    expect(sameVapidKey(undefined, vapidKey)).toBe(true)
+    expect(sameVapidKey(bytes.slice().buffer, '%%%')).toBe(true)
   })
 })
 

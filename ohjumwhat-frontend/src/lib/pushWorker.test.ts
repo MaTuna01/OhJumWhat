@@ -135,9 +135,11 @@ describe('firebase-messaging-sw.js', () => {
     const worker = startWorker({ userAgent: SAFARI })
     await worker.push({ data: { kind: 'GUESTBOOK', title: '이영희님이 방명록을 남겼어요', url: 'https://evil.example/' } })
     await worker.push({ data: { kind: 'GUESTBOOK', title: '', url: '//evil.example/me' } })
+    await worker.push({ data: { kind: 'LETTER', title: '익명 쪽지가 왔어요', url: '/\t/evil.example' } })
     expect(worker.shown.map((n) => [n.title, n.options.tag, n.options.data])).toEqual([
       ['이영희님이 방명록을 남겼어요', 'ohjumwhat', { url: '/' }],
       ['오점왓에 새 소식이 있어요', 'ohjumwhat', { url: '/' }],
+      ['익명 쪽지가 왔어요', 'ohjumwhat', { url: '/' }],
     ])
   })
 
@@ -167,7 +169,8 @@ describe('firebase-messaging-sw.js', () => {
   })
 
   it('다른 출처 url은 열지 않는다', async () => {
-    for (const url of ['https://evil.example/', '//evil.example/letters', '/\\evil.example', 'javascript:alert(1)', 42, undefined]) {
+    const urls = ['https://evil.example', 'https://evil.example/', '//evil.example', '//evil.example/letters', '/\t/evil.example', '/\n/evil.example', '/\\evil.example', 'javascript:alert(1)', 42, undefined]
+    for (const url of urls) {
       const win = fakeWindow(false)
       const worker = startWorker({ userAgent: CHROME, windows: [win] })
       const closed = await worker.click({ url })
