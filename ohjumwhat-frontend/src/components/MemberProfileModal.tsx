@@ -2,12 +2,14 @@ import { Link } from 'react-router'
 import { useLetterComposer } from '../hooks/useLetterComposer.ts'
 import { useMe } from '../queries/me.ts'
 import { useMembers } from '../queries/orgs.ts'
+import { useMonthlyMakers } from '../queries/ranking.ts'
 import type { Person } from '../queries/polls.ts'
 import Avatar from './Avatar.tsx'
 import Button from './Button.tsx'
 import FoodTags from './FoodTags.tsx'
 import Modal from './Modal.tsx'
 import ProfileDetailList from './ProfileDetailList.tsx'
+import { MakerBadge } from './RankingBadges.tsx'
 
 type Props = {
   orgId: number
@@ -16,7 +18,10 @@ type Props = {
   onClose: () => void
 }
 
-/** 멤버 프로필(Figma 07-P·07-P2): 사진·이름·한줄 소개·좋아하는 음식·상세 프로필. 보기 전용이라 ✕로 닫는다. */
+/**
+ * 멤버 프로필(Figma 07-P·07-P2): 사진·이름·한줄 소개·좋아하는 음식·상세 프로필. 보기 전용이라 ✕로 닫는다.
+ * 지난달 메뉴 메이커 1위면 이름 아래에 「🏅 이달의 메뉴 메이커」(07-P3)를 붙인다.
+ */
 export default function MemberProfileModal({ orgId, person, onClose }: Props) {
   return (
     <Modal open={person !== null} onClose={onClose} title="프로필" closable>
@@ -33,6 +38,7 @@ function MemberProfile({ orgId, person, onClose }: { orgId: number; person: Pers
   const { compose } = useLetterComposer()
   const members = useMembers(orgId)
   const { data: me } = useMe()
+  const makers = useMonthlyMakers(orgId)
   const member = members.data?.find((m) => m.userId === person.userId)
   const name = member?.name ?? person.name
   const isMe = person.userId === me?.id
@@ -45,6 +51,7 @@ function MemberProfile({ orgId, person, onClose }: { orgId: number; person: Pers
         <p className="truncate text-lg font-bold">{name}</p>
         {isMe && <span className="shrink-0 rounded-full bg-bg-muted px-2 py-0.5 text-xs text-text-tertiary">나</span>}
       </div>
+      {member && makers.has(member.userId) && <MakerBadge />}
       {members.isPending ? (
         <p role="status" className="text-sm text-text-tertiary">
           불러오는 중…

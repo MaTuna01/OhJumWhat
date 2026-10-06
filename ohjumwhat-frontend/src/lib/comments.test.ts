@@ -40,6 +40,7 @@ describe('withCommentCount', () => {
     passed: [],
     nonRespondents: [],
     soloOptionIds: [],
+    adoption: null,
   }
 
   it('그 메뉴의 댓글 수만 바꾼다', () => {

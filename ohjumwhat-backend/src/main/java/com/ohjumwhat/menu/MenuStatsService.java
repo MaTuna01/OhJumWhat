@@ -103,8 +103,8 @@ public class MenuStatsService {
 		return LocalDate.now(clock).minusDays(RECENT_DAYS - 1L);
 	}
 
-	/** 메뉴 이름을 묶는 키: 소문자, 띄어쓰기 제거. SQL의 replace(lower(name), ' ', '')와 같다. */
-	static String key(String name) {
+	/** 메뉴 이름을 묶는 키: 소문자, 띄어쓰기 제거. SQL의 replace(lower(name), ' ', '')와 같다. 랭킹도 이 키로 묶는다. */
+	public static String key(String name) {
 		return name.toLowerCase(Locale.ROOT).replace(" ", "");
 	}
 
