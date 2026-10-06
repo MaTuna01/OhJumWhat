@@ -16,7 +16,7 @@
 | `Dockerfile` | 프론트 빌드 → `static/`에 복사 → Spring Boot jar → JRE 21 이미지(비루트 사용자, `MaxRAMPercentage=50`, 프로필 사진 폴더 `/data/photos`) |
 | `deploy/docker-compose.yml` | 운영 스택. DB는 외부 포트를 열지 않고, 80·443은 Caddy만 연다. 볼륨은 `db-data`(DB), `photos`(올린 프로필 사진), `caddy-*`(인증서) |
 | `deploy/Caddyfile` | 인증서 자동 발급·갱신, 압축, 보안 헤더(CSP 등), 루트 도메인 → www 리디렉션. 바뀌면 배포 때 검증한 뒤 Caddy 컨테이너를 다시 만든다(파일 하나를 마운트해서 `up -d`만으로는 반영되지 않는다). |
-| `deploy/backup.sh` | `pg_dump`와 프로필 사진 폴더(tar.gz)의 일일 백업(14일 보관) |
+| `deploy/backup.sh` | `pg_dump`와 프로필 사진 폴더(tar.gz)의 일일 백업(14일 보관). `.env`를 셸로 읽지 않고 db 컨테이너의 환경변수(`POSTGRES_USER`·`POSTGRES_DB`)로 덤프한다. 실패하면 쓰던 파일을 지우고 「백업 실패」를 남긴다 |
 | `deploy/.env.example` | 서버 `.env` 템플릿 |
 | `.github/workflows/ci.yml` | PR과 `dev` push에서 백엔드 테스트, 프론트 린트·테스트·빌드 |
 | `.github/workflows/deploy.yml` | `main` push(또는 수동 실행) 시 CI → 이미지 → 배포 → 헬스 체크(2분) |
@@ -96,6 +96,10 @@ APP_APEX_DOMAIN=ohjumwhat.cloud
 APP_IMAGE=ghcr.io/matuna01/ohjumwhat:latest
 ```
 
+`.env`는 docker compose(`env_file`)가 읽는 형식이다. 셸에서 `source .env`로 읽지 않는다(셸 문법이 아닌 값이 있으면 그 줄을 명령으로 실행한다).
+- 목록 값(`ADMIN_EMAILS`)은 쉼표로만 구분하고 띄어 쓰지 않는다: `ADMIN_EMAILS=a@gmail.com,b@gmail.com`
+- 공백이 들어간 값은 따옴표로 감싼다(`KEY="a b"`). `$`가 들어간 값은 작은따옴표로 감싼다(`KEY='a$b'`). 따옴표가 없거나 큰따옴표면 compose가 `$`를 변수로 바꾼다.
+
 일일 백업을 등록한다(매일 04:00, DB와 프로필 사진, 14일 보관).
 ```bash
 ( crontab -l 2>/dev/null; echo "0 4 * * * $HOME/ohjumwhat/backup.sh >> $HOME/ohjumwhat/backup.log 2>&1" ) | crontab -
@@ -165,7 +169,7 @@ gh release create vX.Y.Z -R MaTuna01/OhJumWhat --title "vX.Y.Z" --notes "<CHANGE
 관리자 콘솔(`/admin`)은 서버 `.env`의 `ADMIN_EMAILS`에 적힌 구글 계정만 쓸 수 있다. 바꾼 뒤 앱을 다시 띄우면 목록과 맞춰진다(목록에 없는 관리자는 해제된다).
 ```bash
 cd ~/ohjumwhat
-nano .env                       # ADMIN_EMAILS=a@gmail.com,b@gmail.com
+nano .env                       # ADMIN_EMAILS=a@gmail.com,b@gmail.com (쉼표 뒤에 띄어 쓰지 않는다)
 docker compose up -d app        # 설정을 다시 읽도록 앱 컨테이너를 다시 만든다
 docker compose logs app | grep 관리자
 ```
