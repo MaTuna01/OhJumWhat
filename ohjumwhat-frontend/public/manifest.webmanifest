@@ -1,0 +1,17 @@
+{
+  "id": "/",
+  "name": "오점왓",
+  "short_name": "오점왓",
+  "description": "오늘 점심 뭐 먹지? 먹고 싶은 메뉴를 올리고 같이 갈 사람을 모으는 조직용 점심 투표 서비스",
+  "lang": "ko",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "theme_color": "#f97316",
+  "background_color": "#fafaf9",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

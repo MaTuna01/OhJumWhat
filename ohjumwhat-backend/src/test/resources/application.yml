@@ -32,6 +32,16 @@ ohjumwhat:
   maps:
     kakao-rest-key: test-kakao-key
     naver-map-key-id: test-naver-key
+  # 웹 푸시(테스트용 공개 값). 서비스 계정은 비워 실제 FCM을 부르지 않는다. 통합 테스트는 보내기를 가짜
+  # (FakePushSenderConfiguration)로 바꾼다.
+  push:
+    web:
+      api-key: test-api-key
+      project-id: test-project
+      app-id: test-app-id
+      messaging-sender-id: "1234567890"
+      vapid-key: test-vapid-key
+    service-account:
   # 프로필 사진 폴더(테스트용). build 아래라 git·Docker에 들어가지 않고, IntegrationTest가 테스트마다 비운다.
   photos:
     dir: build/test-photos

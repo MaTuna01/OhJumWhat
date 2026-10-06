@@ -1,6 +1,7 @@
 import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
 import { api } from '../lib/api.ts'
+import { releaseOnLogout } from '../lib/pushClient.ts'
 
 export type Me = {
   id: number
@@ -57,7 +58,11 @@ export function useLogout() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   return useMutation({
-    mutationFn: () => api<void>('/logout', { method: 'POST' }),
+    mutationFn: async () => {
+      // 이 기기의 푸시 등록을 먼저 푼다(1.5초까지만 기다리고, 실패해도 로그아웃한다).
+      await releaseOnLogout()
+      return api<void>('/logout', { method: 'POST' })
+    },
     onSettled: () => {
       queryClient.clear()
       navigate('/login', { replace: true })

@@ -27,6 +27,13 @@ public interface GuestbookEntryRepository extends JpaRepository<GuestbookEntry, 
 	/** 지우지 않은 글 한 줄(지우기·신고) */
 	Optional<GuestbookEntry> findByIdAndDeletedAtIsNull(Long id);
 
+	/** 푸시 문구: 지우지도 제한되지도 않은 글을 쓴 사람의 이름(별명, 없으면 구글 이름). 쓴 사람이 탈퇴했으면 비어 있다. */
+	@Query("""
+			select coalesce(u.nickname, u.name) from GuestbookEntry e
+			join com.ohjumwhat.user.User u on u.id = e.authorId
+			where e.id = :id and e.deletedAt is null and e.restrictedAt is null""")
+	Optional<String> findAuthorNameOfShown(Long id);
+
 	/** 내 방명록의 새 글 수: 지우지 않은 글 중 since(마지막으로 본 시각)보다 늦게 쓰인 글 */
 	@Query("""
 			select count(e) from GuestbookEntry e

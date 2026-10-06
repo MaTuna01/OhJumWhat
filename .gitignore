@@ -34,5 +34,9 @@ ohjumwhat-backend/data/
 *.log
 npm-debug.log*
 
+# Firebase 서비스 계정 키(웹 푸시). .env에 base64로만 넣는다.
+*service-account*.json
+*firebase-adminsdk*.json
+
 # OAuth
 client_secret_958708692880-idu6mabo2khvqs8eoeobi7ks7hps8grh.apps.googleusercontent.com.json

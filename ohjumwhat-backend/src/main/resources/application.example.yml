@@ -59,6 +59,19 @@ ohjumwhat:
     kakao-rest-key: ${KAKAO_REST_KEY:}
     # 네이버 지도(NCP Maps) Client ID. 브라우저가 지도 스크립트를 부를 때 쓰는 공개 값이고, NCP 콘솔에 등록한 도메인에서만 동작한다.
     naver-map-key-id: ${NAVER_MAP_KEY_ID:}
+  push:
+    # 웹 푸시(FCM, 새 방명록·쪽지 알림). 하나라도 비었거나 서비스 계정을 읽지 못하면 푸시를 끄고 서버는 그대로 뜬다.
+    web:
+      # 화면이 Firebase SDK를 초기화할 공개 값(GET /api/config로 준다). Firebase 콘솔 → 프로젝트 설정 → 내 앱(웹 앱)
+      api-key: ${FIREBASE_API_KEY:}
+      project-id: ${FIREBASE_PROJECT_ID:}
+      app-id: ${FIREBASE_APP_ID:}
+      messaging-sender-id: ${FIREBASE_MESSAGING_SENDER_ID:}
+      # 웹 푸시 인증서(VAPID)의 공개 키. Firebase 콘솔 → 프로젝트 설정 → 클라우드 메시징 → 웹 구성
+      vapid-key: ${FIREBASE_VAPID_KEY:}
+    # 비밀 값. 서비스 계정 JSON을 base64 한 줄로 넣는다(base64 -i key.json | tr -d '\n'). 서버에서만 쓴다.
+    # 서비스 계정의 project_id가 위 project-id와 달라도 푸시를 끈다.
+    service-account: ${FIREBASE_SERVICE_ACCOUNT_BASE64:}
   photos:
     # 올린 프로필 사진({키}.jpg)을 두는 폴더. 운영은 Docker 볼륨(/data/photos, Dockerfile의 PHOTOS_DIR)이고,
     # 로컬은 백엔드 폴더의 data/photos(gitignore 대상)다. 백업은 deploy/backup.sh가 DB와 함께 한다.
