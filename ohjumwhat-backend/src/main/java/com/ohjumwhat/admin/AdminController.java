@@ -17,6 +17,8 @@ import com.ohjumwhat.auth.LoginUser;
 import com.ohjumwhat.chat.ChatMessageResponse;
 import com.ohjumwhat.chat.ChatMessagesResponse;
 import com.ohjumwhat.chat.ChatService;
+import com.ohjumwhat.guestbook.GuestbookReportResponse;
+import com.ohjumwhat.guestbook.GuestbookService;
 import com.ohjumwhat.letter.LetterReportResponse;
 import com.ohjumwhat.letter.LetterService;
 import com.ohjumwhat.menu.MenuCommentResponse;
@@ -37,12 +39,15 @@ class AdminController {
 
 	private final LetterService letterService;
 
+	private final GuestbookService guestbookService;
+
 	AdminController(AdminService adminService, MenuCommentService menuCommentService, ChatService chatService,
-			LetterService letterService) {
+			LetterService letterService, GuestbookService guestbookService) {
 		this.adminService = adminService;
 		this.menuCommentService = menuCommentService;
 		this.chatService = chatService;
 		this.letterService = letterService;
+		this.guestbookService = guestbookService;
 	}
 
 	@GetMapping("/stats")
@@ -82,6 +87,26 @@ class AdminController {
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	void resolveLetterReport(@AuthenticationPrincipal LoginUser admin, @PathVariable Long reportId) {
 		letterService.resolveReport(admin.getUserId(), reportId);
+	}
+
+	/** 방명록 신고(주인이 신고한 글, 제한·삭제돼도 원문). status: open(기본)·all */
+	@GetMapping("/guestbook-reports")
+	List<GuestbookReportResponse> guestbookReports(@RequestParam(defaultValue = "open") String status) {
+		return guestbookService.reportsForAdmin(!"all".equalsIgnoreCase(status));
+	}
+
+	/** 글 제한: 본문을 누구에게도 내보내지 않고 쓴 사람에게 경고한다(지운 글도 제한한다). */
+	@PostMapping("/guestbook-reports/{reportId}/restrict")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	void restrictGuestbookReport(@AuthenticationPrincipal LoginUser admin, @PathVariable Long reportId) {
+		guestbookService.restrictReport(admin.getUserId(), reportId);
+	}
+
+	/** 문제 없음: 신고만 처리하고 글은 그대로 둔다. */
+	@PostMapping("/guestbook-reports/{reportId}/dismiss")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	void dismissGuestbookReport(@AuthenticationPrincipal LoginUser admin, @PathVariable Long reportId) {
+		guestbookService.dismissReport(admin.getUserId(), reportId);
 	}
 
 	@GetMapping("/blocks")

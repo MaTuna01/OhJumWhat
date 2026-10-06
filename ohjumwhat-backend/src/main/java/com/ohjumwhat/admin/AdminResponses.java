@@ -16,9 +16,13 @@ final class AdminResponses {
 	private AdminResponses() {
 	}
 
-	/** 개요: 전체 회원·조직 수, 오늘 투표 수, 지금 진행 중인 투표 수, 최근 7일 가입자 수, 차단 수, 처리할 쪽지 신고 수 */
+	/**
+	 * 개요: 전체 회원·조직 수, 오늘 투표 수, 지금 진행 중인 투표 수, 최근 7일 가입자 수, 차단 수, 처리할 신고 수.
+	 * openReportCount는 쪽지와 방명록의 처리 전 신고를 합친 수다(openLetterReportCount + openGuestbookReportCount).
+	 */
 	record Stats(long userCount, long organizationCount, long todayPollCount, long openPollCount,
-			long newUserCount, long blockedCount, long openReportCount) {
+			long newUserCount, long blockedCount, long openReportCount, long openLetterReportCount,
+			long openGuestbookReportCount) {
 	}
 
 	/**
