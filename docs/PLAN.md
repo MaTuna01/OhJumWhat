@@ -2,7 +2,7 @@
 
 > 기획서: Notion 「점심메뉴 선정」 https://app.notion.com/p/3eb11d838f8d802e81dbfcd702c34692
 > 작업 관리: 같은 페이지의 Tasks DB (단계별 작업 7개, 선행/후속 관계 연결)
-> 마지막 갱신: 2026-10-05 · 운영: https://www.ohjumwhat.cloud (`main` push 시 자동 배포)
+> 마지막 갱신: 2026-10-06 · 운영: https://www.ohjumwhat.cloud (`main` push 시 자동 배포)
 
 ## 목표
 조직 안에서 점심·저녁 메뉴를 투표로 정하는 웹 서비스 **오점왓(ohjumwhat)**의 MVP를 만든다. 결과는 "1등 메뉴"가 아니라 **메뉴별 참여자 명단(팀)**이다. 메신저 투표에는 열린 투표에 항목을 추가하는 기능 등이 부족해서 전용 도구를 만든다. 사용 규모는 조직당 10~20명이다.
@@ -37,6 +37,7 @@
 | 22 | 상세 프로필(Notion 「22. 프로필 항목 추가」): MBTI·퍼스널컬러·취미·나이·직급. 「프로필 수정」에서 다섯 항목 모두 필수(지우기 없음), 마이페이지·멤버 프로필·관리자 회원 상세에 보인다 | 완료(v1.10.0) | [#75](https://github.com/MaTuna01/OhJumWhat/pull/75) |
 | 21 | 쪽지(Notion 「21. 같은 조직에 추가된 사용자들끼리 쪽지 주고받기 기능」): 같은 조직 멤버끼리 한 통씩 주고받기, 익명·익명 쪽지에도 답장, 받은 사람의 차단(실명은 사람, 익명은 쪽지 한 통 단위)·신고, 관리자 「신고」 탭, 상단 바 안 읽은 쪽지 배지 | 완료(v1.10.0) | [#76](https://github.com/MaTuna01/OhJumWhat/pull/76), 익명 보호 수정 [#78](https://github.com/MaTuna01/OhJumWhat/pull/78) |
 | 18 | 채팅 안 읽은 메시지 알림(Notion 「18. 채팅에 메시지가 오면 알림」): 읽은 위치를 서버에 저장, 채팅 버튼 빨간 배지·도착 미리보기, 「여기부터 새 메시지」·「새 메시지 N ↓」, 데스크톱 화면 밖 떠 있는 버튼, 조직 홈 카드 「💬 N」 | 완료(v1.9.0) | [#69](https://github.com/MaTuna01/OhJumWhat/pull/69) |
+| 20 | 방명록(Notion 「20. 방명록 기능 추가」): 사람마다 방명록 하나(조직을 같이 쓰는 사람이 쓰고 봄), 100자 한 줄·5초에 한 번, 10개씩 쪽 넘기기, 쓴 사람·주인 지우기, 주인만 신고 → 관리자 「글 제한」·「문제 없음」, 상단 바 새 방명록 점·마이페이지 NEW·글 제한 경고. 1차는 화면 안 알림, FCM 웹 푸시(방명록·쪽지)는 다음 PR | 진행 중(이슈 [#91](https://github.com/MaTuna01/OhJumWhat/issues/91)) | - |
 
 확장 기능(8~13단계)의 순서와 체크리스트는 Notion Tasks에 있다. 기획서 「나중에」 목록을 구현 난이도 순으로 정렬했다: 8 투표 조기 마감·수정·삭제 → 9 메뉴에 식당 지도 링크 → 10 메뉴 통계 → 11 식당 정보·지도 연동(검색 API는 약관상 결과를 저장할 수 없어 네이버 공유 링크 방식으로, 결과 지도는 다음 단계) → 12 중복 투표 → 13 최소 인원 미달 자동 해산. 14 공지사항(새 소식)은 배포마다 바뀐 점을 알리려고 나중에 추가했다.
 
@@ -127,6 +128,8 @@ ohjumwhat/
 | 새 소식 | `GET /api/notices?page=` (최신순 10개씩, 항목마다 unread), `GET /api/notices/unread` (안 읽은 수·가장 최근 것), `POST /api/notices/seen` | 완료 |
 | 관리자 사진 | `DELETE /api/admin/users/{id}/photo` (올린 프로필 사진 지우기, 구글 사진으로) | 완료 |
 | 관리자 공지 | `POST /api/admin/notices`, `PUT/DELETE /api/admin/notices/{id}` (개발자 노트만, 업데이트 글은 409) | 완료 |
+| 방명록 | `GET /api/guestbook/users/{ownerId}?page=` (10개씩 최신순), `POST /api/guestbook/users/{ownerId}` (100자, 5초에 한 번), `DELETE /api/guestbook/entries/{id}`, `POST /api/guestbook/entries/{id}/report` (주인만), `GET /api/guestbook/alerts`, `POST /api/guestbook/seen`, `POST /api/guestbook/warnings/ack` | 진행 중(#91) |
+| 관리자 방명록 신고 | `GET /api/admin/guestbook-reports?status=open\|all`, `POST /api/admin/guestbook-reports/{id}/restrict`·`dismiss` | 진행 중(#91) |
 
 **핵심 규칙**
 - **투표 상세 응답**(폴링 대상): 한 번 호출로 화면 전체를 그릴 수 있게 한다. 담는 값은 `status`(OPEN/CLOSED, now ≥ closesAt이면 CLOSED), `options[{id, name, createdBy, voters[], deletable}]`, `myVote`, `passed[]`, `nonRespondents[]`, `soloOptionIds[]`다.
