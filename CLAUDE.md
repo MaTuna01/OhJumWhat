@@ -217,7 +217,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 테스트에서는 `ohjumwhat.release-notes.enabled=false`로 끄고 `NoticeService.syncReleaseNotes`를 직접 부른다(시작 때 넣은 행이 첫 테스트까지 남기 때문).
 - 개발자 노트는 관리자 콘솔 「공지」(`/api/admin/notices`)에서 쓰고 고치고 지운다. 업데이트 글은 콘솔에서 고칠 수 없다(409).
 - 안 읽은 공지 = `published_at > coalesce(users.notices_seen_at, users.created_at)`. 새로 가입한 사람에게 지난 공지는 안 읽음이 아니다. 공지별 읽음은 없다.
-  - `/notices`를 열거나 배너를 닫으면 `POST /api/notices/seen`이 `notices_seen_at`만 update한다(엔티티를 저장하면 같은 순간의 로그인·별명 변경을 덮어쓸 수 있다).
+  - `/notices`를 열거나 배너를 닫으면 `POST /api/notices/seen`이 `notices_seen_at`만 update한다(엔티티를 저장하면 같은 순간의 로그인·별명 변경을 덮어쓸 수 있다). 거꾸로 로그인이 옛 시각을 되써서 읽음이 풀리지 않도록, 이 컬럼도 `photo_key`처럼 엔티티에서 `insertable/updatable=false`이고 `UserRepository.markNoticesSeen`으로만 바꾼다.
   - `users.created_at`은 `Clock`이 아니라 실제 시각이다. 안 읽음 테스트의 게시 시각은 회원의 실제 가입 시각을 기준으로 정한다.
 - 화면: 상단 바 종 아이콘(`NoticeBell`, 안 읽으면 점), 조직 홈 맨 위 배너(`NoticeBanner`, 속한 조직이 없으면 마이페이지, 투표 상세에는 없음), `/notices`(`NoticesPage`, 연 시점 기준 NEW).
   - 본문은 일반 텍스트다(`lib/noticeBody.ts`): 빈 줄 = 문단, "- " = 목록, http(s) 주소 = 새 탭 링크. HTML·마크다운은 해석하지 않는다.

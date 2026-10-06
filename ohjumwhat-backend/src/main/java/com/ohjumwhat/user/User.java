@@ -86,7 +86,11 @@ public class User {
 
 	private Instant lastLoginAt;
 
-	/** 「새 소식」을 마지막으로 본 시각(없으면 null, 가입 시각으로 본다). UserRepository.markNoticesSeen으로만 바꾼다. */
+	/**
+	 * 「새 소식」을 마지막으로 본 시각(없으면 null, 가입 시각으로 본다). UserRepository.markNoticesSeen으로만 바꾼다.
+	 * photoKey처럼 엔티티를 저장할 때 쓰지 않는 컬럼이라, 같은 순간의 로그인이 옛 시각을 되써서 읽음이 풀리는 일이 없다.
+	 */
+	@Column(insertable = false, updatable = false)
 	private Instant noticesSeenAt;
 
 	@Column(nullable = false)
