@@ -4,6 +4,7 @@ import static com.ohjumwhat.TestAuth.loginAs;
 import static com.ohjumwhat.TestAuth.xsrf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -103,7 +104,7 @@ class GuestbookReportIntegrationTest extends GuestbookTestBase {
 		list(lee, kim).andExpect(jsonPath("$.entries[0].body").value(nullValue()))
 			.andExpect(jsonPath("$.entries[0].restricted").value(true))
 			.andExpect(jsonPath("$.entries[0].mine").value(true))
-			.andExpect(jsonPath("$.entries[0].canDelete").value(true));
+			.andExpect(jsonPath("$.entries[0].canDelete").value(false));
 		list(park, kim).andExpect(jsonPath("$.entries[0].body").value(nullValue()))
 			.andExpect(jsonPath("$.entries[0].restricted").value(true))
 			.andExpect(jsonPath("$.entries[0].author.name").value("이영희"));
@@ -147,6 +148,24 @@ class GuestbookReportIntegrationTest extends GuestbookTestBase {
 		adminReports(admin, "all").andExpect(jsonPath("$[0].resolution").value("DISMISSED"))
 			.andExpect(jsonPath("$[0].restrictedAt").value(nullValue()));
 		assertThat(events.stream(GuestbookEntryRestrictedEvent.class)).isEmpty();
+	}
+
+	@Test
+	void 제한된_글은_주인만_지우고_쓴_사람은_403이다() throws Exception {
+		User admin = admin();
+		long entry = writeOk(lee, kim, "기분 나쁜 글");
+		report(kim, entry, "{}").andExpect(status().isNoContent());
+		restrict(admin, reportIdOf(admin, entry)).andExpect(status().isNoContent());
+
+		deleteEntry(lee, entry).andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.message").value("관리자가 제한한 글은 방명록 주인만 지울 수 있어요."));
+		list(kim, kim).andExpect(jsonPath("$.totalCount").value(1));
+
+		deleteEntry(kim, entry).andExpect(status().isNoContent());
+		list(kim, kim).andExpect(jsonPath("$.totalCount").value(0));
+		// 주인이 치워도 제한 기록과 신고는 남는다.
+		adminReports(admin, "all").andExpect(jsonPath("$[0].resolution").value("RESTRICTED"))
+			.andExpect(jsonPath("$[0].deletedAt").value(notNullValue()));
 	}
 
 	@Test

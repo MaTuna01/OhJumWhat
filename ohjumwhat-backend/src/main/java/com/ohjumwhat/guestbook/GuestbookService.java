@@ -27,7 +27,7 @@ import com.ohjumwhat.user.UserRepository;
  * <ul>
  * <li>볼 수 있는 사람: 주인 본인, 그리고 주인과 조직을 하나라도 같이 쓰는 사람. 그 밖에는 방명록이 있는지도 알리지 않는다(404).
  * <li>쓸 수 있는 사람: 주인과 같은 조직의 다른 사람(주인은 자기 방명록에 쓸 수 없다). 한 사람이 모든 방명록을 합쳐 5초에 한 번.
- * <li>지우기는 쓴 사람(지금 같은 조직이 아니어도 된다)과 주인. 행은 남기는 소프트 삭제다(신고가 글을 잃지 않게).
+ * <li>지우기는 쓴 사람(지금 같은 조직이 아니어도 된다)과 주인. 관리자가 제한한 글은 주인만 지운다. 행은 남기는 소프트 삭제다(신고가 글을 잃지 않게).
  * <li>신고는 주인만 하고, 관리자가 「글 제한」(본문을 누구에게도 내보내지 않고 쓴 사람에게 경고)·「문제 없음」으로 처리한다.
  * </ul>
  * 로그에는 ID만 남기고 본문은 남기지 않는다.
@@ -114,7 +114,10 @@ public class GuestbookService {
 		return page(userId, ownerId, 0, null);
 	}
 
-	/** 쓴 사람이나 주인이 지운다(소프트 삭제). 쓴 사람은 지금 주인과 같은 조직이 아니어도 지울 수 있다. */
+	/**
+	 * 쓴 사람이나 주인이 지운다(소프트 삭제). 쓴 사람은 지금 주인과 같은 조직이 아니어도 지울 수 있다. 관리자가 제한한 글은
+	 * 주인만 지운다(제한된 줄을 내 방명록에서 치울 수 있게, 쓴 사람이 제재받은 글을 스스로 치우지는 못하게).
+	 */
 	@Transactional
 	public void delete(Long userId, Long entryId) {
 		GuestbookEntry entry = entryRepository.findByIdAndDeletedAtIsNull(entryId)
@@ -123,6 +126,9 @@ public class GuestbookService {
 			throw canView(userId, entry.getOwnerId())
 					? ApiException.forbidden("내가 쓴 글이나 내 방명록의 글만 지울 수 있어요.")
 					: ApiException.notFound(ENTRY_NOT_FOUND);
+		}
+		if (entry.getRestrictedAt() != null && !userId.equals(entry.getOwnerId())) {
+			throw ApiException.forbidden("관리자가 제한한 글은 방명록 주인만 지울 수 있어요.");
 		}
 		entry.delete(Instant.now(clock));
 		log.info("방명록 지우기: entryId={}, userId={}", entryId, userId);
@@ -270,8 +276,9 @@ public class GuestbookService {
 			boolean isReported = owner && reported.contains(row.id());
 			PersonResponse author = row.authorId() == null ? null
 					: new PersonResponse(row.authorId(), row.authorName(), row.authorPhotoUrl());
+			// 제한된 글은 주인만 지운다(delete와 같은 규칙).
 			return new GuestbookEntryResponse(row.id(), author, row.body(), row.createdAt(), row.restricted(), mine,
-					mine || owner, owner && !isReported && !row.restricted(), isReported);
+					owner || (mine && !row.restricted()), owner && !isReported && !row.restricted(), isReported);
 		}).toList();
 		return new GuestbookPageResponse(entries, page, rows.getTotalPages(), rows.getTotalElements(), owner,
 				owner ? seenAt : null);

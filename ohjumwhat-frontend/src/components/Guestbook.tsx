@@ -134,11 +134,12 @@ type RowProps = {
 
 /**
  * Figma GuestbookEntry(Default·Mine·Owner·Reported·Restricted·Withdrawn·New): 사진·이름(누르면 프로필)·시각·NEW와 본문.
- * 관리자가 제한한 글은 본문 대신 제한 문구만 보이고 지우기·신고가 없다. 탈퇴한 사용자는 회색 「?」와 이름으로 남는다.
+ * 관리자가 제한한 글은 본문 대신 제한 문구만 보이고, 주인만 지울 수 있다(신고는 없다). 탈퇴한 사용자는 회색 「?」와 이름으로 남는다.
  */
 export function GuestbookRow({ entry, now, owner, isNew, onDelete, onReport }: RowProps) {
   const name = authorLabel(entry)
-  const showDelete = entry.canDelete && !entry.restricted
+  // 제한된 글은 주인만 지울 수 있고(서버의 canDelete가 같은 규칙), 신고는 할 수 없다.
+  const showDelete = entry.canDelete
   const showReport = owner && !entry.restricted && (entry.canReport || entry.reported)
 
   return (
