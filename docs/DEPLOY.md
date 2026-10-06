@@ -135,6 +135,36 @@ gh secret set DEPLOY_SSH_KEY -R MaTuna01/OhJumWhat < ohjumwhat.pem
 - 약관상 좌표·검색 결과는 저장하지 않고 볼 때마다 받는다(저장하는 것은 사용자가 입력한 주소뿐).
 - 운영 CSP(`deploy/Caddyfile`)에 네이버 지도 출처(https: `*.pstatic.net`, http: `*.map.naver.net`·`static.naver.net`, 공통: `oapi.map.naver.com`·`kr-col-ext.nelo.navercorp.com`)와 `style-src-attr 'unsafe-inline'`(지도 스크립트의 style 속성)이 들어 있다. 지도 스크립트가 페이지 스킴에 따라 출처를 바꾸므로 CSP를 고치면 https로 확인한다.
 
+### 5-2. Firebase 푸시 (웹 푸시 알림, FCM)
+
+새 방명록·글 제한 경고·새 쪽지를 웹 푸시로 알린다(이슈 #102). 값이 하나라도 없거나 잘못되면 푸시만 꺼지고(마이페이지 「알림」 카드가 숨겨진다) 서버는 그대로 뜬다. 값 6개는 서버 `.env`와 Notion 「개발 필요 파일」에 둔다.
+
+| `.env` 이름 | 어디서 | 공개 여부 |
+|---|---|---|
+| `FIREBASE_API_KEY`, `FIREBASE_PROJECT_ID`, `FIREBASE_APP_ID`, `FIREBASE_MESSAGING_SENDER_ID` | Firebase 프로젝트 설정 → 일반 → 내 앱(웹 앱)의 `firebaseConfig` | 공개(브라우저가 `GET /api/config`로 받는다) |
+| `FIREBASE_VAPID_KEY` | 프로젝트 설정 → 클라우드 메시징 → 웹 구성 → 웹 푸시 인증서 → 키 쌍 생성 | 공개 |
+| `FIREBASE_SERVICE_ACCOUNT_BASE64` | 아래 전용 서비스 계정의 JSON 키를 base64 한 줄로 | **비밀**(서버만) |
+
+처음 만들 때(한 번)
+1. Firebase 콘솔(https://console.firebase.google.com)에서 **새 프로젝트**를 만든다. 구글 로그인(OAuth)용 GCP 프로젝트와 따로 두고, Google 애널리틱스는 끈다.
+2. 웹 앱(`</>`)을 등록한다. Firebase 호스팅은 설정하지 않는다. `firebaseConfig`의 apiKey·projectId·messagingSenderId·appId만 쓴다.
+3. 클라우드 메시징 탭에서 「Firebase Cloud Messaging API(V1)」가 사용 설정인지 보고, 웹 푸시 인증서의 키 쌍을 만든다(VAPID 공개키).
+4. Google Cloud 콘솔(같은 프로젝트)의 「API 및 서비스 → 라이브러리」에서 **FCM Registration API**, **Firebase Installations API**, **Firebase Cloud Messaging API**를 켠다(FCM Registration API가 꺼져 있으면 브라우저 등록이 실패한다).
+5. 「사용자 인증 정보」의 **Browser key (auto created by Firebase)**를 제한한다: 웹사이트 `https://www.ohjumwhat.cloud/*`, `http://localhost:5173/*`, `https://localhost/*`, API는 Firebase Installations API·FCM Registration API만.
+6. 「IAM 및 관리자 → 서비스 계정」에서 전용 계정(예: `ohjumwhat-push`)을 만들고 역할은 **Firebase Cloud Messaging API 관리자** 하나만 준다. 키 → 새 키 만들기 → JSON. (Firebase 「서비스 계정」 탭의 기본 Admin SDK 계정은 권한이 넓어서 쓰지 않는다.)
+7. JSON을 base64 한 줄로 바꿔 `.env`에 넣는다. 파일 마운트 대신 환경변수를 쓰는 것은 지금의 `env_file` 방식·「비우면 끈다」 규칙을 그대로 쓰기 위해서다.
+   ```bash
+   base64 -i 받은-키-파일.json | tr -d '\n' | pbcopy
+   ```
+   받은 JSON 파일은 지운다(저장소 폴더에 두지 않는다, `.gitignore`가 `*service-account*.json`·`*firebase-adminsdk*.json`을 막는다).
+
+키 교체·끄기
+- 서비스 계정 키 교체: 같은 서비스 계정에 새 JSON 키를 만들어 `.env`를 바꾸고 `docker compose up -d`(앱 재시작) → 콘솔에서 옛 키를 삭제한다.
+- VAPID 키를 다시 만들면 이미 켠 기기의 구독이 무효가 된다. 화면이 다음에 열릴 때 다시 등록하지만, 그 사이 알림은 못 받는다.
+- 푸시를 끄려면 `.env`에서 `FIREBASE_SERVICE_ACCOUNT_BASE64`를 비우고 앱을 재시작한다(화면 안 배지 알림은 그대로).
+- 운영 CSP에 Firebase 출처(`connect-src`의 `https://firebaseinstallations.googleapis.com`·`https://fcmregistrations.googleapis.com`, `worker-src 'self'`, `manifest-src 'self'`)가 들어 있다. 고치면 https로 확인한다.
+- 아이폰·아이패드는 iOS 16.4 이상에서 **홈 화면에 추가한 오점왓**으로만 푸시를 받는다(홈 화면 앱은 Safari와 로그인이 따로라 다시 로그인한다).
+
 ### 6. 첫 배포
 
 `dev`를 `main`에 머지하면 Deploy 워크플로가 실행된다. 머지 이후에는 Actions 탭에서 수동으로 다시 실행(workflow_dispatch)할 수도 있다.
