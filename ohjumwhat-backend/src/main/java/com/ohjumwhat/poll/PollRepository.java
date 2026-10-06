@@ -20,6 +20,12 @@ public interface PollRepository extends JpaRepository<Poll, Long> {
 	/** 지난 투표: 오늘(한국 날짜) 이전 투표. 정렬은 Pageable로 준다. */
 	Slice<Poll> findByOrganizationIdAndPollDateBefore(Long organizationId, LocalDate pollDate, Pageable pageable);
 
+	/** 메뉴 메이커 랭킹: 기간(투표 날짜, 한국) 안에 마감된 투표 */
+	@Query("""
+			select p from Poll p
+			where p.organizationId = :organizationId and p.pollDate between :from and :to and p.closesAt <= :now""")
+	List<Poll> findClosedBetween(Long organizationId, LocalDate from, LocalDate to, Instant now);
+
 	/** 오늘(한국 날짜) 열려 있고 아직 마감되지 않은 투표가 있는 조직 ID */
 	@Query("""
 			select distinct p.organizationId from Poll p

@@ -19,6 +19,7 @@ import MyPage from './pages/MyPage.tsx'
 import NotFoundPage from './pages/NotFoundPage.tsx'
 import NoticesPage from './pages/NoticesPage.tsx'
 import OrgHomePage from './pages/OrgHomePage.tsx'
+import OrgRankingPage from './pages/OrgRankingPage.tsx'
 import OrgSettingsPage from './pages/OrgSettingsPage.tsx'
 import OrgStatsPage from './pages/OrgStatsPage.tsx'
 import PollDetailPage from './pages/PollDetailPage.tsx'
@@ -52,6 +53,7 @@ export const router = createBrowserRouter([
                   { path: 'polls/:pollId', element: <PollDetailPage /> },
                   { path: 'schedules', element: <SchedulesPage /> },
                   { path: 'stats', element: <OrgStatsPage /> },
+                  { path: 'ranking', element: <OrgRankingPage /> },
                   { path: 'settings', element: <OrgSettingsPage /> },
                 ],
               },

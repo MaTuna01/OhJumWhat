@@ -34,6 +34,7 @@ const base: PollDetail = {
   passed: [],
   nonRespondents: [],
   soloOptionIds: [],
+  adoption: null,
 }
 
 describe('resultText', () => {
