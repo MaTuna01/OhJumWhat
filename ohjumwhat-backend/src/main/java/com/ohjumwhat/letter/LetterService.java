@@ -11,6 +11,7 @@ import java.util.Set;
 
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -66,17 +67,21 @@ public class LetterService {
 
 	private final LetterRateLimiter rateLimiter;
 
+	private final ApplicationEventPublisher events;
+
 	private final Clock clock;
 
 	public LetterService(LetterRepository letterRepository, LetterBlockRepository blockRepository,
 			LetterReportRepository reportRepository, MembershipService membershipService,
-			MembershipRepository membershipRepository, LetterRateLimiter rateLimiter, Clock clock) {
+			MembershipRepository membershipRepository, LetterRateLimiter rateLimiter, ApplicationEventPublisher events,
+			Clock clock) {
 		this.letterRepository = letterRepository;
 		this.blockRepository = blockRepository;
 		this.reportRepository = reportRepository;
 		this.membershipService = membershipService;
 		this.membershipRepository = membershipRepository;
 		this.rateLimiter = rateLimiter;
+		this.events = events;
 		this.clock = clock;
 	}
 
@@ -252,6 +257,7 @@ public class LetterService {
 	 * 저장한다. 받는 사람이 보낸 사람을 차단해 두었으면 받는 사람 쪽에서는 지운 상태로 둔다(보낸 사람에게는 보낸 것으로 보인다).
 	 * 익명 쪽지는 어느 범위로든 차단돼 있으면 받지 않는다(실명 차단을 익명으로 우회하지 못하게). 실명 쪽지는 실명 차단만 본다
 	 * (익명 차단 때문에 실명 쪽지가 안 가면 그 사람이 익명으로 보냈다는 것이 드러난다).
+	 * 받는 사람의 쪽지함에 들어갔을 때만 알린다(LetterDeliveredEvent, 차단으로 받지 않은 쪽지는 알리지 않는다).
 	 */
 	private Letter deliver(Letter letter) {
 		boolean blocked = letter.isAnonymous()
@@ -261,7 +267,11 @@ public class LetterService {
 		if (blocked) {
 			letter.dropForRecipient(Instant.now(clock));
 		}
-		return letterRepository.save(letter);
+		Letter saved = letterRepository.save(letter);
+		if (!blocked) {
+			events.publishEvent(new LetterDeliveredEvent(saved.getId(), saved.getRecipientId()));
+		}
+		return saved;
 	}
 
 	private LetterResponse sentResponse(Long userId, Long letterId) {

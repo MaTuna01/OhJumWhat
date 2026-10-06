@@ -12,8 +12,10 @@
 		# 오류 수집은 kr-col-ext.nelo.navercorp.com. 네이버 출처는 스킴 없이 적어 운영(https)에서는 https만 허용한다.
 		# 지도 스크립트가 요소에 style 속성을 직접 넣어서 style-src-attr만 'unsafe-inline'으로 연다(<style> 태그·스크립트는 그대로 막는다).
 		# 투표 채팅 받기(WebSocket)는 같은 출처의 wss://다. 'self'가 wss를 포함하지 않는 브라우저(구형 Safari)가 있어 따로 적는다.
+		# 웹 푸시(FCM): 알림을 켤 때 Firebase SDK가 firebaseinstallations·fcmregistrations.googleapis.com을 부른다(SDK는 번들에 들어 있어
+		# 스크립트 출처는 'self'다). 서비스 워커(/firebase-messaging-sw.js)와 웹 앱 매니페스트는 같은 출처만 허용한다.
 		# 새 외부 리소스(분석 도구, CDN 등)를 추가하면 여기도 함께 고친다. 확인은 https로 한다(http와 쓰는 출처가 다르다).
-		Content-Security-Policy "default-src 'self'; script-src 'self' oapi.map.naver.com *.pstatic.net *.map.naver.net; style-src 'self' https://fonts.googleapis.com; style-src-attr 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://*.googleusercontent.com oapi.map.naver.com *.pstatic.net *.map.naver.net static.naver.net; connect-src 'self' wss://{$APP_DOMAIN} oapi.map.naver.com *.pstatic.net *.map.naver.net kr-col-ext.nelo.navercorp.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		Content-Security-Policy "default-src 'self'; script-src 'self' oapi.map.naver.com *.pstatic.net *.map.naver.net; style-src 'self' https://fonts.googleapis.com; style-src-attr 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://*.googleusercontent.com oapi.map.naver.com *.pstatic.net *.map.naver.net static.naver.net; connect-src 'self' wss://{$APP_DOMAIN} oapi.map.naver.com *.pstatic.net *.map.naver.net kr-col-ext.nelo.navercorp.com https://firebaseinstallations.googleapis.com https://fcmregistrations.googleapis.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 		-Server
 	}
 }

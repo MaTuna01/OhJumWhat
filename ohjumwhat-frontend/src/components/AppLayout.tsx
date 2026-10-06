@@ -1,4 +1,5 @@
 import { Link, Outlet } from 'react-router'
+import { usePushSync } from '../hooks/usePushSync.ts'
 import GuestbookWarningDialog from './GuestbookWarningDialog.tsx'
 import LetterButton from './LetterButton.tsx'
 import { LetterComposerProvider } from './LetterComposer.tsx'
@@ -12,6 +13,8 @@ import UpdateToast from './UpdateToast.tsx'
 const container = 'mx-auto max-w-3xl px-4 lg:max-w-[66rem]'
 
 export default function AppLayout() {
+  // 웹 푸시: 켜 둔 기기를 다시 등록하고, 서비스 워커가 알린 푸시·알림 클릭을 화면에 반영한다.
+  usePushSync()
   return (
     // 쪽지 쓰기는 어느 화면에서든(멤버 프로필, 쪽지함) 열 수 있게 앱 전체에 하나만 둔다.
     <LetterComposerProvider>

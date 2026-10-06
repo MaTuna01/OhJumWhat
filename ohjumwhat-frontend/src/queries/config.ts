@@ -7,6 +7,17 @@ export type ClientConfig = {
   naverMapKeyId: string | null
   /** 카카오 로컬로 위치를 찾을 수 있는지(지도·거리·근처 식당 찾기) */
   placeSearch: boolean
+  /** 웹 푸시(FCM) 공개 설정. 서버에서 푸시를 껐으면 null(마이페이지 「알림」 카드를 숨긴다) */
+  push: PushWebConfig | null
+}
+
+/** Firebase 웹 앱 설정과 VAPID 키(모두 공개 값). 서버 ohjumwhat.push.web */
+export type PushWebConfig = {
+  apiKey: string
+  projectId: string
+  appId: string
+  messagingSenderId: string
+  vapidKey: string
 }
 
 export const configQueryKey = ['config'] as const
