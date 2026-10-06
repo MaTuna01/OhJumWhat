@@ -7,6 +7,7 @@ import FoodTags from '../components/FoodTags.tsx'
 import { GuestbookPanel } from '../components/Guestbook.tsx'
 import LeaveOrgDialog from '../components/LeaveOrgDialog.tsx'
 import NoticeBanner from '../components/NoticeBanner.tsx'
+import NotificationSettings from '../components/NotificationSettings.tsx'
 import { PageLoader, Section } from '../components/PageState.tsx'
 import ProfileDetailList from '../components/ProfileDetailList.tsx'
 import ProfileModal from '../components/ProfileModal.tsx'
@@ -44,7 +45,7 @@ export default function MyPage() {
       {/* 속한 조직이 없으면 조직 홈 대신 이 화면으로 오므로 새 소식 배너를 여기에 둔다. */}
       {orgs.data?.length === 0 && <NoticeBanner />}
 
-      {/* 모바일은 내 정보 → 내 조직 → 방명록 → 로그아웃 순서로 쌓고, 데스크톱은 내 조직·방명록을 본문, 나머지를 오른쪽 사이드에 둔다. */}
+      {/* 모바일은 내 정보 → 내 조직 → 방명록 → 알림 → 로그아웃 순서로 쌓고, 데스크톱은 내 조직·방명록을 본문, 나머지를 오른쪽 사이드에 둔다. */}
       <div className={`flex flex-col gap-6 lg:grid-rows-[auto_1fr] lg:gap-y-4 ${columnsClass}`}>
         <Section
           title="내 정보"
@@ -151,10 +152,14 @@ export default function MyPage() {
           </Section>
         </div>
 
-        <div className="flex justify-end lg:col-start-2 lg:row-start-2">
-          <Button variant="ghost" onClick={() => logout.mutate()} disabled={logout.isPending}>
-            로그아웃
-          </Button>
+        {/* 알림 카드(Figma 03-N6·D03-N6)는 푸시가 꺼진 서버에서는 숨으므로 로그아웃과 한 칸에 둔다(빈 줄 간격이 생기지 않게). */}
+        <div className="flex flex-col gap-6 lg:col-start-2 lg:row-start-2 lg:gap-4">
+          <NotificationSettings userId={me.id} />
+          <div className="flex justify-end">
+            <Button variant="ghost" onClick={() => logout.mutate()} disabled={logout.isPending}>
+              로그아웃
+            </Button>
+          </div>
         </div>
       </div>
 
