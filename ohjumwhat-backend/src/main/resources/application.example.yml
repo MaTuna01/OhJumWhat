@@ -43,10 +43,27 @@ server:
         http-only: true
 
 management:
+  # actuator(헬스·지표)는 관리 포트에서만 연다. Caddy는 앱 포트(8080)만 프록시하므로 지표는 인터넷에 나가지 않는다.
+  # 관리 포트는 인증 없이 열리므로(보안 설정이 /api/**만 막는다) 네트워크로만 막는다: 운영 compose는 서버의 127.0.0.1에만
+  # 열고, 서버의 Netdata가 지표를 읽는다(docs/DEPLOY.md 「모니터링」). 이 설정은 ManagementConfigTest가 지킨다.
+  server:
+    port: 8081
   endpoints:
     web:
       exposure:
-        include: health
+        include: health, prometheus
+  endpoint:
+    health:
+      group:
+        # 외부 업타임 체크·배포 헬스 체크용. 앱 포트의 /healthz로 상태(UP/DOWN)만 준다(자세한 내용은 숨긴다).
+        # DB·디스크·준비 상태만 본다(시작·종료 중에는 503). 새 의존성이 생겨도 저절로 들어오지 않게 하나씩 적는다.
+        public:
+          include: db, diskSpace, readinessState
+          additional-path: "server:/healthz"
+  metrics:
+    enable:
+      # 저장소 메서드 호출 지표(spring.data.repository.invocations)는 보지 않고 시계열만 늘려서 끈다.
+      spring.data.repository: false
 
 ohjumwhat:
   admin:
