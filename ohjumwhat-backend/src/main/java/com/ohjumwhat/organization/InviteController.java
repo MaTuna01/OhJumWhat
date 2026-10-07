@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ohjumwhat.auth.LoginUser;
+import com.ohjumwhat.sanction.Restricted;
+import com.ohjumwhat.sanction.Restriction;
 
 @RestController
 public class InviteController {
@@ -22,6 +24,7 @@ public class InviteController {
 		return inviteService.get(token, loginUser.getUserId());
 	}
 
+	@Restricted(Restriction.SUSPEND)
 	@PostMapping("/api/invites/{token}/join")
 	JoinResponse join(@AuthenticationPrincipal LoginUser loginUser, @PathVariable String token) {
 		return new JoinResponse(inviteService.join(token, loginUser.getUserId()));

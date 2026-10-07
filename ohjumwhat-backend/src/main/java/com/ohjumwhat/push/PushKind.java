@@ -13,7 +13,13 @@ public enum PushKind {
 	GUESTBOOK_RESTRICTED("/me", "ohjumwhat-guestbook-restricted"),
 
 	/** 새 쪽지·답장 */
-	LETTER("/letters", "ohjumwhat-letter");
+	LETTER("/letters", "ohjumwhat-letter"),
+
+	/** 관리자가 이용을 제한했거나 프로필을 초기화했거나 경고했다(앱을 열면 제재 안내 창이 뜬다) */
+	SANCTION("/me", "ohjumwhat-sanction"),
+
+	/** 내가 한 사람 신고를 관리자가 처리했다(앱을 열면 신고 결과 창이 뜬다) */
+	REPORT_RESULT("/me", "ohjumwhat-report-result");
 
 	private final String url;
 

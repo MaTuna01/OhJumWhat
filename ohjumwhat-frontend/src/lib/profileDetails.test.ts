@@ -30,6 +30,7 @@ const me: Me = {
   details,
   lastVisitedOrgId: 1,
   admin: false,
+  sanctions: [],
 }
 
 const filled: DetailsForm = initialDetailsForm(details)

@@ -20,6 +20,9 @@ import com.ohjumwhat.auth.LoginUser;
 import com.ohjumwhat.place.PlaceLinkResolver;
 import com.ohjumwhat.place.PlaceLinks;
 import com.ohjumwhat.place.PlaceSearchService;
+import com.ohjumwhat.sanction.Restricted;
+import com.ohjumwhat.sanction.Restriction;
+import com.ohjumwhat.sanction.Unrestricted;
 
 @RestController
 public class OrganizationController {
@@ -42,6 +45,7 @@ public class OrganizationController {
 		return organizationService.myOrganizations(loginUser.getUserId());
 	}
 
+	@Restricted(Restriction.SUSPEND)
 	@PostMapping("/api/orgs")
 	@ResponseStatus(HttpStatus.CREATED)
 	OrganizationResponse create(@AuthenticationPrincipal LoginUser loginUser,
@@ -54,6 +58,7 @@ public class OrganizationController {
 		return organizationService.visit(orgId, loginUser.getUserId());
 	}
 
+	@Restricted(Restriction.SUSPEND)
 	@PatchMapping("/api/orgs/{orgId}")
 	OrganizationResponse rename(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long orgId,
 			@Valid @RequestBody OrganizationNameRequest request) {
@@ -64,6 +69,7 @@ public class OrganizationController {
 	 * 조직 위치(검색 지역, 장소 링크·이름, 조직 주소, 검색 반경)를 통째로 바꾼다.
 	 * 장소 링크 확인(naver.me 요청)과 조직 주소 확인(카카오 로컬)은 DB 트랜잭션 밖에서 한다.
 	 */
+	@Restricted(Restriction.SUSPEND)
 	@PutMapping("/api/orgs/{orgId}/location")
 	OrganizationResponse changeLocation(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long orgId,
 			@Valid @RequestBody LocationRequest request) {
@@ -80,6 +86,7 @@ public class OrganizationController {
 		return organizationService.members(orgId, loginUser.getUserId());
 	}
 
+	@Unrestricted
 	@DeleteMapping("/api/orgs/{orgId}/membership")
 	LeaveResponse leave(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long orgId) {
 		return organizationService.leave(orgId, loginUser.getUserId());

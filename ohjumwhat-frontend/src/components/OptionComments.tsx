@@ -1,6 +1,8 @@
 import { type FormEvent, type ReactNode, useState } from 'react'
+import { useRestriction } from '../hooks/useRestriction.ts'
 import { COMMENT_MAX, commentLength, commentsPanelId } from '../lib/comments.ts'
 import { linkify } from '../lib/noticeBody.ts'
+import { untilText } from '../lib/sanctions.ts'
 import { formatClock } from '../lib/time.ts'
 import { inputClass } from '../lib/ui.ts'
 import { type MenuComment, useAddComment, useDeleteComment, useEditComment, useOptionComments } from '../queries/comments.ts'
@@ -23,12 +25,14 @@ type Props = {
  * 진행 중에는 쓰고 내 글을 고치고 지운다(Open·Empty). 마감된 투표는 기록이라 읽기만 한다(Readonly).
  * 목록은 펼칠 때 받고 다른 사람의 새 댓글을 실시간으로 받지는 않는다(댓글 수는 투표 상세 폴링으로 바뀐다).
  * 카드(role="button") 안에 입력창을 넣지 않도록 카드 밖, 바로 아래에 그린다.
+ * 관리자가 투표 기능을 제한했으면 입력창 대신 짧은 안내를 두고 내 댓글의 「고치기」를 숨긴다(「삭제」는 그대로).
  */
 export default function OptionComments({ pollId, optionId, menuName, readOnly }: Props) {
   const comments = useOptionComments(pollId, optionId)
   const add = useAddComment(pollId, optionId)
   const edit = useEditComment(pollId, optionId)
   const remove = useDeleteComment(pollId, optionId)
+  const blocked = useRestriction('POLL')
   const [editingId, setEditingId] = useState<number | null>(null)
   const [removing, setRemoving] = useState<MenuComment | null>(null)
   const closeRemove = () => {
@@ -44,7 +48,7 @@ export default function OptionComments({ pollId, optionId, menuName, readOnly }:
         error={comments.error?.message}
         empty={readOnly ? '댓글이 없어요' : '아직 댓글이 없어요. 웨이팅·휴무 같은 정보를 남겨 주세요'}
         render={(comment) =>
-          !readOnly && editingId === comment.id ? (
+          !readOnly && !blocked && editingId === comment.id ? (
             <CommentForm
               initial={comment.body}
               label="댓글 고치기"
@@ -64,9 +68,11 @@ export default function OptionComments({ pollId, optionId, menuName, readOnly }:
                 !readOnly &&
                 comment.mine && (
                   <>
-                    <button type="button" onClick={() => setEditingId(comment.id)} className="font-medium text-text-brand hover:underline focus-visible:outline-2 focus-visible:outline-border-brand">
-                      고치기
-                    </button>
+                    {!blocked && (
+                      <button type="button" onClick={() => setEditingId(comment.id)} className="font-medium text-text-brand hover:underline focus-visible:outline-2 focus-visible:outline-border-brand">
+                        고치기
+                      </button>
+                    )}
                     <button type="button" onClick={() => setRemoving(comment)} className="font-medium text-text-danger hover:underline focus-visible:outline-2 focus-visible:outline-border-brand">
                       삭제
                     </button>
@@ -79,6 +85,11 @@ export default function OptionComments({ pollId, optionId, menuName, readOnly }:
       />
       {readOnly ? (
         <p className="text-xs text-text-tertiary">마감된 투표의 댓글은 읽기만 할 수 있어요</p>
+      ) : blocked ? (
+        <p className="text-xs text-text-tertiary">
+          <span aria-hidden>🔒 </span>
+          {blocked.suspended ? '활동이 정지돼 댓글을 쓸 수 없어요' : '관리자가 댓글 쓰기를 제한했어요'} · {untilText(blocked.endsAt)}
+        </p>
       ) : (
         <CommentForm
           label={`${menuName} 댓글`}

@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { guestbookKeys } from '../queries/guestbook.ts'
 import { letterKeys } from '../queries/letters.ts'
+import { meQueryKey } from '../queries/me.ts'
+import { sanctionKeys } from '../queries/sanctions.ts'
 import {
   type PushEnv,
   type PushSupport,
@@ -126,6 +128,14 @@ describe('pushInvalidations', () => {
     expect(pushInvalidations('GUESTBOOK')).toEqual([guestbookKeys.all])
     expect(pushInvalidations('GUESTBOOK_RESTRICTED')).toEqual([guestbookKeys.all])
     expect(pushInvalidations('LETTER')).toEqual([letterKeys.unread, letterKeys.box('RECEIVED')])
+  })
+
+  it('제재 알림은 내 정보(막힌 자리)와 제재 안내를 다시 받는다', () => {
+    expect(pushInvalidations('SANCTION')).toEqual([meQueryKey, sanctionKeys.alerts])
+  })
+
+  it('신고 처리 결과 알림은 안내(결과 창)를 다시 받는다', () => {
+    expect(pushInvalidations('REPORT_RESULT')).toEqual([sanctionKeys.alerts])
   })
 
   it('모르는 종류는 아무것도 다시 받지 않는다', () => {

@@ -40,6 +40,28 @@ class PushMessagesTest {
 	}
 
 	@Test
+	void 제재_문구는_제한이_있으면_제한_초기화만이면_초기화_둘_다_없으면_경고다() {
+		assertThat(PushMessages.sanction(true, false)).isEqualTo(new PushMessage(PushKind.SANCTION, "관리자가 이용을 제한했어요"));
+		assertThat(PushMessages.sanction(true, true)).isEqualTo(new PushMessage(PushKind.SANCTION, "관리자가 이용을 제한했어요"));
+		assertThat(PushMessages.sanction(false, true))
+			.isEqualTo(new PushMessage(PushKind.SANCTION, "관리자가 프로필을 초기화했어요"));
+		assertThat(PushMessages.sanction(false, false))
+			.isEqualTo(new PushMessage(PushKind.SANCTION, "관리자의 경고가 도착했어요"));
+		assertThat(PushMessages.sanction(false, false).data()).containsEntry("kind", "SANCTION")
+			.containsEntry("url", "/me")
+			.containsEntry("tag", "ohjumwhat-sanction");
+	}
+
+	@Test
+	void 신고_결과_문구는_누구를_신고했는지_넣지_않는다() {
+		assertThat(PushMessages.reportResult())
+			.isEqualTo(new PushMessage(PushKind.REPORT_RESULT, "신고 처리 결과가 도착했어요"));
+		assertThat(PushMessages.reportResult().data()).containsEntry("kind", "REPORT_RESULT")
+			.containsEntry("url", "/me")
+			.containsEntry("tag", "ohjumwhat-report-result");
+	}
+
+	@Test
 	void data는_종류_제목_주소_묶음_네_개다() {
 		assertThat(PushMessages.guestbookRestricted().data()).containsOnlyKeys("kind", "title", "url", "tag")
 			.containsEntry("kind", "GUESTBOOK_RESTRICTED")

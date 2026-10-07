@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ohjumwhat.auth.LoginUser;
+import com.ohjumwhat.sanction.Unrestricted;
 
 @RestController
 @RequestMapping("/api/notices")
@@ -35,6 +36,7 @@ class NoticeController {
 	}
 
 	/** 「새 소식」을 봤다(화면을 열거나 배너를 닫음). */
+	@Unrestricted
 	@PostMapping("/seen")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	void markSeen(@AuthenticationPrincipal LoginUser loginUser) {

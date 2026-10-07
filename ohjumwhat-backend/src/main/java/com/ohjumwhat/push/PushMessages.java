@@ -40,6 +40,23 @@ public final class PushMessages {
 				name(senderName) + (reply ? "님이 답장을 보냈어요" : "님이 쪽지를 보냈어요")));
 	}
 
+	/**
+	 * 관리자 제재. 사유·설명은 넣지 않는다.
+	 *
+	 * @param hasRestrictions 기능을 제한했다(초기화가 함께 있어도 이 문구)
+	 * @param hasResets 프로필을 초기화했다
+	 */
+	public static PushMessage sanction(boolean hasRestrictions, boolean hasResets) {
+		String title = hasRestrictions ? "관리자가 이용을 제한했어요"
+				: hasResets ? "관리자가 프로필을 초기화했어요" : "관리자의 경고가 도착했어요";
+		return new PushMessage(PushKind.SANCTION, title);
+	}
+
+	/** 내가 한 사람 신고의 처리 결과가 나왔다. 누구를 신고했는지·결과는 넣지 않는다. */
+	public static PushMessage reportResult() {
+		return new PushMessage(PushKind.REPORT_RESULT, "신고 처리 결과가 도착했어요");
+	}
+
 	/** 20자(코드 포인트)를 넘으면 20자 + 「…」 */
 	static String name(String name) {
 		if (name.codePointCount(0, name.length()) <= NAME_MAX_LENGTH) {

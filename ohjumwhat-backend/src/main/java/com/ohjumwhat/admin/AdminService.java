@@ -4,7 +4,9 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,6 +34,8 @@ import com.ohjumwhat.poll.PollDetailResponse;
 import com.ohjumwhat.poll.PollRepository;
 import com.ohjumwhat.poll.PollService;
 import com.ohjumwhat.poll.PollStatus;
+import com.ohjumwhat.report.ProfileReportService;
+import com.ohjumwhat.sanction.UserSanctionRepository;
 import com.ohjumwhat.schedule.PollSchedule;
 import com.ohjumwhat.schedule.PollScheduleRepository;
 import com.ohjumwhat.schedule.ScheduleResponse;
@@ -95,6 +99,10 @@ public class AdminService {
 
 	private final GuestbookService guestbookService;
 
+	private final UserSanctionRepository sanctionRepository;
+
+	private final ProfileReportService profileReportService;
+
 	private final ApplicationEventPublisher events;
 
 	private final Clock clock;
@@ -106,6 +114,7 @@ public class AdminService {
 			VoteRepository voteRepository, PollScheduleRepository scheduleRepository, JdbcTemplate jdbcTemplate,
 			ProfilePhotoStorage photoStorage, LetterReportRepository letterReportRepository,
 			GuestbookReportRepository guestbookReportRepository, GuestbookService guestbookService,
+			UserSanctionRepository sanctionRepository, ProfileReportService profileReportService,
 			ApplicationEventPublisher events, Clock clock) {
 		this.adminRepository = adminRepository;
 		this.userRepository = userRepository;
@@ -124,6 +133,8 @@ public class AdminService {
 		this.letterReportRepository = letterReportRepository;
 		this.guestbookReportRepository = guestbookReportRepository;
 		this.guestbookService = guestbookService;
+		this.sanctionRepository = sanctionRepository;
+		this.profileReportService = profileReportService;
 		this.events = events;
 		this.clock = clock;
 	}
@@ -133,22 +144,25 @@ public class AdminService {
 		Instant now = Instant.now(clock);
 		long openLetterReports = letterReportRepository.countOpen();
 		long openGuestbookReports = guestbookReportRepository.countOpen();
+		long openProfileReports = profileReportService.countOpen();
 		return new AdminResponses.Stats(adminRepository.countUsers(), adminRepository.countOrganizations(),
 				adminRepository.countPollsOn(LocalDate.now(clock)), adminRepository.countOpenPolls(now),
 				adminRepository.countUsersSince(now.minus(7, ChronoUnit.DAYS)), adminRepository.countBlocks(),
-				openLetterReports + openGuestbookReports, openLetterReports, openGuestbookReports);
+				openLetterReports + openGuestbookReports + openProfileReports, openLetterReports, openGuestbookReports,
+				openProfileReports, sanctionRepository.countRestrictedUsers(now));
 	}
 
 	// 회원
 
 	@Transactional(readOnly = true)
 	public List<AdminResponses.UserRow> users(String q) {
-		return adminRepository.findUsers(keyword(q), PageRequest.of(0, LIST_LIMIT));
+		return withRestricted(adminRepository.findUsers(keyword(q), PageRequest.of(0, LIST_LIMIT)));
 	}
 
 	@Transactional(readOnly = true)
 	public AdminResponses.UserDetail user(Long userId) {
 		AdminResponses.UserRow row = adminRepository.findUser(userId)
+			.map(found -> withRestricted(List.of(found)).get(0))
 			.orElseThrow(() -> ApiException.notFound(USER_NOT_FOUND));
 		User user = userRepository.findById(userId).orElseThrow();
 		// 세션(spring_session, Flyway V2)의 마지막 요청 시각. principal 이름은 google sub다(LoginUser).
@@ -159,7 +173,7 @@ public class AdminService {
 				adminRepository.countMenusAddedBy(userId), adminRepository.countResponsesBy(userId));
 		return new AdminResponses.UserDetail(row, user.getNickname(), user.getBio(), user.getFoodTags(),
 				user.getDetails(), lastAccess == null ? null : Instant.ofEpochMilli(lastAccess),
-				adminRepository.findOrganizationsOfUser(userId), activity);
+				adminRepository.findOrganizationsOfUser(userId), activity, profileReportService.countOpenAgainst(userId));
 	}
 
 	/**
@@ -167,7 +181,8 @@ public class AdminService {
 	 * 회원을 지우면 그 사람의 응답은 모두 지워지고(CASCADE), 올린 메뉴는 작성자만 비운 채 남는다(SET NULL).
 	 * 올린 프로필 사진 파일은 커밋한 뒤에 지운다. 그 사람이 보낸 쪽지의 열린 신고는 처리 완료로 한다(지우면 보낸 사람을 알 수 없다).
 	 * 그 사람이 쓴 방명록 글의 처리 전 신고도 「글 제한」으로 처리하고 그 글을 제한한다. 글은 쓴 사람만 비운 채(「탈퇴한 사용자」)
-	 * 남고, 그 사람의 방명록에 남은 글과 신고도 주인만 비운 채 남는다.
+	 * 남고, 그 사람의 방명록에 남은 글과 신고도 주인만 비운 채 남는다. 그 사람에 대한 처리 전 사람 신고는 「탈퇴 처리」로 처리해
+	 * 신고한 사람에게 알리고, 그 사람이 한 처리 전 사람 신고는 신고한 사람만 비운 채 남는다.
 	 */
 	@Transactional
 	public void withdraw(Long adminId, Long userId) {
@@ -186,6 +201,7 @@ public class AdminService {
 		}
 		int resolvedReports = letterReportRepository.resolveOpenAgainst(userId, adminId, Instant.now(clock));
 		int restrictedGuestbookReports = guestbookService.restrictOpenReportsAgainst(userId, adminId);
+		int withdrawnProfileReports = profileReportService.resolveOpenAgainstWithdrawn(userId, adminId);
 		BlockedAccount block = blockedAccountRepository.save(new BlockedAccount(user, adminId, Instant.now(clock)));
 		photoStorage.deleteAfterCommit(user.getPhotoKey());
 		userRepository.delete(user);
@@ -194,8 +210,8 @@ public class AdminService {
 		int expiredSessions = jdbcTemplate.update("delete from spring_session where principal_name = ?",
 				block.getGoogleSub());
 		log.info("관리자 강제 탈퇴: adminId={}, userId={}, blockId={}, 삭제된 조직 수={}, 만료한 세션 수={}, 처리한 쪽지 신고 수={}, "
-				+ "글 제한으로 처리한 방명록 신고 수={}", adminId, userId, block.getId(), deletedOrganizations, expiredSessions,
-				resolvedReports, restrictedGuestbookReports);
+				+ "글 제한으로 처리한 방명록 신고 수={}, 탈퇴 처리한 사람 신고 수={}", adminId, userId, block.getId(),
+				deletedOrganizations, expiredSessions, resolvedReports, restrictedGuestbookReports, withdrawnProfileReports);
 	}
 
 	/** 올린 프로필 사진 지우기(부적절한 사진 대응). 구글 사진으로 돌아가고, 파일은 커밋한 뒤에 지운다. 올린 사진이 없으면 그대로 둔다. */
@@ -370,6 +386,16 @@ public class AdminService {
 		scheduleRepository.delete(schedule);
 		log.info("관리자 정기 투표 규칙 삭제: adminId={}, organizationId={}, scheduleId={}", adminId,
 				schedule.getOrganizationId(), scheduleId);
+	}
+
+	/** 회원 줄에 「제한 중」(지금 진행 중인 제재가 있는지)을 채운다. 제재는 한 쿼리로 읽는다. */
+	private List<AdminResponses.UserRow> withRestricted(List<AdminResponses.UserRow> rows) {
+		if (rows.isEmpty()) {
+			return rows;
+		}
+		Set<Long> restricted = new HashSet<>(sanctionRepository
+			.findRestrictedUserIds(rows.stream().map(AdminResponses.UserRow::id).toList(), Instant.now(clock)));
+		return rows.stream().map(row -> row.withRestricted(restricted.contains(row.id()))).toList();
 	}
 
 	/** 회원 행을 잠그고 읽는다(같은 회원의 강제 탈퇴·다른 관리자의 처리와 겹치지 않게). 없으면 404 */

@@ -1,5 +1,7 @@
 import { guestbookKeys } from '../queries/guestbook.ts'
 import { letterKeys } from '../queries/letters.ts'
+import { meQueryKey } from '../queries/me.ts'
+import { sanctionKeys } from '../queries/sanctions.ts'
 
 /**
  * 이 기기에서 웹 푸시를 켤 수 있는지(마이페이지 「알림」 카드의 안내).
@@ -92,6 +94,12 @@ export function pushInvalidations(kind: unknown): readonly (readonly unknown[])[
       return [guestbookKeys.all]
     case 'LETTER':
       return [letterKeys.unread, letterKeys.box('RECEIVED')]
+    case 'SANCTION':
+      // 막힌 자리(내 정보의 제재)와 안내 창
+      return [meQueryKey, sanctionKeys.alerts]
+    case 'REPORT_RESULT':
+      // 사람 신고의 처리 결과 창(제재 안내와 같은 응답에 온다)
+      return [sanctionKeys.alerts]
     default:
       return []
   }

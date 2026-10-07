@@ -2,6 +2,19 @@
 
 버전은 `vMAJOR.MINOR.PATCH`로 붙인다. 릴리스 절차는 [docs/DEPLOY.md](docs/DEPLOY.md#릴리스와-버전)에 있다.
 
+## v1.11.3 — 2026-10-07
+
+- 이용 제한(제재, #114, #116): 관리자의 조치가 강제 탈퇴뿐이라, 신고 없이도 단계적으로 조치할 수 있게 했다(Notion 「28. 사용자 제재 수단 추가」). 새 핵심 기능이 아니라 기존 기능의 제재 수단 강화라 PATCH로 올렸다.
+  - 제재 = 관리자가 한 번에 거는 조치 묶음: 제한(활동 정지·투표 제한·채팅 금지·쪽지 금지·방명록 쓰기 금지·프로필 수정 잠금) + 프로필 초기화(별명·사진·소개·상세 프로필) + 사유(분류·관리자 설명, 둘 다 본인에게 보인다). 둘 다 없으면 경고. 기간은 1·3·7·30일 또는 해제할 때까지이고, 배치 없이 요청 시각으로 풀린다. **투표 참여(고르기·패스·취소)는 어떤 제재로도 막지 않는다.**
+  - 서버는 컨트롤러의 `@Restricted`·`@Unrestricted` + `SanctionInterceptor`로 막고 423 `{"message"}`로 답한다(`@Valid`·멤버 확인·속도 제한·외부 호출·사진 처리보다 먼저). `SanctionCoverageTest`가 사용자 쓰기 API가 모두 둘 중 하나를 갖게 한다. 유효 제한 규칙은 서버 `SanctionGuard`와 화면 `lib/sanctions.ts`가 같다.
+  - `/api/me`의 `sanctions`, `GET /api/sanctions/alerts`·`POST …/seen`, 관리자 `POST /api/admin/users/{id}/sanctions`·`GET …/sanctions`·`POST /api/admin/sanctions/{id}/lift`·`GET /api/admin/sanctions?status=`, `Stats.restrictedUserCount`, `UserRow.restricted`. 비어 있는 프로필 항목의 초기화는 하지 않고 기록에서도 뺀다.
+  - 화면: 막힌 자리 안내, 다음 접속 때 안내 창(방명록 경고와 한 번에 하나만, `AppNoticeDialogs`), 마이페이지 「이용 제한」 카드, 웹 푸시 `SANCTION`(내용 없음). 관리자 회원 상세 「이용 제한」(제재하기·해제·이력)·「제한 중」 배지, 새 탭 「제재」, 개요 「제한 중」 카드, 쪽지·방명록 신고 행 「제재하기」.
+- 프로필에서 사람 신고(#115, #117): 멤버 프로필 「이 사람 신고하기」로 사람(프로필 내용과 행동)을 신고하고, 관리자가 처리하면 신고한 사람에게 결과를 알린다.
+  - `POST /api/users/{userId}/report`(같은 조직만, 처리 전 신고는 사람마다 하나), 신고할 때의 이름·한줄 소개·좋아하는 음식·취미·직급 사본. 관리자 「신고」 탭 [쪽지 | 방명록 | 프로필](`GET /api/admin/profile-reports?status=`, `POST …/{id}/dismiss`)에서 신고할 때·지금 프로필을 비교하고 「문제 없음」·「제재하기」로 처리한다. 제재(경고 포함)를 걸면 그 사람의 처리 전 신고가 모두 「조치함」, 강제 탈퇴면 「탈퇴 처리」.
+  - 신고자에게 결과 창(`alerts`의 `reportResults`, `POST /api/profile-reports/results/seen`)과 웹 푸시 `REPORT_RESULT`. 조치 내용은 보여주고 관리자 설명은 보여주지 않는다. 결과는 처리 순간의 사본이다. `Stats.openReportCount`는 쪽지·방명록·프로필의 합(`openProfileReportCount`), 회원 상세 `openProfileReportCount`.
+- `Modal`에 제목 줄 오른쪽 `aside`(안내 창 「1 / N」).
+- DB: V21(`user_sanctions`), V22(`profile_reports`) 마이그레이션. 새 설정 키·CSP 변경은 없다.
+
 ## v1.11.2 — 2026-10-07
 
 - 서버 모니터링(#107, #108): 점심시간 트래픽과 서버 여유를 보고, 서비스가 죽으면 알 수 있게 했다(Notion 「27. 서버 모니터링 구축」). 서버에 직접 설치하는 Netdata(서버·컨테이너 지표) + 앱 지표 + 외부 업타임 체크(UptimeRobot 키워드 감시)로 본다. 설치·설정은 `docs/DEPLOY.md` 「모니터링」. 사용자에게 보이는 변경은 없다.

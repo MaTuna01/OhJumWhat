@@ -11,6 +11,11 @@ export function isUnauthorized(error: unknown): boolean {
   return error instanceof ApiError && error.status === 401
 }
 
+/** 관리자가 이용을 제한한 기능이라 서버가 막았다(423). message에 무엇이 언제까지 막혔는지가 있다. */
+export function isRestricted(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 423
+}
+
 function readCookie(name: string): string | undefined {
   const prefix = `${name}=`
   const found = document.cookie.split('; ').find((c) => c.startsWith(prefix))

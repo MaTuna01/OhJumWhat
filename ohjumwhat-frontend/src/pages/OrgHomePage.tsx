@@ -11,6 +11,7 @@ import { RankingCard, RankingHint } from '../components/RankingTeaser.tsx'
 import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { useNow } from '../hooks/useNow.ts'
 import { useOrgId } from '../hooks/useOrgId.ts'
+import { useRestriction } from '../hooks/useRestriction.ts'
 import { unreadLabel } from '../lib/chat.ts'
 import { daysLabel } from '../lib/daysOfWeek.ts'
 import { formatClock, formatPollDay, formatRemaining, formatTimeRange } from '../lib/time.ts'
@@ -25,6 +26,8 @@ export default function OrgHomePage() {
   const polls = useTodayPolls(orgId)
   const [creating, setCreating] = useState(false)
   const { data: org } = useOrganization(orgId)
+  // 관리자가 투표 기능을 제한했으면 투표를 만들 수 없다(올라온 투표 참여는 그대로).
+  const pollBlocked = useRestriction('POLL')
   useDocumentTitle(org?.name)
 
   return (
@@ -33,7 +36,9 @@ export default function OrgHomePage() {
         <NoticeBanner />
         <div className="flex items-center justify-between gap-3">
           <h2 className="font-bold">오늘 열린 투표</h2>
-          <Button onClick={() => setCreating(true)}>+ 투표 만들기</Button>
+          <Button onClick={() => setCreating(true)} disabled={pollBlocked !== null} title={pollBlocked ? '관리자가 투표 만들기를 제한했어요' : undefined}>
+            + 투표 만들기
+          </Button>
         </div>
         {polls.isPending ? (
           <PageLoader />

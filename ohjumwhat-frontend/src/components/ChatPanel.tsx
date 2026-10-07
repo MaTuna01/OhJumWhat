@@ -2,6 +2,7 @@ import { type FormEvent, type KeyboardEvent, useLayoutEffect, useRef, useState }
 import { useChatReading } from '../hooks/useChatReading.ts'
 import type { ChatConnection } from '../hooks/usePollChatSocket.ts'
 import { useNow } from '../hooks/useNow.ts'
+import { useRestriction } from '../hooks/useRestriction.ts'
 import { CHAT_MAX, chatLength } from '../lib/chat.ts'
 import { formatClock } from '../lib/time.ts'
 import { inputClass } from '../lib/ui.ts'
@@ -13,6 +14,7 @@ import { ChatJumpButton, ListEnd, UnreadDivider } from './ChatUnread.tsx'
 import ConfirmDialog from './ConfirmDialog.tsx'
 import MessageBody from './MessageBody.tsx'
 import { ProfileButton } from './ProfileViewer.tsx'
+import RestrictionNotice from './RestrictionNotice.tsx'
 
 type Props = {
   pollId: number
@@ -27,12 +29,14 @@ type Props = {
  * Figma ChatPanel(05-C2·05-C3·D05-C): 투표 채팅. 보내기·고치기·지우기는 REST, 받기는 WebSocket(usePollChatSocket)이다.
  * 남의 글은 왼쪽(아바타·이름), 내 글은 오른쪽(채팅이 열려 있을 때 고치기·삭제), 지운 글은 「삭제된 메시지예요」.
  * 아래에 붙어 있으면 새 메시지가 올 때 따라 내려간다.
+ * 관리자가 채팅을 제한했으면(05-X) 입력창 대신 RestrictionNotice를 두고 내 글의 「고치기」를 숨긴다(「삭제」는 그대로).
  * 안 읽은 메시지(useChatReading): 열 때 「여기부터 새 메시지」, 위로 올려 읽는 중이면 「새 메시지 N ↓」, 데스크톱 카드가 화면 밖이면 떠 있는 버튼.
  */
 export default function ChatPanel({ pollId, chatClosesAt, connection, variant }: Props) {
   const { data: me } = useMe()
   const now = useNow(10_000)
   const open = now < Date.parse(chatClosesAt)
+  const blocked = useRestriction('CHAT')
   const chat = useChatMessages(pollId)
   const loadOlder = useLoadOlderMessages(pollId)
   const send = useSendMessage(pollId)
@@ -106,7 +110,7 @@ export default function ChatPanel({ pollId, chatClosesAt, connection, variant }:
           return (
             <li key={message.id} className={`rounded-xl transition-colors duration-700 ${reading.freshIds.has(message.id) ? 'bg-bg-brand-soft' : ''}`}>
               {reading.dividerId === message.id && <UnreadDivider />}
-              {open && editingId === message.id ? (
+              {open && !blocked && editingId === message.id ? (
                 <MessageForm
                   initial={message.body ?? ''}
                   label="메시지 고치기"
@@ -123,7 +127,7 @@ export default function ChatPanel({ pollId, chatClosesAt, connection, variant }:
                 <MessageItem
                   message={message}
                   mine={mine}
-                  onEdit={open && mine && !message.deleted ? () => setEditingId(message.id) : undefined}
+                  onEdit={open && !blocked && mine && !message.deleted ? () => setEditingId(message.id) : undefined}
                   onDelete={open && mine && !message.deleted ? () => setRemoving(message) : undefined}
                 />
               )}
@@ -133,7 +137,9 @@ export default function ChatPanel({ pollId, chatClosesAt, connection, variant }:
         <ListEnd sentinelRef={reading.sentinelRef} newLabel={reading.showNewPill ? reading.unreadLabel : ''} onJump={reading.scrollToBottom} />
       </ul>
 
-      {open ? (
+      {open && blocked ? (
+        <RestrictionNotice type="CHAT" restriction={blocked} />
+      ) : open ? (
         <MessageForm
           label="채팅 메시지"
           placeholder={`메시지 보내기 (${CHAT_MAX}자)`}

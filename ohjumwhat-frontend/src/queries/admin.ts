@@ -1,5 +1,6 @@
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api.ts'
+import type { ProfileReportResolution, ProfileSnapshot, ReportAction, SanctionReason } from '../lib/sanctions.ts'
 import type { ChatMessage, ChatPage } from './chat.ts'
 import type { MenuComment } from './comments.ts'
 import type { ProfileDetails } from './me.ts'
@@ -19,12 +20,16 @@ export type AdminStats = {
   /** 최근 7일 가입 */
   newUserCount: number
   blockedCount: number
-  /** 처리 전 신고(쪽지 + 방명록) */
+  /** 처리 전 신고(쪽지 + 방명록 + 프로필) */
   openReportCount: number
   /** 처리 전 쪽지 신고 */
   openLetterReportCount: number
   /** 처리 전 방명록 신고 */
   openGuestbookReportCount: number
+  /** 처리 전 프로필(사람) 신고 */
+  openProfileReportCount: number
+  /** 지금 이용 제한(활성 제재)이 걸린 회원 수 */
+  restrictedUserCount: number
 }
 
 /** 쪽지 신고(받은 사람이 신고한 쪽지만). 익명 쪽지도 실제 보낸 사람을 보여준다. */
@@ -81,6 +86,39 @@ export type AdminGuestbookReport = {
   authorEmail: string | null
 }
 
+/**
+ * 프로필(사람) 신고: 같은 조직 멤버가 프로필 모달에서 신고한 사람. 신고할 때의 프로필 사본과 지금 프로필을 나란히 보여준다.
+ * 신고된 사람·신고한 사람이 강제 탈퇴했으면 그쪽의 id·이름·이메일(신고된 사람은 사진·current도)이 null이다.
+ */
+export type AdminProfileReport = {
+  id: number
+  reportedAt: string
+  reason: SanctionReason
+  /** 신고한 사람의 설명(없으면 null) */
+  detail: string | null
+  /** 처리 전이면 null */
+  resolution: ProfileReportResolution | null
+  resolvedAt: string | null
+  resolvedByName: string | null
+  targetId: number | null
+  /** 지금 이름(별명, 없으면 구글 이름) */
+  targetName: string | null
+  targetEmail: string | null
+  /** 지금 사진(사진은 신고할 때 것을 저장하지 않는다) */
+  targetProfileImageUrl: string | null
+  /** 관리자는 제재할 수 없어 「문제 없음」으로만 처리한다(「제재하기」를 숨긴다) */
+  targetAdmin: boolean
+  /** 신고할 때의 프로필 */
+  snapshot: ProfileSnapshot
+  /** 지금 프로필 */
+  current: ProfileSnapshot | null
+  reporterId: number | null
+  reporterName: string | null
+  reporterEmail: string | null
+  /** 조치한 내용의 사본(ACTIONED일 때만) */
+  result: ReportAction | null
+}
+
 export type AdminUser = {
   id: number
   /** 화면 이름(별명, 없으면 구글 이름) */
@@ -96,6 +134,8 @@ export type AdminUser = {
   createdAt: string
   lastLoginAt: string | null
   organizationCount: number
+  /** 지금 이용 제한(활성 제재)이 걸려 있다(「제한 중」) */
+  restricted: boolean
 }
 
 export type AdminUserDetail = {
@@ -112,6 +152,8 @@ export type AdminUserDetail = {
   lastAccessAt: string | null
   organizations: { id: number; name: string; memberCount: number; joinedAt: string; lastVisitedAt: string | null }[]
   activity: { pollsCreated: number; menusAdded: number; responses: number }
+  /** 이 회원에 대한 처리 전 프로필(사람) 신고 수(제재하면 모두 「조치함」이 된다) */
+  openProfileReportCount: number
 }
 
 export type AdminOrg = {
@@ -172,6 +214,7 @@ export const adminKeys = {
   blocks: ['admin', 'blocks'] as const,
   letterReports: (status: 'open' | 'all') => ['admin', 'letter-reports', status] as const,
   guestbookReports: (status: 'open' | 'all') => ['admin', 'guestbook-reports', status] as const,
+  profileReports: (status: 'open' | 'all') => ['admin', 'profile-reports', status] as const,
 }
 
 const search = (q: string) => (q ? `?q=${encodeURIComponent(q)}` : '')
@@ -236,6 +279,14 @@ export function useAdminGuestbookReports(status: 'open' | 'all') {
   })
 }
 
+export function useAdminProfileReports(status: 'open' | 'all') {
+  return useQuery({
+    queryKey: adminKeys.profileReports(status),
+    queryFn: () => api<AdminProfileReport[]>(`/api/admin/profile-reports?status=${status}`),
+    placeholderData: keepPreviousData,
+  })
+}
+
 export function useAdminBlocks() {
   return useQuery({ queryKey: adminKeys.blocks, queryFn: () => api<AdminBlock[]>('/api/admin/blocks') })
 }
@@ -244,7 +295,7 @@ export function useAdminBlocks() {
  * 관리자 쓰기 작업 공통: 성공하면 화면에 떠 있는 모든 쿼리를 다시 불러온다.
  * 관리자 자신이 속한 조직이나 투표가 지워졌을 수도 있고 새 소식(점·배너)도 바뀌므로, 관리자 콘솔 밖의 캐시도 함께 맞춘다.
  */
-function useAdminMutation<T, V>(mutationFn: (variables: V) => Promise<T>) {
+export function useAdminMutation<T, V>(mutationFn: (variables: V) => Promise<T>) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn,
@@ -298,6 +349,10 @@ export const useRestrictGuestbookReport = () =>
 /** 방명록 신고 「문제 없음」: 글은 그대로 두고 신고만 처리한다. */
 export const useDismissGuestbookReport = () =>
   useAdminMutation((reportId: number) => api<void>(`/api/admin/guestbook-reports/${reportId}/dismiss`, { method: 'POST' }))
+
+/** 프로필(사람) 신고 「문제 없음」: 신고한 사람에게 결과(조치하지 않음)가 간다. 제재로 처리하려면 「제재하기」를 쓴다. */
+export const useDismissProfileReport = () =>
+  useAdminMutation((reportId: number) => api<AdminProfileReport>(`/api/admin/profile-reports/${reportId}/dismiss`, { method: 'POST' }))
 
 export const useUnblock = () => useAdminMutation((blockId: number) => api<void>(`/api/admin/blocks/${blockId}`, { method: 'DELETE' }))
 

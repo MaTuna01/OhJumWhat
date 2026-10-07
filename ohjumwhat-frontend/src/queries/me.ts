@@ -2,6 +2,7 @@ import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tansta
 import { useNavigate } from 'react-router'
 import { api } from '../lib/api.ts'
 import { releaseOnLogout } from '../lib/pushClient.ts'
+import type { ActiveSanction } from '../lib/sanctions.ts'
 
 export type Me = {
   id: number
@@ -27,6 +28,8 @@ export type Me = {
   lastVisitedOrgId: number | null
   /** 관리자면 프로필 메뉴에 관리자 콘솔이 보인다 */
   admin: boolean
+  /** 지금 걸린 이용 제한(활성 제재, 오래된 순). 막힌 자리는 hooks/useRestriction으로 확인한다 */
+  sanctions: ActiveSanction[]
 }
 
 export type PersonalColor = 'SPRING_WARM' | 'SUMMER_COOL' | 'AUTUMN_WARM' | 'WINTER_COOL'

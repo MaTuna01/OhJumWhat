@@ -110,3 +110,8 @@ export function formatPollDay(day: string, now: number): string {
 export function formatMonthDay(value: string): string {
   return monthDayFormat.format(new Date(value))
 }
+
+/** "10월 14일 오후 6:00" (이용 제한이 끝나는 시각 등, 서버의 KST 문구와 같다) */
+export function formatMonthDayTime(iso: string): string {
+  return `${formatMonthDay(iso)} ${formatClock(iso)}`
+}
