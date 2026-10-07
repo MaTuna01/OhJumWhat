@@ -1,5 +1,6 @@
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { type ComposeTarget, LetterComposerContext } from '../hooks/useLetterComposer.ts'
+import { useRestriction } from '../hooks/useRestriction.ts'
 import { ApiError } from '../lib/api.ts'
 import { counterpartLabel, LETTER_MAX, letterLength, organizationLabel } from '../lib/letters.ts'
 import { firstLine } from '../lib/chat.ts'
@@ -12,10 +13,12 @@ import AnonymousAvatar from './AnonymousAvatar.tsx'
 import Avatar from './Avatar.tsx'
 import Button from './Button.tsx'
 import Modal from './Modal.tsx'
+import RestrictionNotice from './RestrictionNotice.tsx'
 
 /**
  * 쪽지 쓰기(Figma 10-M1·10-M1b·10-M1c)를 앱 전체에 하나만 둔다(AppLayout). 멤버 프로필의 「쪽지 보내기」, 쪽지함의
  * 「쪽지 쓰기」·「답장」이 같은 모달을 연다. 채팅 시트(<dialog>) 밖에 그려져서 닫아도 다른 모달에 영향이 없다.
+ * 관리자가 쪽지 보내기를 제한했으면(10-X) 같은 창이 열리되 내용·익명 입력 대신 RestrictionNotice를 두고 「보내기」를 끈다.
  */
 export function LetterComposerProvider({ children }: { children: ReactNode }) {
   const [target, setTarget] = useState<ComposeTarget | null>(null)
@@ -77,6 +80,7 @@ function ComposeForm({ target, onCancel, onSent }: { target: ComposeTarget; onCa
   const { data: me } = useMe()
   const orgs = useMyOrganizations()
   const send = useSendLetter()
+  const blocked = useRestriction('LETTER')
   const fixed = target.kind === 'new' && target.recipient && target.organizationId ? { organizationId: target.organizationId, person: target.recipient } : null
   const [organizationId, setOrganizationId] = useState<number | null>(
     target.kind === 'new' ? (target.organizationId ?? me?.lastVisitedOrgId ?? null) : null,
@@ -95,7 +99,7 @@ function ComposeForm({ target, onCancel, onSent }: { target: ComposeTarget; onCa
   const recipientId = recipient && recipient.organizationId === pickedOrgId ? recipient.userId : null
   const length = letterLength(body)
   const hasRecipient = target.kind === 'reply' || fixed !== null || recipientId !== null
-  const canSend = hasRecipient && length > 0 && length <= LETTER_MAX && !send.isPending
+  const canSend = !blocked && hasRecipient && length > 0 && length <= LETTER_MAX && !send.isPending
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -168,47 +172,53 @@ function ComposeForm({ target, onCancel, onSent }: { target: ComposeTarget; onCa
         )}
       </div>
 
-      <div>
-        <label htmlFor="letter-body" className="text-sm font-medium">
-          내용
-        </label>
-        <textarea
-          id="letter-body"
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          rows={5}
-          placeholder="하고 싶은 말을 적어 주세요"
-          aria-invalid={length > LETTER_MAX || undefined}
-          className={`${inputClass} mt-1.5 resize-none`}
-        />
-        <p className={`mt-1 text-right text-xs ${length > LETTER_MAX ? 'text-text-danger' : 'text-text-tertiary'}`}>
-          {length}/{LETTER_MAX}
-        </p>
-      </div>
-
-      {target.kind === 'new' || lockedAnonymous ? (
-        <div>
-          <label className={`flex items-center gap-2 text-sm font-medium ${lockedAnonymous ? 'opacity-60' : 'cursor-pointer'}`}>
-            <input
-              type="checkbox"
-              checked={anonymous}
-              disabled={lockedAnonymous}
-              onChange={(e) => setAnonymous(e.target.checked)}
-              className="size-4 accent-bg-brand"
-              aria-describedby="letter-anonymous-help"
-            />
-            익명으로 보내기
-          </label>
-          <p id="letter-anonymous-help" className="mt-1 text-xs text-text-tertiary">
-            {lockedAnonymous
-              ? '익명으로 보낸 쪽지에 온 답장이라 계속 익명으로 보내요. 상대에게는 「익명」으로 보여요.'
-              : '받는 사람에게 내 이름과 사진이 보이지 않아요. 신고되면 서비스 관리자는 보낸 사람을 확인할 수 있어요.'}
-          </p>
-        </div>
+      {blocked ? (
+        <RestrictionNotice type="LETTER" restriction={blocked} />
       ) : (
-        <p className="rounded-lg bg-bg-subtle px-3 py-2.5 text-xs text-text-tertiary">
-          답장은 내 이름으로 보내요. 상대는 자기가 이 쪽지를 누구에게 보냈는지 알고 있어서 답장은 익명이 되지 않아요.
-        </p>
+        <>
+          <div>
+            <label htmlFor="letter-body" className="text-sm font-medium">
+              내용
+            </label>
+            <textarea
+              id="letter-body"
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              rows={5}
+              placeholder="하고 싶은 말을 적어 주세요"
+              aria-invalid={length > LETTER_MAX || undefined}
+              className={`${inputClass} mt-1.5 resize-none`}
+            />
+            <p className={`mt-1 text-right text-xs ${length > LETTER_MAX ? 'text-text-danger' : 'text-text-tertiary'}`}>
+              {length}/{LETTER_MAX}
+            </p>
+          </div>
+
+          {target.kind === 'new' || lockedAnonymous ? (
+            <div>
+              <label className={`flex items-center gap-2 text-sm font-medium ${lockedAnonymous ? 'opacity-60' : 'cursor-pointer'}`}>
+                <input
+                  type="checkbox"
+                  checked={anonymous}
+                  disabled={lockedAnonymous}
+                  onChange={(e) => setAnonymous(e.target.checked)}
+                  className="size-4 accent-bg-brand"
+                  aria-describedby="letter-anonymous-help"
+                />
+                익명으로 보내기
+              </label>
+              <p id="letter-anonymous-help" className="mt-1 text-xs text-text-tertiary">
+                {lockedAnonymous
+                  ? '익명으로 보낸 쪽지에 온 답장이라 계속 익명으로 보내요. 상대에게는 「익명」으로 보여요.'
+                  : '받는 사람에게 내 이름과 사진이 보이지 않아요. 신고되면 서비스 관리자는 보낸 사람을 확인할 수 있어요.'}
+              </p>
+            </div>
+          ) : (
+            <p className="rounded-lg bg-bg-subtle px-3 py-2.5 text-xs text-text-tertiary">
+              답장은 내 이름으로 보내요. 상대는 자기가 이 쪽지를 누구에게 보냈는지 알고 있어서 답장은 익명이 되지 않아요.
+            </p>
+          )}
+        </>
       )}
       {send.error && (
         <p role="alert" className="text-sm text-text-danger">

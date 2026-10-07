@@ -20,6 +20,9 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ohjumwhat.auth.LoginUser;
+import com.ohjumwhat.sanction.Restricted;
+import com.ohjumwhat.sanction.Restriction;
+import com.ohjumwhat.sanction.Unrestricted;
 
 /**
  * 쪽지 API. 보내기·답장·읽음·지우기·차단·신고는 모두 로그인한 사람 기준이다. 실시간 연결 없이 화면이 안 읽은 수를 주기적으로 받는다.
@@ -47,6 +50,7 @@ class LetterController {
 		return new UnreadResponse(letterService.unreadCount(loginUser.getUserId()));
 	}
 
+	@Restricted(Restriction.LETTER)
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	LetterResponse send(@AuthenticationPrincipal LoginUser loginUser, @Valid @RequestBody SendRequest request) {
@@ -54,6 +58,7 @@ class LetterController {
 				request.body(), Boolean.TRUE.equals(request.anonymous()));
 	}
 
+	@Restricted(Restriction.LETTER)
 	@PostMapping("/{letterId}/reply")
 	@ResponseStatus(HttpStatus.CREATED)
 	LetterResponse reply(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long letterId,
@@ -61,24 +66,28 @@ class LetterController {
 		return letterService.reply(loginUser.getUserId(), letterId, request.body());
 	}
 
+	@Unrestricted
 	@PutMapping("/{letterId}/read")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	void read(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long letterId) {
 		letterService.markRead(loginUser.getUserId(), letterId);
 	}
 
+	@Unrestricted
 	@DeleteMapping("/{letterId}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	void delete(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long letterId) {
 		letterService.delete(loginUser.getUserId(), letterId);
 	}
 
+	@Unrestricted
 	@PostMapping("/{letterId}/block")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	void block(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long letterId) {
 		letterService.block(loginUser.getUserId(), letterId);
 	}
 
+	@Unrestricted
 	@PostMapping("/{letterId}/report")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	void report(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long letterId,
@@ -91,6 +100,7 @@ class LetterController {
 		return letterService.blocks(loginUser.getUserId());
 	}
 
+	@Unrestricted
 	@DeleteMapping("/blocks/{blockId}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	void unblock(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long blockId) {

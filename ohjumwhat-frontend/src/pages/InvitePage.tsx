@@ -1,7 +1,9 @@
 import { Link, Navigate, useNavigate, useParams } from 'react-router'
 import Button from '../components/Button.tsx'
 import { PageLoader, PageMessage } from '../components/PageState.tsx'
+import RestrictionNotice from '../components/RestrictionNotice.tsx'
 import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
+import { useRestriction } from '../hooks/useRestriction.ts'
 import { buttonClass } from '../lib/ui.ts'
 import { useInvite, useJoinInvite } from '../queries/orgs.ts'
 
@@ -10,6 +12,8 @@ export default function InvitePage() {
   const invite = useInvite(token)
   const join = useJoinInvite(token)
   const navigate = useNavigate()
+  // 활동이 정지된 사람은 초대로 참여할 수 없다(참여 버튼 대신 안내).
+  const suspended = useRestriction('SUSPEND')
   useDocumentTitle(invite.data ? `${invite.data.name} 초대` : '초대')
 
   if (invite.isPending) return <PageLoader />
@@ -45,18 +49,24 @@ export default function InvitePage() {
             {join.error.message}
           </p>
         )}
-        <Button
-          className="mt-6 w-full py-3 text-base"
-          disabled={join.isPending}
-          onClick={() =>
-            join.mutate(undefined, {
-              onSuccess: ({ organizationId }) => navigate(`/orgs/${organizationId}`, { replace: true }),
-            })
-          }
-        >
-          참여하기
-        </Button>
-        <p className="mt-3 text-xs text-text-tertiary">참여하면 이 조직의 투표를 보고 메뉴를 올릴 수 있어요.</p>
+        {suspended ? (
+          <RestrictionNotice type="SUSPEND" restriction={suspended} className="mt-6 text-left" />
+        ) : (
+          <>
+            <Button
+              className="mt-6 w-full py-3 text-base"
+              disabled={join.isPending}
+              onClick={() =>
+                join.mutate(undefined, {
+                  onSuccess: ({ organizationId }) => navigate(`/orgs/${organizationId}`, { replace: true }),
+                })
+              }
+            >
+              참여하기
+            </Button>
+            <p className="mt-3 text-xs text-text-tertiary">참여하면 이 조직의 투표를 보고 메뉴를 올릴 수 있어요.</p>
+          </>
+        )}
       </div>
     </div>
   )

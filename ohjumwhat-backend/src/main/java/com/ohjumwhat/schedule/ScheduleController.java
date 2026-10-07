@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ohjumwhat.auth.LoginUser;
+import com.ohjumwhat.sanction.Restricted;
+import com.ohjumwhat.sanction.Restriction;
 
 @RestController
 public class ScheduleController {
@@ -31,6 +33,7 @@ public class ScheduleController {
 		return scheduleService.list(orgId, loginUser.getUserId());
 	}
 
+	@Restricted(Restriction.POLL)
 	@PostMapping("/api/orgs/{orgId}/schedules")
 	@ResponseStatus(HttpStatus.CREATED)
 	ScheduleResponse create(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long orgId,
@@ -38,12 +41,14 @@ public class ScheduleController {
 		return scheduleService.create(orgId, loginUser.getUserId(), request);
 	}
 
+	@Restricted(Restriction.POLL)
 	@PutMapping("/api/orgs/{orgId}/schedules/{scheduleId}")
 	ScheduleResponse update(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long orgId,
 			@PathVariable Long scheduleId, @Valid @RequestBody ScheduleRequest request) {
 		return scheduleService.update(orgId, scheduleId, loginUser.getUserId(), request);
 	}
 
+	@Restricted(Restriction.POLL)
 	@DeleteMapping("/api/orgs/{orgId}/schedules/{scheduleId}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	void delete(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long orgId,

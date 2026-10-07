@@ -21,6 +21,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.ohjumwhat.auth.LoginUser;
 import com.ohjumwhat.common.ApiException;
+import com.ohjumwhat.sanction.Restricted;
+import com.ohjumwhat.sanction.Restriction;
 
 @RestController
 public class MeController {
@@ -52,6 +54,7 @@ public class MeController {
 	}
 
 	/** 별명 정하기. nickname이 비어 있으면 구글 이름으로 돌아간다. */
+	@Restricted(Restriction.PROFILE)
 	@PutMapping("/api/me/nickname")
 	MeResponse changeNickname(@AuthenticationPrincipal LoginUser loginUser,
 			@Valid @RequestBody NicknameRequest request) {
@@ -62,6 +65,7 @@ public class MeController {
 	 * 한줄 소개와 좋아하는 음식 정하기(통째로 바꾼다). bio가 비면 소개를, foodTags가 비면 음식을 지운다.
 	 * 여기의 크기 제한은 큰 요청을 막는 방어선이고, 실제 규칙(50자, 10자·3개)은 ProfileIntro가 확인한다.
 	 */
+	@Restricted(Restriction.PROFILE)
 	@PutMapping("/api/me/profile")
 	MeResponse changeIntro(@AuthenticationPrincipal LoginUser loginUser, @Valid @RequestBody IntroRequest request) {
 		return userService.changeIntro(loginUser.getUserId(), request.bio(), request.foodTags());
@@ -71,6 +75,7 @@ public class MeController {
 	 * 상세 프로필(MBTI·퍼스널컬러·취미·나이·직급) 정하기. 다섯 항목 모두 필수이고 통째로 바꾼다(지우기는 없다).
 	 * 여기의 크기 제한은 큰 요청을 막는 방어선이고, 실제 규칙과 기획서의 오류 문구는 ProfileDetails가 확인한다.
 	 */
+	@Restricted(Restriction.PROFILE)
 	@PutMapping("/api/me/profile/details")
 	MeResponse changeDetails(@AuthenticationPrincipal LoginUser loginUser,
 			@Valid @RequestBody DetailsRequest request) {
@@ -82,6 +87,7 @@ public class MeController {
 	 * 프로필 사진 올리기(multipart 파트 photo). 브라우저가 정사각형으로 잘라 보낸 사진을 서버가 256px JPEG로 다시 만든다.
 	 * consumes를 두지 않아, multipart가 아닌 요청도 415 대신 {"message"}가 있는 400으로 답한다(GlobalExceptionHandler).
 	 */
+	@Restricted(Restriction.PROFILE)
 	@PostMapping("/api/me/photo")
 	MeResponse uploadPhoto(@AuthenticationPrincipal LoginUser loginUser, @RequestParam("photo") MultipartFile photo)
 			throws IOException {
@@ -92,6 +98,7 @@ public class MeController {
 	}
 
 	/** 올린 사진을 지우고 구글 사진으로 돌아간다. */
+	@Restricted(Restriction.PROFILE)
 	@DeleteMapping("/api/me/photo")
 	MeResponse resetPhoto(@AuthenticationPrincipal LoginUser loginUser) {
 		return profilePhotoService.resetToGoogle(loginUser.getUserId());

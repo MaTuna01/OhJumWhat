@@ -1,6 +1,6 @@
 import { Link, Outlet } from 'react-router'
 import { usePushSync } from '../hooks/usePushSync.ts'
-import GuestbookWarningDialog from './GuestbookWarningDialog.tsx'
+import AppNoticeDialogs from './AppNoticeDialogs.tsx'
 import LetterButton from './LetterButton.tsx'
 import { LetterComposerProvider } from './LetterComposer.tsx'
 import Logo from './Logo.tsx'
@@ -35,8 +35,8 @@ export default function AppLayout() {
           <Outlet />
         </main>
         <UpdateToast />
-        {/* 관리자가 내 방명록 글을 제한했으면 어느 화면에서든 한 번 알린다(Figma 07-M4). */}
-        <GuestbookWarningDialog />
+        {/* 관리자의 제재(00-S)·방명록 글 제한(07-M4)을 어느 화면에서든 한 번, 한 번에 하나씩 알린다. */}
+        <AppNoticeDialogs />
       </div>
     </LetterComposerProvider>
   )

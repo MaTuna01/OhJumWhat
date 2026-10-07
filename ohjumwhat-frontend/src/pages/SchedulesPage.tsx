@@ -3,16 +3,18 @@ import Button from '../components/Button.tsx'
 import ConfirmDialog from '../components/ConfirmDialog.tsx'
 import DayPills from '../components/DayPills.tsx'
 import { PageLoader } from '../components/PageState.tsx'
+import RestrictionNotice from '../components/RestrictionNotice.tsx'
 import ScheduleModal from '../components/ScheduleModal.tsx'
 import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { useOrgId } from '../hooks/useOrgId.ts'
+import { useRestriction } from '../hooks/useRestriction.ts'
 import { daysLabel } from '../lib/daysOfWeek.ts'
 import { formatTimeRange } from '../lib/time.ts'
 import { columnsClass } from '../lib/ui.ts'
 import { useOrganization } from '../queries/orgs.ts'
 import { type Schedule, useDeleteSchedule, useSchedules } from '../queries/schedules.ts'
 
-/** Figma 06 정기 투표 관리. 모든 멤버가 규칙을 추가·수정·삭제할 수 있다. */
+/** Figma 06 정기 투표 관리. 모든 멤버가 규칙을 추가·수정·삭제할 수 있다(관리자가 투표 기능을 제한한 사람은 빼고). */
 export default function SchedulesPage() {
   const orgId = useOrgId()
   const schedules = useSchedules(orgId)
@@ -21,6 +23,7 @@ export default function SchedulesPage() {
   const [editing, setEditing] = useState<Schedule | null | undefined>(undefined)
   const [deleting, setDeleting] = useState<Schedule | null>(null)
   const { data: org } = useOrganization(orgId)
+  const blocked = useRestriction('POLL')
   useDocumentTitle('정기 투표', org?.name)
 
   const closeDelete = () => {
@@ -33,8 +36,11 @@ export default function SchedulesPage() {
       <div className="min-w-0 space-y-4">
         <div className="flex items-center justify-between gap-3">
           <h2 className="font-bold">정기 투표 규칙</h2>
-          <Button onClick={() => setEditing(null)}>+ 규칙 추가</Button>
+          <Button onClick={() => setEditing(null)} disabled={blocked !== null}>
+            + 규칙 추가
+          </Button>
         </div>
+        {blocked && <RestrictionNotice type="POLL" restriction={blocked} />}
 
         {schedules.isPending ? (
           <PageLoader />
@@ -56,10 +62,10 @@ export default function SchedulesPage() {
                       {daysLabel(schedule.daysOfWeek)} · {formatTimeRange(schedule.openTime, schedule.closeTime)}
                     </p>
                   </div>
-                  <Button variant="ghost" className="py-1.5" onClick={() => setEditing(schedule)}>
+                  <Button variant="ghost" className="py-1.5" onClick={() => setEditing(schedule)} disabled={blocked !== null}>
                     수정
                   </Button>
-                  <Button variant="ghost" className="py-1.5" onClick={() => setDeleting(schedule)}>
+                  <Button variant="ghost" className="py-1.5" onClick={() => setDeleting(schedule)} disabled={blocked !== null}>
                     삭제
                   </Button>
                 </div>

@@ -14,6 +14,7 @@ import com.ohjumwhat.admin.AdminProperties;
 import com.ohjumwhat.common.ApiException;
 import com.ohjumwhat.organization.Membership;
 import com.ohjumwhat.organization.MembershipRepository;
+import com.ohjumwhat.sanction.SanctionGuard;
 
 @Slf4j
 @Service
@@ -31,16 +32,19 @@ public class UserService {
 
 	private final ProfilePhotoStorage photoStorage;
 
+	private final SanctionGuard sanctionGuard;
+
 	private final Clock clock;
 
 	public UserService(UserRepository userRepository, MembershipRepository membershipRepository,
 			BlockedAccountRepository blockedAccountRepository, AdminProperties adminProperties,
-			ProfilePhotoStorage photoStorage, Clock clock) {
+			ProfilePhotoStorage photoStorage, SanctionGuard sanctionGuard, Clock clock) {
 		this.userRepository = userRepository;
 		this.membershipRepository = membershipRepository;
 		this.blockedAccountRepository = blockedAccountRepository;
 		this.adminProperties = adminProperties;
 		this.photoStorage = photoStorage;
+		this.sanctionGuard = sanctionGuard;
 		this.clock = clock;
 	}
 
@@ -217,13 +221,15 @@ public class UserService {
 		return userRepository.findById(userId).orElseThrow(() -> ApiException.unauthorized("다시 로그인해 주세요."));
 	}
 
+	/** 내 정보 응답. 지금 걸려 있는 제재(sanctions)도 여기서만 넣는다(프로필을 바꾼 응답에도 함께 간다). */
 	private MeResponse toMe(User user) {
 		Long lastVisitedOrgId = membershipRepository.findFirstByUserIdOrderByLastVisitedAtDesc(user.getId())
 			.map(Membership::getOrganizationId)
 			.orElse(null);
 		return new MeResponse(user.getId(), user.getDisplayName(), user.getNickname(), user.getName(),
 				user.getEmail(), user.getPhotoUrl(), user.getProfileImageUrl(), user.getPhotoKey() != null,
-				user.getBio(), user.getFoodTags(), user.getDetails(), lastVisitedOrgId, user.isAdmin());
+				user.getBio(), user.getFoodTags(), user.getDetails(), lastVisitedOrgId, user.isAdmin(),
+				sanctionGuard.activeSanctions(user.getId()));
 	}
 
 	private void requireNotBlocked(String googleSub) {

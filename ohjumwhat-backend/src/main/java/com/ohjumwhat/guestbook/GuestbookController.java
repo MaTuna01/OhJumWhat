@@ -19,6 +19,9 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ohjumwhat.auth.LoginUser;
+import com.ohjumwhat.sanction.Restricted;
+import com.ohjumwhat.sanction.Restriction;
+import com.ohjumwhat.sanction.Unrestricted;
 
 /**
  * 방명록 API. 모두 로그인한 사람 기준이다. 실시간 연결 없이 화면이 알림 요약을 주기적으로 받는다.
@@ -42,6 +45,7 @@ class GuestbookController {
 	}
 
 	/** 그 사람의 방명록에 쓴다. 쓴 사람이 보는 0쪽을 돌려준다. */
+	@Restricted(Restriction.GUESTBOOK)
 	@PostMapping("/users/{ownerId}")
 	@ResponseStatus(HttpStatus.CREATED)
 	GuestbookPageResponse write(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long ownerId,
@@ -49,6 +53,7 @@ class GuestbookController {
 		return guestbookService.write(loginUser.getUserId(), ownerId, request.body());
 	}
 
+	@Unrestricted
 	@DeleteMapping("/entries/{entryId}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	void delete(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long entryId) {
@@ -56,6 +61,7 @@ class GuestbookController {
 	}
 
 	/** 내 방명록의 글을 신고한다. 사유는 선택이다(본문이 없어도 된다). */
+	@Unrestricted
 	@PostMapping("/entries/{entryId}/report")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	void report(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long entryId,
@@ -70,6 +76,7 @@ class GuestbookController {
 	}
 
 	/** 내 방명록을 until(화면에 보인 가장 최근 글의 시각)까지 봤다. */
+	@Unrestricted
 	@PostMapping("/seen")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	void seen(@AuthenticationPrincipal LoginUser loginUser, @Valid @RequestBody UntilRequest request) {
@@ -77,6 +84,7 @@ class GuestbookController {
 	}
 
 	/** 경고를 until(보여준 경고 중 가장 최근 제한 시각)까지 확인했다. */
+	@Unrestricted
 	@PostMapping("/warnings/ack")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	void ackWarnings(@AuthenticationPrincipal LoginUser loginUser, @Valid @RequestBody UntilRequest request) {

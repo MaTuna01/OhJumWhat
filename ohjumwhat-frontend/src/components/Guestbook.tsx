@@ -1,6 +1,7 @@
 import { type FormEvent, type KeyboardEvent, useEffect, useId, useRef, useState } from 'react'
 import { useGuestbookCooldown } from '../hooks/useGuestbookCooldown.ts'
 import { useNow } from '../hooks/useNow.ts'
+import { useRestriction } from '../hooks/useRestriction.ts'
 import { ApiError } from '../lib/api.ts'
 import { authorLabel, GUESTBOOK_MAX, guestbookLength, isNewEntry, newestCreatedAt, RESTRICTED_TEXT } from '../lib/guestbook.ts'
 import { linkify } from '../lib/noticeBody.ts'
@@ -16,6 +17,7 @@ import GuestbookReportDialog from './GuestbookReportDialog.tsx'
 import { LinkedLine } from './NoticeBody.tsx'
 import Pager from './Pager.tsx'
 import { ProfileButton } from './ProfileViewer.tsx'
+import RestrictionNotice from './RestrictionNotice.tsx'
 
 type PanelProps = {
   ownerId: number
@@ -27,6 +29,7 @@ type PanelProps = {
  * 한 사람의 방명록(Figma 07-P4 멤버 프로필, 07-P5 내 프로필, 03-N5 마이페이지): 입력창·목록(10개씩 최신순)·쪽 넘기기.
  * 주인은 자기 방명록에 쓸 수 없어 입력창이 없고, 아직 보지 않은 글에 NEW를 붙이고 「봤음」을 보낸다(점·배지가 꺼진다).
  * 지우기 확인(07-M3)과 신고(07-M2)는 프로필 모달 안에 그려도 된다(Modal은 자기 자신이 닫힐 때만 onClose를 부른다).
+ * 관리자가 방명록 쓰기를 제한했으면 입력창 대신 RestrictionNotice를 둔다(지우기는 그대로).
  */
 export function GuestbookPanel({ ownerId, ownerName }: PanelProps) {
   const { data: me } = useMe()
@@ -40,6 +43,7 @@ export function GuestbookPanel({ ownerId, ownerName }: PanelProps) {
   const [seen, setSeen] = useState<{ at: string | null } | null>(null)
   const markedUntil = useRef(0)
   const now = useNow(60_000)
+  const blocked = useRestriction('GUESTBOOK')
 
   const data = guestbook.data
   // 쪽을 넘기는 동안 보이는 앞 쪽(placeholder)이 아닌, 지금 쪽의 실제 응답
@@ -68,7 +72,12 @@ export function GuestbookPanel({ ownerId, ownerName }: PanelProps) {
 
   return (
     <div className="space-y-2">
-      {!owner && <GuestbookForm ownerId={ownerId} ownerName={ownerName} onWritten={() => setPage(0)} />}
+      {!owner &&
+        (blocked ? (
+          <RestrictionNotice type="GUESTBOOK" restriction={blocked} />
+        ) : (
+          <GuestbookForm ownerId={ownerId} ownerName={ownerName} onWritten={() => setPage(0)} />
+        ))}
       {data === undefined ? (
         guestbook.isPending ? (
           <p role="status" className="py-8 text-center text-sm text-text-tertiary">

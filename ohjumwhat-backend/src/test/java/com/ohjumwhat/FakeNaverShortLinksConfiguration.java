@@ -2,6 +2,7 @@ package com.ohjumwhat;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -9,7 +10,10 @@ import org.springframework.context.annotation.Primary;
 
 import com.ohjumwhat.place.NaverShortLinks;
 
-/** 테스트에서 실제 naver.me로 요청하지 않도록 정해진 표로 답한다. 표에 없는 코드는 확인 실패(빈 값), GONE_CODE는 없는 코드(404)다. */
+/**
+ * 테스트에서 실제 naver.me로 요청하지 않도록 정해진 표로 답한다. 표에 없는 코드는 확인 실패(빈 값), GONE_CODE는 없는 코드(404)다.
+ * 부른 횟수를 기억한다(제재로 막힌 요청이 바깥에 묻지 않는지 확인용).
+ */
 @TestConfiguration(proxyBeanMethods = false)
 public class FakeNaverShortLinksConfiguration {
 
@@ -32,12 +36,25 @@ public class FakeNaverShortLinksConfiguration {
 
 	@Bean
 	@Primary
-	NaverShortLinks fakeNaverShortLinks() {
-		return code -> {
+	FakeNaverShortLinks fakeNaverShortLinks() {
+		return new FakeNaverShortLinks();
+	}
+
+	public static class FakeNaverShortLinks implements NaverShortLinks {
+
+		private final AtomicInteger calls = new AtomicInteger();
+
+		@Override
+		public Optional<String> location(String code) {
+			calls.incrementAndGet();
 			if (GONE_CODE.equals(code)) {
 				throw new NaverShortLinks.NotFound();
 			}
 			return Optional.ofNullable(LOCATIONS.get(code));
-		};
+		}
+
+		public int calls() {
+			return calls.get();
+		}
 	}
 }

@@ -18,6 +18,8 @@ import com.ohjumwhat.guestbook.GuestbookEntryRestrictedEvent;
 import com.ohjumwhat.guestbook.GuestbookEntryRepository;
 import com.ohjumwhat.letter.LetterDeliveredEvent;
 import com.ohjumwhat.letter.LetterRepository;
+import com.ohjumwhat.sanction.SanctionAppliedEvent;
+import com.ohjumwhat.sanction.UserSanctionRepository;
 
 /**
  * 커밋된 일을 받는 사람의 기기로 알린다. 요청 스레드에서는 커밋 뒤에 작업을 맡기기만 하고 바로 돌아온다(PushDispatcher).
@@ -42,18 +44,21 @@ class PushNotifier {
 
 	private final LetterRepository letterRepository;
 
+	private final UserSanctionRepository sanctionRepository;
+
 	private final TransactionTemplate readOnly;
 
 	private final Clock clock;
 
 	PushNotifier(PushSender pushSender, PushDispatcher dispatcher, PushDeviceRepository deviceRepository,
 			GuestbookEntryRepository guestbookEntryRepository, LetterRepository letterRepository,
-			PlatformTransactionManager transactionManager, Clock clock) {
+			UserSanctionRepository sanctionRepository, PlatformTransactionManager transactionManager, Clock clock) {
 		this.pushSender = pushSender;
 		this.dispatcher = dispatcher;
 		this.deviceRepository = deviceRepository;
 		this.guestbookEntryRepository = guestbookEntryRepository;
 		this.letterRepository = letterRepository;
+		this.sanctionRepository = sanctionRepository;
 		this.readOnly = new TransactionTemplate(transactionManager);
 		this.readOnly.setReadOnly(true);
 		this.clock = clock;
@@ -82,6 +87,14 @@ class PushNotifier {
 				() -> letterRepository.findReceivedRow(event.letterId(), event.recipientId())
 					.flatMap(row -> PushMessages.letter(row.anonymous(), row.replyToId() != null,
 							row.counterpartName())));
+	}
+
+	/** 제재 받은 회원에게(앱을 열면 제재 안내 창이 뜬다). 그사이 제재가 없어졌으면(강제 탈퇴) 보내지 않는다. */
+	@TransactionalEventListener
+	void onSanctionApplied(SanctionAppliedEvent event) {
+		notify(PushKind.SANCTION, event.userId(), () -> sanctionRepository.findById(event.sanctionId())
+			.map(sanction -> PushMessages.sanction(!sanction.getRestrictions().isEmpty(),
+					!sanction.getResets().isEmpty())));
 	}
 
 	private void notify(PushKind kind, Long userId, Supplier<Optional<PushMessage>> message) {

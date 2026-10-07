@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { daysAgo, defaultCloseTime, formatAgo, formatClock, formatDate, formatDay, formatDayTime, formatEatenDay, formatHhmm, formatMonthDay, formatPollDay, formatRemaining, formatTimeRange, toKstHhmm } from './time.ts'
+import { daysAgo, defaultCloseTime, formatAgo, formatClock, formatDate, formatDay, formatDayTime, formatEatenDay, formatHhmm, formatMonthDay, formatMonthDayTime, formatPollDay, formatRemaining, formatTimeRange, toKstHhmm } from './time.ts'
 
 // 2026-09-30 11:00 (한국 시간) = 02:00Z
 const at = (kst: string) => new Date(`2026-09-30T${kst}:00+09:00`).getTime()
@@ -90,5 +90,14 @@ describe('formatPollDay', () => {
     expect(formatPollDay('2026-09-28', at('11:00'))).toBe('9월 28일 (월)')
     expect(formatPollDay('2025-12-24', at('11:00'))).toBe('2025년 12월 24일 (수)')
     expect(formatMonthDay('2026-09-28')).toBe('9월 28일')
+  })
+})
+
+describe('formatMonthDayTime', () => {
+  it('한국 시간으로 "M월 d일 오전/오후 h:mm"', () => {
+    expect(formatMonthDayTime('2026-10-14T09:00:00Z')).toBe('10월 14일 오후 6:00')
+    expect(formatMonthDayTime('2026-10-07T05:30:00Z')).toBe('10월 7일 오후 2:30')
+    // UTC로는 전날이어도 한국 날짜로 보여준다.
+    expect(formatMonthDayTime('2026-09-19T16:05:00Z')).toBe('9월 20일 오전 1:05')
   })
 })

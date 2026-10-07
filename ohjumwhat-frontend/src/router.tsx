@@ -10,6 +10,7 @@ import AdminOrgsPage from './pages/admin/AdminOrgsPage.tsx'
 import AdminOverviewPage from './pages/admin/AdminOverviewPage.tsx'
 import AdminPollPage from './pages/admin/AdminPollPage.tsx'
 import AdminReportsPage from './pages/admin/AdminReportsPage.tsx'
+import AdminSanctionsPage from './pages/admin/AdminSanctionsPage.tsx'
 import AdminUserPage from './pages/admin/AdminUserPage.tsx'
 import AdminUsersPage from './pages/admin/AdminUsersPage.tsx'
 import InvitePage from './pages/InvitePage.tsx'
@@ -68,6 +69,7 @@ export const router = createBrowserRouter([
               { path: 'orgs', element: <AdminOrgsPage /> },
               { path: 'orgs/:orgId', element: <AdminOrgPage /> },
               { path: 'polls/:pollId', element: <AdminPollPage /> },
+              { path: 'sanctions', element: <AdminSanctionsPage /> },
               { path: 'blocks', element: <AdminBlocksPage /> },
               { path: 'notices', element: <AdminNoticesPage /> },
               { path: 'reports', element: <AdminReportsPage /> },

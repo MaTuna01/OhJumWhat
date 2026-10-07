@@ -8,7 +8,7 @@ import { useNow } from '../../hooks/useNow.ts'
 import { formatDay } from '../../lib/time.ts'
 import { ADMIN_LIST_LIMIT, useAdminUsers } from '../../queries/admin.ts'
 
-/** Figma A02·DA02 회원 목록: 이름·이메일 검색, 최근 가입 순 */
+/** Figma A02·DA02 회원 목록: 이름·이메일 검색, 최근 가입 순. 이용 제한이 걸린 사람은 「제한 중」 */
 export default function AdminUsersPage() {
   const [query, setQuery] = useState('')
   const q = useDebouncedValue(query.trim())
@@ -35,7 +35,12 @@ export default function AdminUsersPage() {
               to={`/admin/users/${u.id}`}
               person={{ name: u.name, imageUrl: u.profileImageUrl }}
               title={u.name}
-              badge={u.role === 'ADMIN' && <Badge tone="brand">관리자</Badge>}
+              badge={
+                <>
+                  {u.role === 'ADMIN' && <Badge tone="brand">관리자</Badge>}
+                  {u.restricted && <Badge tone="danger">제한 중</Badge>}
+                </>
+              }
               subtitle={u.googleName !== u.name ? `${u.email} · 구글 이름 ${u.googleName}` : u.email}
               meta={
                 <>

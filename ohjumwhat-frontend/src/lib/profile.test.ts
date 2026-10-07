@@ -27,6 +27,7 @@ const me: Me = {
   details: null,
   lastVisitedOrgId: 1,
   admin: false,
+  sanctions: [],
 }
 const withPhoto: Me = { ...me, profileImageUrl: '/api/photos/abc.jpg', customPhoto: true }
 const none: PendingPhoto = { kind: 'none' }

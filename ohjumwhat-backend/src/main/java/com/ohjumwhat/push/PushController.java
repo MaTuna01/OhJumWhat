@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ohjumwhat.auth.LoginUser;
+import com.ohjumwhat.sanction.Unrestricted;
 
 /** 이 기기에서 알림 받기. fid는 브라우저의 Firebase 설치 ID다. */
 @RestController
@@ -26,6 +27,7 @@ class PushController {
 	}
 
 	/** 켜기(다시 켜도 된다). 기기는 지금 로그인(세션)에 묶여 로그아웃하면 함께 지워진다. */
+	@Unrestricted
 	@PutMapping("/{fid}")
 	PushDeviceResponse register(@AuthenticationPrincipal LoginUser loginUser, @PathVariable String fid,
 			HttpServletRequest request) {
@@ -35,6 +37,7 @@ class PushController {
 	}
 
 	/** 끄기. 내 기기만 지운다(없어도 204). */
+	@Unrestricted
 	@DeleteMapping("/{fid}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	void unregister(@AuthenticationPrincipal LoginUser loginUser, @PathVariable String fid) {

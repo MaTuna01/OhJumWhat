@@ -22,6 +22,9 @@ import com.ohjumwhat.auth.LoginUser;
 import com.ohjumwhat.menu.MenuService;
 import com.ohjumwhat.menu.MenuSuggestion;
 import com.ohjumwhat.place.PlaceLinkResolver;
+import com.ohjumwhat.sanction.Restricted;
+import com.ohjumwhat.sanction.Restriction;
+import com.ohjumwhat.sanction.Unrestricted;
 import com.ohjumwhat.vote.VoteService;
 
 @RestController
@@ -55,6 +58,7 @@ public class PollController {
 		return pollService.history(orgId, loginUser.getUserId(), page);
 	}
 
+	@Restricted(Restriction.POLL)
 	@PostMapping("/api/orgs/{orgId}/polls")
 	@ResponseStatus(HttpStatus.CREATED)
 	PollDetailResponse create(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long orgId,
@@ -68,17 +72,20 @@ public class PollController {
 		return pollService.get(orgId, pollId, loginUser.getUserId());
 	}
 
+	@Restricted(Restriction.POLL)
 	@PutMapping("/api/polls/{pollId}")
 	PollDetailResponse update(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId,
 			@Valid @RequestBody PollRequest request) {
 		return pollService.update(pollId, loginUser.getUserId(), request);
 	}
 
+	@Restricted(Restriction.POLL)
 	@PostMapping("/api/polls/{pollId}/close")
 	PollDetailResponse close(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId) {
 		return pollService.close(pollId, loginUser.getUserId());
 	}
 
+	@Restricted(Restriction.POLL)
 	@DeleteMapping("/api/polls/{pollId}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	void delete(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId) {
@@ -91,6 +98,7 @@ public class PollController {
 		return menuService.suggestions(orgId, loginUser.getUserId(), q);
 	}
 
+	@Restricted(Restriction.POLL)
 	@PostMapping("/api/polls/{pollId}/options")
 	@ResponseStatus(HttpStatus.CREATED)
 	PollDetailResponse addOption(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId,
@@ -102,6 +110,7 @@ public class PollController {
 	}
 
 	/** link와 kakaoPlaceId가 모두 비어 있으면 식당을 뺀다. */
+	@Restricted(Restriction.POLL)
 	@PutMapping("/api/polls/{pollId}/options/{optionId}/link")
 	PollDetailResponse changeLink(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId,
 			@PathVariable Long optionId, @Valid @RequestBody PlaceRequest request) {
@@ -110,6 +119,7 @@ public class PollController {
 						request.kakaoPlaceId(), request.placeQuery()));
 	}
 
+	@Unrestricted
 	@DeleteMapping("/api/polls/{pollId}/options/{optionId}")
 	PollDetailResponse deleteOption(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId,
 			@PathVariable Long optionId) {
@@ -117,6 +127,7 @@ public class PollController {
 	}
 
 	/** optionId가 null이면 "오늘은 패스" */
+	@Unrestricted
 	@PutMapping("/api/polls/{pollId}/vote")
 	PollDetailResponse vote(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId,
 			@RequestBody VoteRequest request) {
@@ -124,6 +135,7 @@ public class PollController {
 	}
 
 	/** 참여·패스 취소(미응답으로) */
+	@Unrestricted
 	@DeleteMapping("/api/polls/{pollId}/vote")
 	PollDetailResponse cancelVote(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId) {
 		return voteService.cancel(pollId, loginUser.getUserId());

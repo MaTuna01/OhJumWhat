@@ -12,11 +12,13 @@ import PersonChip from '../components/PersonChip.tsx'
 import PlaceModal from '../components/PlaceModal.tsx'
 import PollManageMenu from '../components/PollManageMenu.tsx'
 import PollPlacesMap from '../components/PollPlacesMap.tsx'
+import RestrictionNotice from '../components/RestrictionNotice.tsx'
 import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { DESKTOP_QUERY, useMediaQuery } from '../hooks/useMediaQuery.ts'
 import { useNow } from '../hooks/useNow.ts'
 import { useOrgId } from '../hooks/useOrgId.ts'
 import { usePollChatSocket } from '../hooks/usePollChatSocket.ts'
+import { useRestriction } from '../hooks/useRestriction.ts'
 import { ApiError } from '../lib/api.ts'
 import { NO_PLACE, naverPlaceSearchUrl } from '../lib/place.ts'
 import { confirmedTeams } from '../lib/pollDetail.ts'
@@ -48,6 +50,8 @@ import {
  * 펼친 메뉴는 마감돼도 그대로 두고 읽기 전용으로 바꾼다(쓰던 입력은 닫힌다).
  * 투표 채팅(05-C·D05-C)은 모바일은 하단 고정 버튼 → 채팅 시트, 데스크톱은 사이드 열(응답 현황 아래)에 둔다.
  * 받기 연결(WebSocket)은 결과 모드로 바뀌어도 끊기지 않게 이 화면이 들고 있다(마감 1시간 뒤까지).
+ * 관리자가 투표 기능을 제한했으면(05-X2) 메뉴 입력 대신 RestrictionNotice를 두고 ⋯ 관리 메뉴와 식당 달기·고치기를 숨긴다.
+ * 메뉴 카드 고르기와 「오늘은 패스」는 어떤 제한에서도 그대로다.
  */
 export default function PollDetailPage() {
   const orgId = useOrgId()
@@ -168,6 +172,7 @@ function OpenPoll({ orgId, poll, comments, chat }: { orgId: number; poll: PollDe
   const addOption = useAddOption(orgId, poll.id)
   const deleteOption = useDeleteOption(orgId, poll.id)
   const changePlace = useChangePlace(orgId, poll.id)
+  const pollBlocked = useRestriction('POLL')
   const [placeOptionId, setPlaceOptionId] = useState<number | null>(null)
   const editing = poll.options.find((o) => o.id === placeOptionId) ?? null
   const closeEdit = () => {
@@ -188,7 +193,7 @@ function OpenPoll({ orgId, poll, comments, chat }: { orgId: number; poll: PollDe
               <h1 className="min-w-0 text-2xl font-bold tracking-tight break-words">{poll.title}</h1>
               <Badge tone="brand">진행 중</Badge>
             </div>
-            <PollManageMenu orgId={orgId} poll={poll} />
+            {!pollBlocked && <PollManageMenu orgId={orgId} poll={poll} />}
           </div>
           <p className="text-sm font-medium text-text-brand">
             {formatClock(poll.closesAt)} 마감 · {remaining ?? '곧 결과가 나와요'}
@@ -198,12 +203,16 @@ function OpenPoll({ orgId, poll, comments, chat }: { orgId: number; poll: PollDe
           </div>
         </header>
 
-        <MenuInput
-          orgId={orgId}
-          existing={poll.options.map((o) => o.name)}
-          pending={addOption.isPending}
-          onAdd={(name, place) => addOption.mutateAsync({ name, ...place })}
-        />
+        {pollBlocked ? (
+          <RestrictionNotice type="POLL" restriction={pollBlocked} />
+        ) : (
+          <MenuInput
+            orgId={orgId}
+            existing={poll.options.map((o) => o.name)}
+            pending={addOption.isPending}
+            onAdd={(name, place) => addOption.mutateAsync({ name, ...place })}
+          />
+        )}
 
         {error && (
           <p role="alert" className="rounded-lg bg-bg-danger-soft px-3 py-2 text-sm text-text-danger">
@@ -229,7 +238,7 @@ function OpenPoll({ orgId, poll, comments, chat }: { orgId: number; poll: PollDe
                     selected={poll.myOptionId === option.id}
                     onSelect={() => vote.mutate(poll.myOptionId === option.id ? 'NONE' : option.id)}
                     onDelete={() => deleteOption.mutate(option.id)}
-                    onEditLink={() => setPlaceOptionId(option.id)}
+                    onEditLink={pollBlocked ? undefined : () => setPlaceOptionId(option.id)}
                     disabled={deleteOption.isPending}
                     distance={distances.get(option.id)}
                     resolved={resolved.get(option.id)}
