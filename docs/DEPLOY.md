@@ -281,6 +281,10 @@ wget -O /tmp/netdata-kickstart.sh https://get.netdata.cloud/kickstart.sh && sh /
 ```bash
 cd /etc/netdata && sudo ./edit-config netdata.conf
 ```
+`edit-config`는 우분투에서 nano로 열린다(`sudo`가 `EDITOR`를 넘기지 않고, 그다음으로 쓰는 `editor` 명령이 보통 nano를 가리킨다). vi로 열려면 `--editor vi`를 붙인다. 아래의 다른 설정 파일도 같다.
+```bash
+cd /etc/netdata && sudo ./edit-config --editor vi netdata.conf
+```
 아래를 넣는다. 대시보드는 서버 안(127.0.0.1)에서만 열고, 메모리·CPU를 쓰는 이상 탐지(ML)는 끈다. 보관 기간은 기본값(초 단위 14일 · 분 단위 3개월 · 시간 단위 2년, 단계마다 1GiB, 메타데이터까지 4GB쯤)으로 충분하다. 점심시간 패턴은 분 단위 기록으로 몇 주를 비교한다.
 ```ini
 [web]
@@ -297,6 +301,10 @@ sudo usermod -aG docker netdata
 그러면 Netdata가 Docker 컨테이너를 찾아 수집 작업을 자동으로 만드는데, Postgres 컨테이너에는 없는 계정으로 접속하려다 실패해 로그만 쌓인다. 자동 찾기를 끈다(컨테이너별 CPU·메모리는 이것과 상관없이 보인다).
 ```bash
 cd /etc/netdata && sudo ./edit-config go.d/sd/docker.conf    # disabled: no → disabled: yes
+```
+첫 줄의 `disabled: no`를 `disabled: yes`로 바꾼다. vi로 열었으면 `:%s/^disabled: no/disabled: yes/ | wq`를 입력하면 바꾸고 저장한 뒤 나간다(「Pattern not found」가 나오면 저장하지 않으니 직접 고친다). 바뀌었는지 확인한다.
+```bash
+grep -n '^disabled' /etc/netdata/go.d/sd/docker.conf    # 1:disabled: yes
 ```
 
 ### 4. 앱 지표 수집 (Spring → Netdata)
