@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.ohjumwhat.common.ApiException;
 import com.ohjumwhat.common.UserText;
+import com.ohjumwhat.report.ProfileReportService;
 import com.ohjumwhat.user.ProfilePhotoStorage;
 import com.ohjumwhat.user.User;
 import com.ohjumwhat.user.UserRepository;
@@ -48,15 +49,19 @@ public class SanctionService {
 
 	private final ProfilePhotoStorage photoStorage;
 
+	private final ProfileReportService profileReportService;
+
 	private final ApplicationEventPublisher events;
 
 	private final Clock clock;
 
 	SanctionService(UserSanctionRepository sanctionRepository, UserRepository userRepository,
-			ProfilePhotoStorage photoStorage, ApplicationEventPublisher events, Clock clock) {
+			ProfilePhotoStorage photoStorage, ProfileReportService profileReportService,
+			ApplicationEventPublisher events, Clock clock) {
 		this.sanctionRepository = sanctionRepository;
 		this.userRepository = userRepository;
 		this.photoStorage = photoStorage;
+		this.profileReportService = profileReportService;
 		this.events = events;
 		this.clock = clock;
 	}
@@ -65,6 +70,7 @@ public class SanctionService {
 	 * 제재 걸기. 회원 행을 잠가(강제 탈퇴·다른 관리자의 처리와 겹치지 않게) 확인한 뒤 제재를 저장하고, 고른 프로필 항목을 비운다.
 	 * 제한·초기화가 모두 없으면 경고다. 프로필 초기화는 마이페이지·관리자 프로필 수정과 같은 update 쿼리로 하고(로그인이 되쓰지
 	 * 않게), 올린 사진 파일은 커밋한 뒤에 지운다. 본인에게는 커밋 뒤 푸시(SanctionAppliedEvent)와 다음 화면의 안내 창으로 알린다.
+	 * 그 사람에 대한 처리 전 사람 신고는 모두 「조치함」으로 처리하고(실제로 저장된 제재를 결과 사본으로), 신고한 사람에게 알린다.
 	 *
 	 * @param days 기간(1·3·7·30일). null이면 해제할 때까지. 제한이 없으면 null이어야 한다
 	 */
@@ -114,9 +120,11 @@ public class SanctionService {
 		if (resets.contains(ProfileReset.DETAILS)) {
 			userRepository.clearDetails(userId);
 		}
+		// 초기화(영속성 컨텍스트를 비우는 update 쿼리) 뒤에 처리한다. sanction은 비워졌어도 저장한 값을 그대로 들고 있다.
+		int actionedReports = profileReportService.resolveOpenAgainst(userId, adminId, sanction);
 		events.publishEvent(new SanctionAppliedEvent(sanctionId, userId));
-		log.info("관리자 제재: adminId={}, userId={}, sanctionId={}, restrictions={}, resets={}, days={}", adminId, userId,
-				sanctionId, restrictions, resets, days);
+		log.info("관리자 제재: adminId={}, userId={}, sanctionId={}, restrictions={}, resets={}, days={}, 처리한 사람 신고 수={}",
+				adminId, userId, sanctionId, restrictions, resets, days, actionedReports);
 		return row(sanctionId, now);
 	}
 
@@ -168,14 +176,17 @@ public class SanctionService {
 		return row(sanctionId, now);
 	}
 
-	/** 아직 안내 창에서 보지 않은 내 제재(오래된 순 20건). 그사이 끝났거나 해제된 것도 상태와 함께 준다. */
+	/**
+	 * 아직 안내 창에서 보지 않은 내 제재(오래된 순 20건)와 내 사람 신고의 처리 결과(처리 시각 오래된 순 20건). 그사이 끝났거나
+	 * 해제된 제재도 상태와 함께 준다.
+	 */
 	@Transactional(readOnly = true)
 	public SanctionAlertsResponse alerts(Long userId) {
 		Instant now = Instant.now(clock);
 		return new SanctionAlertsResponse(sanctionRepository.findUnseen(userId, PageRequest.of(0, ALERT_LIMIT))
 			.stream()
 			.map(sanction -> SanctionNotice.of(sanction, now))
-			.toList());
+			.toList(), profileReportService.results(userId));
 	}
 
 	/** 안내 창을 봤다. 내 것이고 아직 보지 않은 것만 바꾸고, 남의 ID나 이미 본 ID는 그대로 둔다. */

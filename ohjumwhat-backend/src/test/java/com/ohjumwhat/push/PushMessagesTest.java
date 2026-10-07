@@ -53,6 +53,15 @@ class PushMessagesTest {
 	}
 
 	@Test
+	void 신고_결과_문구는_누구를_신고했는지_넣지_않는다() {
+		assertThat(PushMessages.reportResult())
+			.isEqualTo(new PushMessage(PushKind.REPORT_RESULT, "신고 처리 결과가 도착했어요"));
+		assertThat(PushMessages.reportResult().data()).containsEntry("kind", "REPORT_RESULT")
+			.containsEntry("url", "/me")
+			.containsEntry("tag", "ohjumwhat-report-result");
+	}
+
+	@Test
 	void data는_종류_제목_주소_묶음_네_개다() {
 		assertThat(PushMessages.guestbookRestricted().data()).containsOnlyKeys("kind", "title", "url", "tag")
 			.containsEntry("kind", "GUESTBOOK_RESTRICTED")

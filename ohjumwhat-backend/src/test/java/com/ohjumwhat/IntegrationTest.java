@@ -80,7 +80,7 @@ public abstract class IntegrationTest {
 		jdbcTemplate.execute("""
 				TRUNCATE users, organizations, memberships, poll_schedules, polls, menu_options, menu_comments, votes,
 					chat_messages, chat_reads, spring_session, blocked_accounts, notices, letters, letter_blocks, letter_reports,
-					guestbook_entries, guestbook_reports, push_devices, user_sanctions
+					guestbook_entries, guestbook_reports, push_devices, user_sanctions, profile_reports
 				RESTART IDENTITY CASCADE""");
 		try (Stream<Path> files = Files.list(photoStorage.dir())) {
 			for (Path file : files.toList()) {

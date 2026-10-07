@@ -268,6 +268,12 @@ function SanctionForm({ userId, initialReason, onCancel, onApplied }: FormProps)
         {previewSecond && <p className="mt-0.5 text-sm font-bold">{previewSecond}</p>}
       </div>
 
+      {detail.data.openProfileReportCount > 0 && (
+        // 제재(경고 포함)를 걸면 서버가 이 사람에 대한 처리 전 프로필 신고를 모두 「조치함」으로 처리하고 신고한 사람에게 결과를 보낸다.
+        <p className="text-xs text-text-secondary">
+          처리 전 프로필 신고 {detail.data.openProfileReportCount}건도 「조치함」으로 처리되고, 신고한 사람에게 결과가 가요.
+        </p>
+      )}
       {apply.error && (
         <p role="alert" className="text-sm text-text-danger">
           {apply.error.message}
