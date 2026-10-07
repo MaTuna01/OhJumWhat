@@ -2,6 +2,16 @@
 
 버전은 `vMAJOR.MINOR.PATCH`로 붙인다. 릴리스 절차는 [docs/DEPLOY.md](docs/DEPLOY.md#릴리스와-버전)에 있다.
 
+## v1.11.2 — 2026-10-07
+
+- 서버 모니터링(#107, #108): 점심시간 트래픽과 서버 여유를 보고, 서비스가 죽으면 알 수 있게 했다(Notion 「27. 서버 모니터링 구축」). 서버에 직접 설치하는 Netdata(서버·컨테이너 지표) + 앱 지표 + 외부 업타임 체크(UptimeRobot 키워드 감시)로 본다. 설치·설정은 `docs/DEPLOY.md` 「모니터링」. 사용자에게 보이는 변경은 없다.
+  - actuator(`health`, `prometheus`)를 관리 포트 8081로 옮겼다(`micrometer-registry-prometheus`). 관리 포트는 인증 없이 열리므로 네트워크로만 막는다: Caddy는 8080만 프록시하고, compose는 8081을 서버의 127.0.0.1에만 연다. 앱 포트의 `/actuator/**`는 없는 경로(SPA 화면)다.
+  - 공개 헬스 체크는 앱 포트의 `/healthz`(health 그룹 `public`: `db, diskSpace, readinessState`, 상태만)다. DB가 멈추면 약 30초 뒤 503 `DOWN`, 시작·종료 중에도 503이다. 배포 헬스 체크도 `/healthz`로 바꿨다.
+  - 지표: 엔드포인트별 요청 수·응답 시간(`http_server_requests`), JVM 힙, DB 커넥션 풀(`hikaricp`), 채팅 WebSocket 연결 수(`ohjumwhat_chat_connections`, `chat/ChatMetrics`). 시계열만 늘리는 저장소 호출 지표(`spring.data.repository`)는 껐다.
+  - `ManagementEndpointsTest`(실제 포트), `ManagementConfigTest`(운영 이미지가 쓰는 `application.example.yml`의 관리 포트·공개 범위를 확인하고 테스트 설정과 같은지 본다).
+  - `deploy/docker-compose.yml`: 관리 포트 `127.0.0.1:8081`, `x-logging`으로 모든 컨테이너 로그를 10MB × 5개로 제한(지금까지는 제한이 없었다).
+- 배포: 로그 설정이 바뀌어 첫 배포 때 app·db·caddy 컨테이너를 모두 다시 만든다(수십 초 끊김, 다시 만든 컨테이너의 지난 로그는 사라진다). DB 스키마·설정 키는 바뀌지 않는다. v1.11.1까지의 이미지로 롤백하면 `/healthz`가 없어 업타임 체크(키워드 감시)가 장애로 알린다.
+
 ## v1.11.1 — 2026-10-06
 
 - 웹 푸시 알림(#102, #103): 새 방명록(→ 주인)·글 제한 경고(→ 쓴 사람)·새 쪽지(→ 받은 사람)를 FCM 웹 푸시로도 알린다(Notion 「20. 방명록 기능 추가」 2차). 화면 안 배지는 그대로다. 기존 알림의 고도화라 PATCH로 올렸다.
