@@ -19,11 +19,12 @@ final class AdminResponses {
 	/**
 	 * 개요: 전체 회원·조직 수, 오늘 투표 수, 지금 진행 중인 투표 수, 최근 7일 가입자 수, 차단 수, 처리할 신고 수,
 	 * 지금 이용이 제한된 회원 수(진행 중인 제재가 있는 회원).
-	 * openReportCount는 쪽지와 방명록의 처리 전 신고를 합친 수다(openLetterReportCount + openGuestbookReportCount).
+	 * openReportCount는 쪽지·방명록·사람(프로필) 신고의 처리 전 신고를 합친 수다
+	 * (openLetterReportCount + openGuestbookReportCount + openProfileReportCount).
 	 */
 	record Stats(long userCount, long organizationCount, long todayPollCount, long openPollCount,
 			long newUserCount, long blockedCount, long openReportCount, long openLetterReportCount,
-			long openGuestbookReportCount, long restrictedUserCount) {
+			long openGuestbookReportCount, long openProfileReportCount, long restrictedUserCount) {
 	}
 
 	/**
@@ -54,10 +55,11 @@ final class AdminResponses {
 	 * @param foodTags 좋아하는 음식(없으면 빈 목록)
 	 * @param details 상세 프로필(채우지 않았으면 null)
 	 * @param lastAccessAt 세션의 마지막 요청 시각(로그인은 30일 유지되므로 최근 로그인보다 최근 활동에 가깝다)
+	 * @param openProfileReportCount 이 회원에 대한 처리 전 사람 신고 수(제재하면 함께 「조치함」으로 처리된다)
 	 */
 	record UserDetail(UserRow user, String nickname, String bio, List<String> foodTags,
 			ProfileDetailsResponse details, Instant lastAccessAt, List<UserOrganization> organizations,
-			Activity activity) {
+			Activity activity, long openProfileReportCount) {
 	}
 
 	record UserOrganization(Long id, String name, long memberCount, Instant joinedAt, Instant lastVisitedAt) {

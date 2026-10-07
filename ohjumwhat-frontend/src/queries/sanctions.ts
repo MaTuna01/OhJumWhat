@@ -1,11 +1,13 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api.ts'
-import type { SanctionInput, SanctionNotice, SanctionRow } from '../lib/sanctions.ts'
+import { reportReason } from '../lib/letters.ts'
+import type { ReportResult, SanctionInput, SanctionNotice, SanctionReason, SanctionRow } from '../lib/sanctions.ts'
 import { useAdminMutation } from './admin.ts'
 
-/** 아직 확인하지 않은 안내. (신고 결과가 더해지면 키가 늘어난다. 없는 키는 빈 배열로 본다) */
+/** 아직 확인하지 않은 안내: 내게 걸린 제재, 내가 한 사람 신고의 처리 결과. 없는 키는 빈 배열로 본다. */
 export type SanctionAlerts = {
   sanctions?: SanctionNotice[]
+  reportResults?: ReportResult[]
 }
 
 export const sanctionKeys = {
@@ -41,6 +43,32 @@ export function useMarkSanctionsSeen() {
       )
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: sanctionKeys.alerts }),
+  })
+}
+
+/** 사람 신고의 처리 결과를 확인했다(useMarkSanctionsSeen과 같은 방식). */
+export function useMarkReportResultsSeen() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (ids: number[]) => api<void>('/api/profile-reports/results/seen', { method: 'POST', body: { ids } }),
+    onMutate: async (ids) => {
+      await queryClient.cancelQueries({ queryKey: sanctionKeys.alerts })
+      queryClient.setQueryData<SanctionAlerts>(sanctionKeys.alerts, (data) =>
+        data ? { ...data, reportResults: (data.reportResults ?? []).filter((r) => !ids.includes(r.id)) } : data,
+      )
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: sanctionKeys.alerts }),
+  })
+}
+
+/**
+ * 같은 조직 멤버를 신고한다(프로필 모달 「이 사람 신고하기」). 설명은 한 줄로 보낸다(비면 null).
+ * 처리 전 신고가 이미 있으면 서버가 그대로 둔다(같은 204). 처리되면 결과가 안내 창과 푸시로 온다.
+ */
+export function useReportUser(userId: number) {
+  return useMutation({
+    mutationFn: ({ reason, detail }: { reason: SanctionReason; detail: string }) =>
+      api<void>(`/api/users/${userId}/report`, { method: 'POST', body: { reason, detail: reportReason(detail) } }),
   })
 }
 

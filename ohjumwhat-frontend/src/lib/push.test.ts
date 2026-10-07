@@ -134,6 +134,10 @@ describe('pushInvalidations', () => {
     expect(pushInvalidations('SANCTION')).toEqual([meQueryKey, sanctionKeys.alerts])
   })
 
+  it('신고 처리 결과 알림은 안내(결과 창)를 다시 받는다', () => {
+    expect(pushInvalidations('REPORT_RESULT')).toEqual([sanctionKeys.alerts])
+  })
+
   it('모르는 종류는 아무것도 다시 받지 않는다', () => {
     expect(pushInvalidations('UNKNOWN')).toEqual([])
     expect(pushInvalidations(undefined)).toEqual([])

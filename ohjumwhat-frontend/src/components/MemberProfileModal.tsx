@@ -4,7 +4,7 @@ import { useLetterComposer } from '../hooks/useLetterComposer.ts'
 import { guestbookTabLabel } from '../lib/guestbook.ts'
 import { useGuestbook } from '../queries/guestbook.ts'
 import { useMe } from '../queries/me.ts'
-import { type Member, useMembers } from '../queries/orgs.ts'
+import { type Member, useMembers, useOrganization } from '../queries/orgs.ts'
 import { useMonthlyMakers } from '../queries/ranking.ts'
 import type { Person } from '../queries/polls.ts'
 import Avatar from './Avatar.tsx'
@@ -14,6 +14,7 @@ import { GuestbookPanel } from './Guestbook.tsx'
 import Modal from './Modal.tsx'
 import ProfileDetailList from './ProfileDetailList.tsx'
 import { MakerBadge } from './RankingBadges.tsx'
+import ReportUserDialog from './ReportUserDialog.tsx'
 
 type Props = {
   orgId: number
@@ -133,10 +134,13 @@ function ProfileTabs({ id, tab, onChange, guestbookCount }: { id: string; tab: T
   )
 }
 
-/** 「프로필 정보」 탭: 한줄 소개·좋아하는 음식·상세 프로필과 쪽지 보내기(남) 또는 마이페이지 링크(나) */
+/** 「프로필 정보」 탭: 한줄 소개·좋아하는 음식·상세 프로필과 쪽지 보내기·신고(남) 또는 마이페이지 링크(나) */
 function ProfileInfo({ orgId, member, isMe, onClose }: { orgId: number; member: Member; isMe: boolean; onClose: () => void }) {
   const { compose } = useLetterComposer()
+  const org = useOrganization(orgId)
+  const [reporting, setReporting] = useState(false)
   const hasIntro = member.bio != null || member.foodTags.length > 0 || member.details != null
+  const person = { userId: member.userId, name: member.name, profileImageUrl: member.profileImageUrl }
 
   return (
     <div className="flex flex-col items-center gap-3">
@@ -162,17 +166,28 @@ function ProfileInfo({ orgId, member, isMe, onClose }: { orgId: number; member: 
           마이페이지에서 고치기
         </Link>
       ) : (
-        // 지금 같은 조직 멤버에게만(Figma 07-P). 이 모달을 닫고 받는 사람이 정해진 쪽지 쓰기(10-M1)를 연다.
-        <Button
-          variant="secondary"
-          className="mt-1 w-full"
-          onClick={() => {
-            onClose()
-            compose({ kind: 'new', organizationId: orgId, recipient: { userId: member.userId, name: member.name, profileImageUrl: member.profileImageUrl } })
-          }}
-        >
-          쪽지 보내기
-        </Button>
+        <>
+          {/* 지금 같은 조직 멤버에게만(Figma 07-P). 이 모달을 닫고 받는 사람이 정해진 쪽지 쓰기(10-M1)를 연다. */}
+          <Button
+            variant="secondary"
+            className="mt-1 w-full"
+            onClick={() => {
+              onClose()
+              compose({ kind: 'new', organizationId: orgId, recipient: person })
+            }}
+          >
+            쪽지 보내기
+          </Button>
+          {/* Figma 07-P6: 프로필 내용뿐 아니라 그 사람의 행동도 신고한다. 신고 창(07-M5)은 이 모달 위에 열리고, 닫아도 프로필은 그대로다. */}
+          <button
+            type="button"
+            onClick={() => setReporting(true)}
+            className="rounded text-xs font-medium text-text-tertiary underline hover:text-text-secondary focus-visible:outline-2 focus-visible:outline-border-brand"
+          >
+            이 사람 신고하기
+          </button>
+          <ReportUserDialog person={reporting ? person : null} orgName={org.data?.name ?? null} onClose={() => setReporting(false)} />
+        </>
       )}
     </div>
   )

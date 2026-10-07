@@ -324,3 +324,134 @@ export function noticePeriodText(notice: Pick<SanctionNotice, 'createdAt' | 'end
   const lifted = notice.liftedAt ? ` → ${formatMonthDay(notice.liftedAt)} 해제` : ''
   return `${endWithDays(notice.createdAt, notice.endsAt)}${lifted}`
 }
+
+// 사람 신고(프로필 모달 「이 사람 신고하기」, 이슈 #115). 분류는 제재 사유(SanctionReason)를 그대로 쓴다.
+
+/** 사람 신고 처리 결과(서버 ProfileReportResolution): ACTIONED = 제재(경고 포함), DISMISSED = 문제 없음, WITHDRAWN = 강제 탈퇴 */
+export type ProfileReportResolution = 'ACTIONED' | 'DISMISSED' | 'WITHDRAWN'
+
+export const RESOLUTION_LABELS: Record<ProfileReportResolution, string> = {
+  ACTIONED: '조치함',
+  DISMISSED: '문제 없음',
+  WITHDRAWN: '탈퇴 처리',
+}
+
+/** 조치 내용의 사본(처리한 순간 제재에 실제로 저장된 값). 나중에 해제·탈퇴돼도 바뀌지 않는다. */
+export type ReportAction = {
+  restrictions: Restriction[]
+  resets: ProfileReset[]
+  /** 끝나는 시각(제한이 없거나 해제할 때까지면 null) */
+  endsAt: string | null
+}
+
+/** 신고한 사람이 받는 처리 결과(GET /api/sanctions/alerts의 reportResults, 처리 시각 오래된 순). 관리자 설명은 오지 않는다. */
+export type ReportResult = ReportAction & {
+  id: number
+  /** 신고할 때 이름 */
+  targetName: string
+  reportedAt: string
+  reason: SanctionReason
+  resolution: ProfileReportResolution
+  resolvedAt: string
+}
+
+/** 신고할 때(또는 지금)의 프로필. 관리자가 둘을 나란히 비교한다(사진은 저장하지 않는다). */
+export type ProfileSnapshot = {
+  name: string
+  bio: string | null
+  foodTags: string[]
+  hobbies: string[]
+  jobTitle: string | null
+}
+
+/** 조치한 제한·초기화가 있는지(없으면 경고만) */
+function hasAction(action: Pick<ReportAction, 'restrictions' | 'resets'>): boolean {
+  return action.restrictions.length > 0 || action.resets.length > 0
+}
+
+/**
+ * 결과 창(Figma ReportResult)의 조치 항목(ACTIONED만): 「채팅 금지 · 쪽지 금지 · 7일」(무기한이면 「· 해제할 때까지」),
+ * 「별명·사진 초기화」, 둘 다 없으면 「경고 (이용은 제한하지 않았어요)」. 일수는 처리 시각부터 끝나는 시각까지를 반올림한다.
+ */
+export function reportResultItems(result: Pick<ReportResult, 'resolution' | 'restrictions' | 'resets' | 'endsAt' | 'resolvedAt'>): string[] {
+  if (result.resolution !== 'ACTIONED') return []
+  const items: string[] = []
+  if (result.restrictions.length > 0) {
+    const period = result.endsAt ? `${periodDays(result.resolvedAt, result.endsAt)}일` : '해제할 때까지'
+    items.push([...sortRestrictions(result.restrictions).map((r) => RESTRICTION_LABELS[r]), period].join(' · '))
+  }
+  const reset = resetSummary(result.resets)
+  if (reset) items.push(reset)
+  return items.length > 0 ? items : ['경고 (이용은 제한하지 않았어요)']
+}
+
+/** 결과 창의 설명 */
+export function reportResultDescription(result: Pick<ReportResult, 'resolution' | 'restrictions' | 'resets'>): string {
+  switch (result.resolution) {
+    case 'ACTIONED':
+      return hasAction(result) ? '관리자가 신고 내용을 확인하고 아래와 같이 조치했어요.' : '관리자가 신고 내용을 확인하고 경고를 보냈어요.'
+    case 'DISMISSED':
+      return '관리자가 신고 내용을 확인했지만, 이번에는 조치하지 않았어요.'
+    case 'WITHDRAWN':
+      return '관리자가 신고 내용을 확인하고 이 사람을 탈퇴 처리했어요.'
+  }
+}
+
+/** 결과 창 아래의 한 줄 */
+export function reportResultCaption(resolution: ProfileReportResolution): string {
+  return resolution === 'DISMISSED' ? '신고해 주셔서 고마워요. 같은 일이 계속되면 다시 신고해 주세요.' : '신고한 사실과 신고한 사람은 상대에게 알리지 않아요.'
+}
+
+/** 관리자 신고 목록의 처리 줄 앞부분: 「조치함 — 채팅 금지 · 7일 · 별명 초기화」, 「조치함 — 경고만 보냄」, 「문제 없음」, 「탈퇴 처리」 */
+export function reportOutcome(resolution: ProfileReportResolution, result: ReportAction | null, resolvedAt: string): string {
+  if (resolution !== 'ACTIONED') return RESOLUTION_LABELS[resolution]
+  const action = result ?? { restrictions: [], resets: [], endsAt: null }
+  const summary = hasAction(action) ? reportResultItems({ resolution, resolvedAt, ...action }).join(' · ') : '경고만 보냄'
+  return `${RESOLUTION_LABELS.ACTIONED} — ${summary}`
+}
+
+const SNAPSHOT_LABELS = { bio: '한줄 소개', foodTags: '좋아하는 음식', hobbies: '취미', jobTitle: '직급' } as const
+
+type SnapshotField = keyof typeof SNAPSHOT_LABELS
+
+const SNAPSHOT_FIELDS = Object.keys(SNAPSHOT_LABELS) as SnapshotField[]
+
+/** 항목 하나의 글(비었으면 null): 소개는 「」로 감싸고, 음식·취미는 쉼표로 잇는다. */
+function fieldText(profile: ProfileSnapshot, field: SnapshotField): string | null {
+  switch (field) {
+    case 'bio':
+      return profile.bio ? `「${profile.bio}」` : null
+    case 'foodTags':
+    case 'hobbies':
+      return profile[field].length > 0 ? profile[field].join(', ') : null
+    case 'jobTitle':
+      return profile.jobTitle || null
+  }
+}
+
+/** 이름과 채운 항목들: 「이름 「…」 · 한줄 소개 「…」 · 좋아하는 음식 … · 취미 … · 직급 …」 */
+function profileParts(profile: ProfileSnapshot, emptied?: ProfileSnapshot): string[] {
+  const parts = [`이름 「${profile.name}」`]
+  for (const field of SNAPSHOT_FIELDS) {
+    const text = fieldText(profile, field)
+    if (text) parts.push(`${SNAPSHOT_LABELS[field]} ${text}`)
+    // 신고할 때 있던 항목을 지웠으면 「한줄 소개 없음」으로 남긴다.
+    else if (emptied && fieldText(emptied, field)) parts.push(`${SNAPSHOT_LABELS[field]} 없음`)
+  }
+  return parts
+}
+
+/** 관리자 신고 목록의 「신고할 때 — 이름 「…」 · 한줄 소개 「…」 · …」(빈 항목은 뺀다) */
+export function snapshotText(snapshot: ProfileSnapshot): string {
+  return `신고할 때 — ${profileParts(snapshot).join(' · ')}`
+}
+
+/**
+ * 관리자 신고 목록의 「지금 — …」: 신고할 때와 같으면 「지금 — 같음」, 탈퇴했으면 「지금 — 탈퇴한 사용자」.
+ * 신고할 때 있던 항목을 지웠으면 「한줄 소개 없음」처럼 남기고, 둘 다 빈 항목은 뺀다.
+ */
+export function currentProfileText(snapshot: ProfileSnapshot, current: ProfileSnapshot | null): string {
+  if (!current) return '지금 — 탈퇴한 사용자'
+  const same = current.name === snapshot.name && SNAPSHOT_FIELDS.every((field) => fieldText(current, field) === fieldText(snapshot, field))
+  return same ? '지금 — 같음' : `지금 — ${profileParts(current, snapshot).join(' · ')}`
+}

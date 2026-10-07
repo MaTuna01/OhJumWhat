@@ -1,5 +1,6 @@
 import { type ReactNode, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
+import Avatar from '../../components/Avatar.tsx'
 import Badge from '../../components/Badge.tsx'
 import Button from '../../components/Button.tsx'
 import ConfirmDialog from '../../components/ConfirmDialog.tsx'
@@ -10,33 +11,43 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle.ts'
 import { useNow } from '../../hooks/useNow.ts'
 import { ApiError } from '../../lib/api.ts'
 import { RESTRICTED_TEXT } from '../../lib/guestbook.ts'
+import { currentProfileText, REASON_LABELS, reportOutcome, RESOLUTION_LABELS, snapshotText } from '../../lib/sanctions.ts'
 import { formatClock, formatDay, formatDayTime } from '../../lib/time.ts'
 import { columnsClass } from '../../lib/ui.ts'
 import {
   type AdminGuestbookReport,
   type AdminLetterReport,
+  type AdminProfileReport,
   useAdminGuestbookReports,
   useAdminLetterReports,
+  useAdminProfileReports,
   useAdminStats,
   useDismissGuestbookReport,
+  useDismissProfileReport,
   useResolveLetterReport,
   useRestrictGuestbookReport,
 } from '../../queries/admin.ts'
 
 type Status = 'open' | 'all'
-type ReportType = 'letter' | 'guestbook'
+type ReportType = 'letter' | 'guestbook' | 'profile'
 
-/** 서버가 한 번에 주는 신고 수(LetterService·GuestbookService의 관리자 목록 한도) */
+const REPORT_TYPES: { value: ReportType; label: string }[] = [
+  { value: 'letter', label: '쪽지' },
+  { value: 'guestbook', label: '방명록' },
+  { value: 'profile', label: '프로필' },
+]
+
+/** 서버가 한 번에 주는 신고 수(LetterService·GuestbookService·ProfileReportService의 관리자 목록 한도) */
 const REPORT_LIMIT = 100
 
 /**
- * Figma A09·DA09 쪽지 신고, A09b·DA09b 방명록 신고. 위의 [쪽지 N][방명록 N](처리 전 수)으로 바꾸고 주소 ?type=guestbook으로 기억한다.
- * 쪽지는 받은 사람이, 방명록은 프로필 주인이 신고한 글만 본다(신고되지 않은 글은 관리자도 볼 수 없다).
- * 줄마다 쓴 사람을 「제재하기」(A03-M5)할 수 있고, 쪽지 신고는 제재가 들어가면 처리 완료로 바꾼다.
+ * Figma A09·DA09 쪽지 신고, A09b·DA09b 방명록 신고, A09c·DA09c 프로필(사람) 신고. 위의 [쪽지 N][방명록 N][프로필 N](처리 전 수)으로 바꾸고
+ * 주소 ?type=guestbook·profile로 기억한다. 쪽지는 받은 사람이, 방명록은 프로필 주인이 신고한 글만 본다(신고되지 않은 글은 관리자도 볼 수 없다).
+ * 줄마다 쓴 사람(신고된 사람)을 「제재하기」(A03-M5)할 수 있고, 쪽지 신고는 제재가 들어가면 처리 완료로, 프로필 신고는 서버가 「조치함」으로 바꾼다.
  */
 export default function AdminReportsPage() {
   const [params, setParams] = useSearchParams()
-  const type: ReportType = params.get('type') === 'guestbook' ? 'guestbook' : 'letter'
+  const type: ReportType = REPORT_TYPES.find((t) => t.value === params.get('type'))?.value ?? 'letter'
   const [status, setStatus] = useState<Status>('open')
   const stats = useAdminStats()
   const now = useNow(60_000)
@@ -45,14 +56,15 @@ export default function AdminReportsPage() {
   const openCounts: Record<ReportType, number | undefined> = {
     letter: stats.data?.openLetterReportCount,
     guestbook: stats.data?.openGuestbookReportCount,
+    profile: stats.data?.openProfileReportCount,
   }
 
   return (
     <div className="space-y-3">
       <div role="group" aria-label="신고 종류" className="flex gap-1.5">
-        {(['letter', 'guestbook'] as const).map((value) => (
-          <Pill key={value} pressed={type === value} onClick={() => setParams(value === 'guestbook' ? { type: 'guestbook' } : {}, { replace: true })}>
-            {value === 'letter' ? '쪽지' : '방명록'}
+        {REPORT_TYPES.map(({ value, label }) => (
+          <Pill key={value} pressed={type === value} onClick={() => setParams(value === 'letter' ? {} : { type: value }, { replace: true })}>
+            {label}
             {(openCounts[value] ?? 0) > 0 && ` ${openCounts[value]}`}
           </Pill>
         ))}
@@ -64,7 +76,13 @@ export default function AdminReportsPage() {
           </Pill>
         ))}
       </div>
-      {type === 'guestbook' ? <GuestbookReports status={status} now={now} /> : <LetterReports status={status} now={now} />}
+      {type === 'profile' ? (
+        <ProfileReports status={status} now={now} />
+      ) : type === 'guestbook' ? (
+        <GuestbookReports status={status} now={now} />
+      ) : (
+        <LetterReports status={status} now={now} />
+      )}
     </div>
   )
 }
@@ -341,6 +359,127 @@ function GuestbookReportRow({ report, now, busy, onDismiss, onRestrict, onSancti
           </>
         )}
       </div>
+    </li>
+  )
+}
+
+/**
+ * 프로필(사람) 신고(A09c·DA09c): 「문제 없음」은 확인 없이 바로, 「제재하기」는 신고 분류를 사유로 고른 제재 창을 연다.
+ * 제재가 들어가면 서버가 그 사람에 대한 처리 전 신고를 모두 「조치함」으로 바꾸고, 목록은 다시 받아 그대로 보여준다.
+ */
+function ProfileReports({ status, now }: { status: Status; now: number }) {
+  const reports = useAdminProfileReports(status)
+  const dismiss = useDismissProfileReport()
+  const [sanctioning, setSanctioning] = useState<AdminProfileReport | null>(null)
+
+  return (
+    <>
+      {reports.data && !reports.isPlaceholderData && (
+        <Summary>{summary('프로필', status, reports.data.length, reports.data.filter((r) => r.resolution === null).length)}</Summary>
+      )}
+      <div className={`flex flex-col gap-4 pt-1 ${columnsClass}`}>
+        <div className="min-w-0">
+          {reports.isPending ? (
+            <PageLoader />
+          ) : reports.isError ? (
+            <p className="text-sm text-text-danger">{reports.error.message}</p>
+          ) : (
+            <ListCard>
+              {reports.data.length === 0 && <EmptyRow>{status === 'open' ? '처리할 신고가 없어요.' : '신고가 없어요.'}</EmptyRow>}
+              {reports.data.map((report) => (
+                <ProfileReportRow
+                  key={report.id}
+                  report={report}
+                  now={now}
+                  busy={dismiss.isPending}
+                  onDismiss={() => dismiss.mutate(report.id)}
+                  onSanction={() => setSanctioning(report)}
+                />
+              ))}
+            </ListCard>
+          )}
+          {dismiss.error && (
+            <p role="alert" className="mt-2 text-sm text-text-danger">
+              {dismiss.error instanceof ApiError ? dismiss.error.message : '처리하지 못했어요.'}
+            </p>
+          )}
+        </div>
+        <Notes>
+          <li>· 프로필 신고는 같은 조직 멤버가 프로필에서 사람을 신고한 거예요. 신고할 때의 이름·한줄 소개·좋아하는 음식·취미·직급을 지금 값과 나란히 보여줘요(사진은 지금 사진).</li>
+          <li>
+            · 「제재하기」로 제재(경고 포함)를 걸면 그 사람에 대한 처리 전 프로필 신고가 모두 「조치함」이 되고, 「문제 없음」은 확인 없이 바로 처리해요. 어느
+            쪽이든 신고한 사람에게 결과가 가고(관리자 설명은 보이지 않아요), 강제 탈퇴하면 「탈퇴 처리」로 알려요.
+          </li>
+        </Notes>
+      </div>
+      <SanctionModal
+        userId={sanctioning?.targetId ?? -1}
+        open={sanctioning !== null && sanctioning.targetId !== null}
+        onClose={() => setSanctioning(null)}
+        initialReason={sanctioning?.reason}
+        onApplied={() => setSanctioning(null)}
+      />
+    </>
+  )
+}
+
+/** 신고된 사람·신고한 사람: 「김철수 (kim@example.com)」, 탈퇴했으면 「탈퇴한 사용자」 */
+function personText(name: string | null, email: string | null): string {
+  if (!name) return '탈퇴한 사용자'
+  return email ? `${name} (${email})` : name
+}
+
+type ProfileRowProps = { report: AdminProfileReport; now: number; busy: boolean; onDismiss: () => void; onSanction: () => void }
+
+function ProfileReportRow({ report, now, busy, onDismiss, onSanction }: ProfileRowProps) {
+  const open = report.resolution === null
+  // 관리자는 제재할 수 없어 「문제 없음」으로만 처리한다.
+  const canSanction = open && report.targetId !== null && !report.targetAdmin
+
+  return (
+    <li className="space-y-2 py-3.5">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {report.resolution ? <Badge tone="neutral">{RESOLUTION_LABELS[report.resolution]}</Badge> : <Badge tone="warning">처리 전</Badge>}
+        <span className="text-xs text-text-tertiary">{formatDayTime(report.reportedAt, now)} 신고</span>
+      </div>
+      <div className="rounded-lg bg-bg-subtle px-3 py-2.5 text-sm break-words">
+        <p>{snapshotText(report.snapshot)}</p>
+        <p>{currentProfileText(report.snapshot, report.current)}</p>
+      </div>
+      <div className="flex items-center gap-2">
+        {/* 사진은 신고할 때 것을 저장하지 않아 지금 사진을 보여준다. */}
+        {report.targetId !== null && <Avatar name={report.targetName ?? ''} imageUrl={report.targetProfileImageUrl} size="sm" />}
+        <p className="min-w-0 text-xs font-medium break-words">
+          신고된 사람 {personText(report.targetName, report.targetEmail)} · 신고한 사람 {personText(report.reporterName, report.reporterEmail)}
+        </p>
+      </div>
+      <p className="text-xs text-text-secondary">분류: {REASON_LABELS[report.reason]}</p>
+      {report.detail && <p className="text-xs break-words text-text-secondary">설명: {report.detail}</p>}
+      {open && report.targetAdmin && <p className="text-xs text-text-tertiary">관리자는 제재할 수 없어 「문제 없음」으로만 처리해요.</p>}
+      {report.resolution && report.resolvedAt && (
+        <p className="text-xs text-text-secondary">
+          {reportOutcome(report.resolution, report.result, report.resolvedAt)} · {report.resolvedByName ?? '관리자'} {formatDayTime(report.resolvedAt, now)}
+        </p>
+      )}
+      {(report.targetId !== null || open) && (
+        <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 pt-1">
+          {report.targetId !== null && (
+            <Link to={`/admin/users/${report.targetId}`} className="text-sm font-medium text-text-brand hover:underline">
+              신고된 사람 보기 ›
+            </Link>
+          )}
+          {open && (
+            <Button variant="secondary" disabled={busy} onClick={onDismiss}>
+              문제 없음
+            </Button>
+          )}
+          {canSanction && (
+            <Button variant="danger" disabled={busy} onClick={onSanction}>
+              제재하기
+            </Button>
+          )}
+        </div>
+      )}
     </li>
   )
 }

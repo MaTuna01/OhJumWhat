@@ -3,6 +3,7 @@ import {
   type ActiveSanction,
   activeRestrictions,
   contentText,
+  currentProfileText,
   currentRestrictionsText,
   endText,
   isActiveSanction,
@@ -12,13 +13,20 @@ import {
   noticeTitle,
   periodDays,
   periodText,
+  type ProfileSnapshot,
   reasonText,
+  type ReportResult,
+  reportOutcome,
+  reportResultCaption,
+  reportResultDescription,
+  reportResultItems,
   resetSummary,
   type Restriction,
   restrictionNotice,
   restrictionOf,
   restrictionSummary,
   type SanctionNotice,
+  snapshotText,
   untilText,
 } from './sanctions.ts'
 
@@ -234,5 +242,83 @@ describe('본인 안내 창(SanctionNotice)', () => {
       '10월 14일 오후 6:00까지 (7일) → 10월 9일 해제',
     )
     expect(noticePeriodText(notice({ endsAt: null }))).toBe('해제할 때까지')
+  })
+})
+
+describe('사람 신고 처리 결과(ReportResult)', () => {
+  const resolvedAt = kst('2026-10-07T14:30:00')
+  const result = (extra: Partial<ReportResult>): ReportResult => ({
+    id: 1,
+    targetName: '김철수',
+    reportedAt: kst('2026-10-07T11:20:00'),
+    reason: 'ABUSE',
+    resolution: 'ACTIONED',
+    resolvedAt,
+    restrictions: [],
+    resets: [],
+    endsAt: null,
+    ...extra,
+  })
+
+  it('조치 항목: 제한 · 기간(처리 시각부터 반올림), 초기화', () => {
+    // 제재는 처리와 같은 트랜잭션에서 저장돼 몇 밀리초 늦을 수 있다.
+    const endsAt = new Date(Date.parse(resolvedAt) + 7 * 86_400_000 + 35).toISOString()
+    expect(reportResultItems(result({ restrictions: ['LETTER', 'CHAT'], endsAt, resets: ['PHOTO', 'NICKNAME'] }))).toEqual([
+      '채팅 금지 · 쪽지 금지 · 7일',
+      '별명·사진 초기화',
+    ])
+    expect(reportResultItems(result({ restrictions: ['SUSPEND'], endsAt: null }))).toEqual(['활동 정지 · 해제할 때까지'])
+    expect(reportResultItems(result({ resets: ['INTRO'] }))).toEqual(['소개 초기화'])
+  })
+
+  it('제한·초기화가 없는 조치는 경고, 문제 없음·탈퇴 처리는 항목이 없다', () => {
+    expect(reportResultItems(result({}))).toEqual(['경고 (이용은 제한하지 않았어요)'])
+    expect(reportResultItems(result({ resolution: 'DISMISSED' }))).toEqual([])
+    expect(reportResultItems(result({ resolution: 'WITHDRAWN' }))).toEqual([])
+  })
+
+  it('결과별 설명과 아래 한 줄', () => {
+    expect(reportResultDescription(result({ restrictions: ['CHAT'], endsAt: kst('2026-10-14T14:30:00') }))).toBe(
+      '관리자가 신고 내용을 확인하고 아래와 같이 조치했어요.',
+    )
+    expect(reportResultDescription(result({ resets: ['NICKNAME'] }))).toBe('관리자가 신고 내용을 확인하고 아래와 같이 조치했어요.')
+    expect(reportResultDescription(result({}))).toBe('관리자가 신고 내용을 확인하고 경고를 보냈어요.')
+    expect(reportResultDescription(result({ resolution: 'DISMISSED' }))).toBe('관리자가 신고 내용을 확인했지만, 이번에는 조치하지 않았어요.')
+    expect(reportResultDescription(result({ resolution: 'WITHDRAWN' }))).toBe('관리자가 신고 내용을 확인하고 이 사람을 탈퇴 처리했어요.')
+    expect(reportResultCaption('DISMISSED')).toBe('신고해 주셔서 고마워요. 같은 일이 계속되면 다시 신고해 주세요.')
+    expect(reportResultCaption('ACTIONED')).toBe('신고한 사실과 신고한 사람은 상대에게 알리지 않아요.')
+    expect(reportResultCaption('WITHDRAWN')).toBe('신고한 사실과 신고한 사람은 상대에게 알리지 않아요.')
+  })
+
+  it('관리자 목록의 처리 줄', () => {
+    const action = { restrictions: ['SUSPEND'] as Restriction[], resets: [], endsAt: kst('2026-10-10T14:30:00') }
+    expect(reportOutcome('ACTIONED', action, resolvedAt)).toBe('조치함 — 활동 정지 · 3일')
+    expect(reportOutcome('ACTIONED', { restrictions: [], resets: [], endsAt: null }, resolvedAt)).toBe('조치함 — 경고만 보냄')
+    expect(reportOutcome('ACTIONED', null, resolvedAt)).toBe('조치함 — 경고만 보냄')
+    expect(reportOutcome('DISMISSED', null, resolvedAt)).toBe('문제 없음')
+    expect(reportOutcome('WITHDRAWN', null, resolvedAt)).toBe('탈퇴 처리')
+  })
+})
+
+describe('관리자 신고 목록의 프로필 비교', () => {
+  const snapshot: ProfileSnapshot = { name: '바보멍청이', bio: '다들 메뉴 센스 꽝', foodTags: ['쌀국수', '마라탕'], hobbies: [], jobTitle: '사원' }
+
+  it('신고할 때: 빈 항목은 뺀다', () => {
+    expect(snapshotText(snapshot)).toBe('신고할 때 — 이름 「바보멍청이」 · 한줄 소개 「다들 메뉴 센스 꽝」 · 좋아하는 음식 쌀국수, 마라탕 · 직급 사원')
+    expect(snapshotText({ name: '정하늘', bio: null, foodTags: [], hobbies: ['러닝'], jobTitle: null })).toBe('신고할 때 — 이름 「정하늘」 · 취미 러닝')
+  })
+
+  it('지금: 같으면 「같음」, 탈퇴했으면 「탈퇴한 사용자」', () => {
+    expect(currentProfileText(snapshot, { ...snapshot, foodTags: [...snapshot.foodTags] })).toBe('지금 — 같음')
+    expect(currentProfileText(snapshot, null)).toBe('지금 — 탈퇴한 사용자')
+  })
+
+  it('지금: 바뀌었으면 지금 값, 신고할 때 있던 항목을 지웠으면 「없음」', () => {
+    expect(currentProfileText(snapshot, { ...snapshot, name: '최지우', bio: null, hobbies: ['러닝'] })).toBe(
+      '지금 — 이름 「최지우」 · 한줄 소개 없음 · 좋아하는 음식 쌀국수, 마라탕 · 취미 러닝 · 직급 사원',
+    )
+    expect(currentProfileText(snapshot, { ...snapshot, foodTags: ['마라탕', '쌀국수'] })).toBe(
+      '지금 — 이름 「바보멍청이」 · 한줄 소개 「다들 메뉴 센스 꽝」 · 좋아하는 음식 마라탕, 쌀국수 · 직급 사원',
+    )
   })
 })

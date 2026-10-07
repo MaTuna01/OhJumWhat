@@ -5,9 +5,16 @@ import { PageLoader, Section } from '../../components/PageState.tsx'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.ts'
 import { useNow } from '../../hooks/useNow.ts'
 import { formatDay } from '../../lib/time.ts'
-import { useAdminOrgs, useAdminStats, useAdminUsers } from '../../queries/admin.ts'
+import { type AdminStats, useAdminOrgs, useAdminStats, useAdminUsers } from '../../queries/admin.ts'
 
 const RECENT = 5
+
+/** 「처리할 신고」 카드가 열 신고 탭: 처리 전 신고가 있는 첫 종류(쪽지 → 방명록 → 프로필), 없으면 쪽지 */
+function reportsLink(stats: AdminStats): string {
+  if (stats.openLetterReportCount === 0 && stats.openGuestbookReportCount > 0) return '/admin/reports?type=guestbook'
+  if (stats.openLetterReportCount === 0 && stats.openProfileReportCount > 0) return '/admin/reports?type=profile'
+  return '/admin/reports'
+}
 
 /** Figma A01·DA01 관리자 콘솔 개요: 숫자 카드(제한 중은 제재 탭, 처리할 신고는 신고 탭으로), 최근 가입한 회원, 최근 만든 조직 */
 export default function AdminOverviewPage() {
@@ -34,11 +41,14 @@ export default function AdminOverviewPage() {
           <Link to="/admin/sanctions" className="rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-brand">
             <StatCard label="제한 중" value={stats.data.restrictedUserCount} hint="제재 보기 ›" />
           </Link>
-          <Link to="/admin/reports" className="rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-brand">
+          <Link
+            to={reportsLink(stats.data)}
+            className="rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-brand"
+          >
             <StatCard
               label="처리할 신고"
               value={stats.data.openReportCount}
-              hint={`쪽지 ${stats.data.openLetterReportCount} · 방명록 ${stats.data.openGuestbookReportCount} ›`}
+              hint={`쪽지 ${stats.data.openLetterReportCount} · 방명록 ${stats.data.openGuestbookReportCount} · 프로필 ${stats.data.openProfileReportCount} ›`}
             />
           </Link>
         </div>

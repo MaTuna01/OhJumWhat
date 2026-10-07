@@ -97,6 +97,9 @@ export function pushInvalidations(kind: unknown): readonly (readonly unknown[])[
     case 'SANCTION':
       // 막힌 자리(내 정보의 제재)와 안내 창
       return [meQueryKey, sanctionKeys.alerts]
+    case 'REPORT_RESULT':
+      // 사람 신고의 처리 결과 창(제재 안내와 같은 응답에 온다)
+      return [sanctionKeys.alerts]
     default:
       return []
   }
