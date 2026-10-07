@@ -25,6 +25,8 @@ export type AdminStats = {
   openLetterReportCount: number
   /** 처리 전 방명록 신고 */
   openGuestbookReportCount: number
+  /** 지금 이용 제한(활성 제재)이 걸린 회원 수 */
+  restrictedUserCount: number
 }
 
 /** 쪽지 신고(받은 사람이 신고한 쪽지만). 익명 쪽지도 실제 보낸 사람을 보여준다. */
@@ -96,6 +98,8 @@ export type AdminUser = {
   createdAt: string
   lastLoginAt: string | null
   organizationCount: number
+  /** 지금 이용 제한(활성 제재)이 걸려 있다(「제한 중」) */
+  restricted: boolean
 }
 
 export type AdminUserDetail = {
@@ -244,7 +248,7 @@ export function useAdminBlocks() {
  * 관리자 쓰기 작업 공통: 성공하면 화면에 떠 있는 모든 쿼리를 다시 불러온다.
  * 관리자 자신이 속한 조직이나 투표가 지워졌을 수도 있고 새 소식(점·배너)도 바뀌므로, 관리자 콘솔 밖의 캐시도 함께 맞춘다.
  */
-function useAdminMutation<T, V>(mutationFn: (variables: V) => Promise<T>) {
+export function useAdminMutation<T, V>(mutationFn: (variables: V) => Promise<T>) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn,

@@ -9,15 +9,22 @@ import ConfirmDialog from '../../components/ConfirmDialog.tsx'
 import FoodTags from '../../components/FoodTags.tsx'
 import { PageLoader, PageMessage, Section } from '../../components/PageState.tsx'
 import ProfileDetailList from '../../components/ProfileDetailList.tsx'
+import SanctionModal from '../../components/SanctionModal.tsx'
+import SanctionRow, { LiftSanctionDialog } from '../../components/SanctionRow.tsx'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.ts'
 import { useNow } from '../../hooks/useNow.ts'
 import { ApiError } from '../../lib/api.ts'
+import { currentRestrictionsText, type SanctionRow as SanctionRowData } from '../../lib/sanctions.ts'
 import { formatAgo, formatDate, formatDay, formatDayTime } from '../../lib/time.ts'
 import { columnsClass } from '../../lib/ui.ts'
 import { useAdminUser, useDeleteUserPhoto, useWithdrawUser } from '../../queries/admin.ts'
 import { useMe } from '../../queries/me.ts'
+import { useUserSanctions } from '../../queries/sanctions.ts'
 
-/** Figma A03·DA03 회원 상세: 프로필(프로필 수정 A03-M3, 올린 사진 지우기 A03-M2), 활동, 소속 조직, 강제 탈퇴(A03-M) */
+/**
+ * Figma A03·DA03(A03b·DA03b) 회원 상세: 프로필(프로필 수정 A03-M3, 올린 사진 지우기 A03-M2), 활동, 소속 조직,
+ * 이용 제한(제재하기 A03-M5, 해제 A03-M6), 강제 탈퇴(A03-M). 관리자와 나 자신은 제재·강제 탈퇴할 수 없어 그 카드를 숨긴다.
+ */
 export default function AdminUserPage() {
   const userId = Number(useParams().userId)
   const detail = useAdminUser(userId)
@@ -50,6 +57,7 @@ export default function AdminUserPage() {
   const { user, bio, foodTags, details, organizations, activity, lastAccessAt } = detail.data
   const soloOrgs = organizations.filter((o) => o.memberCount <= 1).length
   const isAdmin = user.role === 'ADMIN'
+  const sanctionable = !isAdmin && user.id !== me?.id
 
   return (
     <div className="space-y-4">
@@ -63,6 +71,7 @@ export default function AdminUserPage() {
                 <p className="flex items-center gap-2">
                   <span className="truncate text-lg font-bold">{user.name}</span>
                   {isAdmin && <Badge tone="brand">관리자</Badge>}
+                  {user.restricted && <Badge tone="danger">제한 중</Badge>}
                 </p>
                 <p className="truncate text-sm text-text-tertiary">{user.email}</p>
               </div>
@@ -121,6 +130,8 @@ export default function AdminUserPage() {
               ))}
             </ul>
           </Section>
+
+          {sanctionable && <SanctionsCard userId={user.id} now={now} />}
         </div>
 
         <aside className="space-y-4">
@@ -186,5 +197,46 @@ function InfoRow({ label, value }: { label: string; value: ReactNode }) {
       <dt className="shrink-0 text-text-tertiary">{label}</dt>
       <dd className="min-w-0 text-right break-words">{value}</dd>
     </div>
+  )
+}
+
+/** Figma A03b 「이용 제한」 카드: 「제재하기」, 지금 걸린 제한 한 줄, 제재 이력(최신순, 진행 중이면 「해제」) */
+function SanctionsCard({ userId, now }: { userId: number; now: number }) {
+  const sanctions = useUserSanctions(userId)
+  const [applying, setApplying] = useState(false)
+  const [lifting, setLifting] = useState<SanctionRowData | null>(null)
+
+  return (
+    <Section
+      title="이용 제한"
+      action={
+        <Button variant="secondary" onClick={() => setApplying(true)} className="py-1.5">
+          제재하기
+        </Button>
+      }
+    >
+      {sanctions.isPending ? (
+        <PageLoader />
+      ) : sanctions.isError ? (
+        <p className="text-sm text-text-danger">{sanctions.error.message}</p>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-xs text-text-secondary">지금: {currentRestrictionsText(sanctions.data, now)}</p>
+          {sanctions.data.length === 0 ? (
+            <p className="rounded-xl bg-bg-subtle px-4 py-6 text-center text-sm text-text-tertiary">제재 기록이 없어요.</p>
+          ) : (
+            <ul className="space-y-2.5">
+              {sanctions.data.map((row) => (
+                <li key={row.id}>
+                  <SanctionRow row={row} onLift={() => setLifting(row)} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+      <SanctionModal userId={userId} open={applying} onClose={() => setApplying(false)} onApplied={() => setApplying(false)} />
+      <LiftSanctionDialog row={lifting} onClose={() => setLifting(null)} />
+    </Section>
   )
 }

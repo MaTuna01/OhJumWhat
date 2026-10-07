@@ -36,6 +36,11 @@ public class ApiException extends RuntimeException {
 		return new ApiException(HttpStatus.CONFLICT, message);
 	}
 
+	/** 관리자의 제재로 그 기능이 막혔을 때(423). 문구에 끝나는 시각을 넣는다(SanctionGuard). */
+	public static ApiException locked(String message) {
+		return new ApiException(HttpStatus.LOCKED, message);
+	}
+
 	/** 너무 자주 요청할 때(429) */
 	public static ApiException tooManyRequests(String message) {
 		return new ApiException(HttpStatus.TOO_MANY_REQUESTS, message);

@@ -11,7 +11,10 @@ import NotificationSettings from '../components/NotificationSettings.tsx'
 import { PageLoader, Section } from '../components/PageState.tsx'
 import ProfileDetailList from '../components/ProfileDetailList.tsx'
 import ProfileModal from '../components/ProfileModal.tsx'
+import RestrictionCard from '../components/RestrictionCard.tsx'
+import RestrictionNotice from '../components/RestrictionNotice.tsx'
 import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
+import { useRestriction } from '../hooks/useRestriction.ts'
 import { guestbookTabLabel } from '../lib/guestbook.ts'
 import { buttonClass, columnsClass } from '../lib/ui.ts'
 import { useGuestbook } from '../queries/guestbook.ts'
@@ -27,6 +30,9 @@ export default function MyPage() {
   const [editing, setEditing] = useState(false)
   // 제목 옆 글 수. 아래 방명록 목록의 0쪽과 같은 캐시를 쓴다.
   const guestbook = useGuestbook(me?.id ?? 0, 0, me != null)
+  // 관리자의 이용 제한(03-N7): 프로필 수정 잠금이면 「프로필 수정」·채우기 안내를, 활동 정지면 「조직 만들기」도 끈다.
+  const profileBlocked = useRestriction('PROFILE')
+  const suspended = useRestriction('SUSPEND')
   const location = useLocation()
   useDocumentTitle('마이페이지')
 
@@ -45,59 +51,68 @@ export default function MyPage() {
       {/* 속한 조직이 없으면 조직 홈 대신 이 화면으로 오므로 새 소식 배너를 여기에 둔다. */}
       {orgs.data?.length === 0 && <NoticeBanner />}
 
-      {/* 모바일은 내 정보 → 내 조직 → 방명록 → 알림 → 로그아웃 순서로 쌓고, 데스크톱은 내 조직·방명록을 본문, 나머지를 오른쪽 사이드에 둔다. */}
+      {/*
+        모바일은 내 정보 → 이용 제한 → 내 조직 → 방명록 → 알림 → 로그아웃 순서로 쌓고,
+        데스크톱은 내 조직·방명록을 본문, 나머지를 오른쪽 사이드에 둔다.
+      */}
       <div className={`flex flex-col gap-6 lg:grid-rows-[auto_1fr] lg:gap-y-4 ${columnsClass}`}>
-        <Section
-          title="내 정보"
-          className="lg:col-start-2 lg:row-start-1"
-          action={
-            <Button variant="secondary" onClick={() => setEditing(true)} className="py-1.5">
-              프로필 수정
-            </Button>
-          }
-        >
-          <div className="flex items-center gap-3">
-            <Avatar name={me.name} imageUrl={me.profileImageUrl} size="lg" />
-            <div className="min-w-0">
-              <p className="truncate font-medium">{me.name}</p>
-              <p className="truncate text-sm text-text-tertiary">{me.email}</p>
-              {me.nickname && <p className="truncate text-xs text-text-tertiary">구글 이름 {me.googleName}</p>}
+        <div className="flex min-w-0 flex-col gap-6 lg:col-start-2 lg:row-start-1 lg:gap-4">
+          <Section
+            title="내 정보"
+            action={
+              <Button variant="secondary" onClick={() => setEditing(true)} disabled={profileBlocked !== null} className="py-1.5">
+                프로필 수정
+              </Button>
+            }
+          >
+            {profileBlocked && <RestrictionNotice type="PROFILE" restriction={profileBlocked} className="mb-4" />}
+            <div className="flex items-center gap-3">
+              <Avatar name={me.name} imageUrl={me.profileImageUrl} size="lg" />
+              <div className="min-w-0">
+                <p className="truncate font-medium">{me.name}</p>
+                <p className="truncate text-sm text-text-tertiary">{me.email}</p>
+                {me.nickname && <p className="truncate text-xs text-text-tertiary">구글 이름 {me.googleName}</p>}
+              </div>
             </div>
-          </div>
-          {me.bio || me.foodTags.length > 0 ? (
-            <div className="mt-4 space-y-2">
-              {me.bio && <p className="text-sm break-words text-text-secondary">{me.bio}</p>}
-              <FoodTags tags={me.foodTags} />
-            </div>
-          ) : (
-            // 소개 안내(03-N2)는 상세 프로필을 채운 뒤에 보인다. 상세 프로필이 비었으면 그 안내(03-N4)가 먼저다.
-            me.details && (
-              <FillPrompt
-                title="한줄 소개를 써 보세요"
-                description="좋아하는 음식과 함께 같은 조직 멤버에게 보여요."
-                action="소개 쓰기"
-                onClick={() => setEditing(true)}
-              />
-            )
-          )}
-          {me.details ? (
-            <ProfileDetailList details={me.details} className="mt-4" />
-          ) : (
-            // 가입 단계가 없어서 처음 가입한 사람·기존 회원 모두 여기서 채우게 안내한다(Figma 03-N4).
-            <FillPrompt
-              title="상세 프로필을 채워 주세요"
-              description="MBTI·퍼스널컬러·취미·나이·직급을 채우면 같은 조직 멤버에게 보여요. 다 채워야 프로필을 저장할 수 있어요."
-              action="채우기"
-              onClick={() => setEditing(true)}
-            />
-          )}
-        </Section>
+            {me.bio || me.foodTags.length > 0 ? (
+              <div className="mt-4 space-y-2">
+                {me.bio && <p className="text-sm break-words text-text-secondary">{me.bio}</p>}
+                <FoodTags tags={me.foodTags} />
+              </div>
+            ) : (
+              // 소개 안내(03-N2)는 상세 프로필을 채운 뒤에 보인다. 상세 프로필이 비었으면 그 안내(03-N4)가 먼저다.
+              me.details &&
+              !profileBlocked && (
+                <FillPrompt
+                  title="한줄 소개를 써 보세요"
+                  description="좋아하는 음식과 함께 같은 조직 멤버에게 보여요."
+                  action="소개 쓰기"
+                  onClick={() => setEditing(true)}
+                />
+              )
+            )}
+            {me.details ? (
+              <ProfileDetailList details={me.details} className="mt-4" />
+            ) : (
+              // 가입 단계가 없어서 처음 가입한 사람·기존 회원 모두 여기서 채우게 안내한다(Figma 03-N4).
+              !profileBlocked && (
+                <FillPrompt
+                  title="상세 프로필을 채워 주세요"
+                  description="MBTI·퍼스널컬러·취미·나이·직급을 채우면 같은 조직 멤버에게 보여요. 다 채워야 프로필을 저장할 수 있어요."
+                  action="채우기"
+                  onClick={() => setEditing(true)}
+                />
+              )
+            )}
+          </Section>
+          <RestrictionCard sanctions={me.sanctions} />
+        </div>
 
         <div className="flex min-w-0 flex-col gap-6 lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:gap-4">
           <Section
             title="내 조직"
             action={
-              <Button onClick={() => setCreating(true)} className="py-1.5">
+              <Button onClick={() => setCreating(true)} disabled={suspended !== null} className="py-1.5">
                 조직 만들기
               </Button>
             }

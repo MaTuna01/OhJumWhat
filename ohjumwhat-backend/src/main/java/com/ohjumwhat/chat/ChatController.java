@@ -19,6 +19,9 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ohjumwhat.auth.LoginUser;
+import com.ohjumwhat.sanction.Restricted;
+import com.ohjumwhat.sanction.Restriction;
+import com.ohjumwhat.sanction.Unrestricted;
 
 /** 투표 채팅. 보내기·고치기·지우기는 여기(REST)로 하고, 받기는 WebSocket(/api/polls/{pollId}/ws)으로 한다. */
 @RestController
@@ -38,6 +41,7 @@ class ChatController {
 		return chatService.list(pollId, loginUser.getUserId(), before);
 	}
 
+	@Restricted(Restriction.CHAT)
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	ChatMessageResponse send(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId,
@@ -46,6 +50,7 @@ class ChatController {
 	}
 
 	/** 내가 이 메시지까지 봤다(채팅이 닫힌 뒤에도 된다). */
+	@Unrestricted
 	@PutMapping("/read")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	void markRead(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId,
@@ -53,12 +58,14 @@ class ChatController {
 		chatService.markRead(pollId, loginUser.getUserId(), request.lastReadId());
 	}
 
+	@Restricted(Restriction.CHAT)
 	@PutMapping("/{messageId}")
 	ChatMessageResponse edit(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId,
 			@PathVariable Long messageId, @Valid @RequestBody MessageRequest request) {
 		return chatService.edit(pollId, messageId, loginUser.getUserId(), request.body());
 	}
 
+	@Unrestricted
 	@DeleteMapping("/{messageId}")
 	ChatMessageResponse delete(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId,
 			@PathVariable Long messageId) {

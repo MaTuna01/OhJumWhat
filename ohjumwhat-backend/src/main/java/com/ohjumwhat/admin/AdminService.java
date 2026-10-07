@@ -4,7 +4,9 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,6 +34,7 @@ import com.ohjumwhat.poll.PollDetailResponse;
 import com.ohjumwhat.poll.PollRepository;
 import com.ohjumwhat.poll.PollService;
 import com.ohjumwhat.poll.PollStatus;
+import com.ohjumwhat.sanction.UserSanctionRepository;
 import com.ohjumwhat.schedule.PollSchedule;
 import com.ohjumwhat.schedule.PollScheduleRepository;
 import com.ohjumwhat.schedule.ScheduleResponse;
@@ -95,6 +98,8 @@ public class AdminService {
 
 	private final GuestbookService guestbookService;
 
+	private final UserSanctionRepository sanctionRepository;
+
 	private final ApplicationEventPublisher events;
 
 	private final Clock clock;
@@ -106,7 +111,7 @@ public class AdminService {
 			VoteRepository voteRepository, PollScheduleRepository scheduleRepository, JdbcTemplate jdbcTemplate,
 			ProfilePhotoStorage photoStorage, LetterReportRepository letterReportRepository,
 			GuestbookReportRepository guestbookReportRepository, GuestbookService guestbookService,
-			ApplicationEventPublisher events, Clock clock) {
+			UserSanctionRepository sanctionRepository, ApplicationEventPublisher events, Clock clock) {
 		this.adminRepository = adminRepository;
 		this.userRepository = userRepository;
 		this.userService = userService;
@@ -124,6 +129,7 @@ public class AdminService {
 		this.letterReportRepository = letterReportRepository;
 		this.guestbookReportRepository = guestbookReportRepository;
 		this.guestbookService = guestbookService;
+		this.sanctionRepository = sanctionRepository;
 		this.events = events;
 		this.clock = clock;
 	}
@@ -136,19 +142,21 @@ public class AdminService {
 		return new AdminResponses.Stats(adminRepository.countUsers(), adminRepository.countOrganizations(),
 				adminRepository.countPollsOn(LocalDate.now(clock)), adminRepository.countOpenPolls(now),
 				adminRepository.countUsersSince(now.minus(7, ChronoUnit.DAYS)), adminRepository.countBlocks(),
-				openLetterReports + openGuestbookReports, openLetterReports, openGuestbookReports);
+				openLetterReports + openGuestbookReports, openLetterReports, openGuestbookReports,
+				sanctionRepository.countRestrictedUsers(now));
 	}
 
 	// 회원
 
 	@Transactional(readOnly = true)
 	public List<AdminResponses.UserRow> users(String q) {
-		return adminRepository.findUsers(keyword(q), PageRequest.of(0, LIST_LIMIT));
+		return withRestricted(adminRepository.findUsers(keyword(q), PageRequest.of(0, LIST_LIMIT)));
 	}
 
 	@Transactional(readOnly = true)
 	public AdminResponses.UserDetail user(Long userId) {
 		AdminResponses.UserRow row = adminRepository.findUser(userId)
+			.map(found -> withRestricted(List.of(found)).get(0))
 			.orElseThrow(() -> ApiException.notFound(USER_NOT_FOUND));
 		User user = userRepository.findById(userId).orElseThrow();
 		// 세션(spring_session, Flyway V2)의 마지막 요청 시각. principal 이름은 google sub다(LoginUser).
@@ -370,6 +378,16 @@ public class AdminService {
 		scheduleRepository.delete(schedule);
 		log.info("관리자 정기 투표 규칙 삭제: adminId={}, organizationId={}, scheduleId={}", adminId,
 				schedule.getOrganizationId(), scheduleId);
+	}
+
+	/** 회원 줄에 「제한 중」(지금 진행 중인 제재가 있는지)을 채운다. 제재는 한 쿼리로 읽는다. */
+	private List<AdminResponses.UserRow> withRestricted(List<AdminResponses.UserRow> rows) {
+		if (rows.isEmpty()) {
+			return rows;
+		}
+		Set<Long> restricted = new HashSet<>(sanctionRepository
+			.findRestrictedUserIds(rows.stream().map(AdminResponses.UserRow::id).toList(), Instant.now(clock)));
+		return rows.stream().map(row -> row.withRestricted(restricted.contains(row.id()))).toList();
 	}
 
 	/** 회원 행을 잠그고 읽는다(같은 회원의 강제 탈퇴·다른 관리자의 처리와 겹치지 않게). 없으면 404 */

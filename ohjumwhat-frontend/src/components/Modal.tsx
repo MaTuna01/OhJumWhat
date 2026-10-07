@@ -9,10 +9,12 @@ type Props = {
   size?: 'md' | 'lg'
   /** 제목 오른쪽에 ✕(닫기) 버튼을 둔다(취소 버튼이 없는 보기 전용 모달) */
   closable?: boolean
+  /** 제목 줄 오른쪽에 둘 짧은 표시(예: 안내 창의 「1 / 2」) */
+  aside?: ReactNode
 }
 
 /** 네이티브 <dialog> 모달. Esc와 바깥 클릭으로 닫힌다. 닫혀 있을 때는 내용을 렌더링하지 않아 입력 상태가 초기화된다. */
-export default function Modal({ open, onClose, title, children, size = 'md', closable = false }: Props) {
+export default function Modal({ open, onClose, title, children, size = 'md', closable = false, aside }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
   // 바깥에서 누르고 바깥에서 뗐을 때만 닫는다. 안에서 끌다가(사진 맞추기, 글자 선택) 바깥에서 떼도 닫히지 않게 한다.
   const pressedOutside = useRef(false)
@@ -48,6 +50,7 @@ export default function Modal({ open, onClose, title, children, size = 'md', clo
             <h2 id={titleId} className="text-lg font-bold">
               {title}
             </h2>
+            {aside}
             {closable && (
               <button
                 type="button"

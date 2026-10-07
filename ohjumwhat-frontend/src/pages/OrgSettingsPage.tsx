@@ -7,8 +7,10 @@ import MemberList from '../components/MemberList.tsx'
 import NaverMap from '../components/NaverMap.tsx'
 import { Section } from '../components/PageState.tsx'
 import PlaceFields from '../components/PlaceFields.tsx'
+import RestrictionNotice from '../components/RestrictionNotice.tsx'
 import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { useOrgId } from '../hooks/useOrgId.ts'
+import { useRestriction } from '../hooks/useRestriction.ts'
 import { formatDistance } from '../lib/distance.ts'
 import { serviceLabel } from '../lib/link.ts'
 import { type PlaceValue, placeInput } from '../lib/place.ts'
@@ -98,9 +100,11 @@ export default function OrgSettingsPage() {
   )
 }
 
+/** 조직 이름 바꾸기. 활동이 정지된 사람은 바꿀 수 없다(안내와 함께 「저장」을 끈다). */
 function RenameForm({ org, onRenamed }: { org: Organization; onRenamed: () => void }) {
   const [name, setName] = useState(org.name)
   const rename = useRenameOrganization(org.id)
+  const suspended = useRestriction('SUSPEND')
   const trimmed = name.trim()
 
   const submit = (e: FormEvent) => {
@@ -110,6 +114,7 @@ function RenameForm({ org, onRenamed }: { org: Organization; onRenamed: () => vo
 
   return (
     <form onSubmit={submit}>
+      {suspended && <RestrictionNotice type="SUSPEND" restriction={suspended} className="mb-3" />}
       <div className="flex gap-2">
         <input
           aria-label="조직 이름"
@@ -118,7 +123,7 @@ function RenameForm({ org, onRenamed }: { org: Organization; onRenamed: () => vo
           maxLength={50}
           className={inputClass}
         />
-        <Button type="submit" className="shrink-0" disabled={!trimmed || trimmed === org.name || rename.isPending}>
+        <Button type="submit" className="shrink-0" disabled={suspended !== null || !trimmed || trimmed === org.name || rename.isPending}>
           저장
         </Button>
       </div>
@@ -134,6 +139,7 @@ function RenameForm({ org, onRenamed }: { org: Organization; onRenamed: () => vo
 /**
  * Figma 07-L·D07-L 조직 위치: 조직 위치(지도 링크·이름)와 조직 주소, 검색 반경, 검색 지역. 통째로 저장한다.
  * 조직 주소는 근처 식당 검색·지도의 기준점이라 서버가 찾을 수 있는 주소인지 확인한다. 공유 글을 붙이면 이름·주소를 채운다.
+ * 활동이 정지된 사람은 바꿀 수 없다(안내와 함께 「저장」을 끈다).
  */
 function LocationForm({ org, onSaved }: { org: Organization; onSaved: () => void }) {
   const [area, setArea] = useState(org.area ?? '')
@@ -144,6 +150,7 @@ function LocationForm({ org, onSaved }: { org: Organization; onSaved: () => void
   })
   const [radius, setRadius] = useState(org.searchRadius)
   const update = useUpdateOrgLocation(org.id)
+  const suspended = useRestriction('SUSPEND')
   const mapKey = useMapKey()
   const { link: officeLink, placeName: officeName } = placeInput(office)
   // 조직 주소는 지도 링크가 없어도 저장한다.
@@ -251,8 +258,9 @@ function LocationForm({ org, onSaved }: { org: Organization; onSaved: () => void
           {update.error.message}
         </p>
       )}
+      {suspended && <RestrictionNotice type="SUSPEND" restriction={suspended} />}
       <div className="flex justify-end">
-        <Button type="submit" disabled={unchanged || update.isPending}>
+        <Button type="submit" disabled={suspended !== null || unchanged || update.isPending}>
           저장
         </Button>
       </div>

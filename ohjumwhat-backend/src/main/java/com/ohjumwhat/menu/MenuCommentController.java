@@ -18,6 +18,9 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ohjumwhat.auth.LoginUser;
+import com.ohjumwhat.sanction.Restricted;
+import com.ohjumwhat.sanction.Restriction;
+import com.ohjumwhat.sanction.Unrestricted;
 
 /** 메뉴 댓글. 쓰기 API는 그 메뉴의 최신 댓글 목록을 돌려준다. */
 @RestController
@@ -36,6 +39,7 @@ class MenuCommentController {
 		return menuCommentService.list(pollId, optionId, loginUser.getUserId());
 	}
 
+	@Restricted(Restriction.POLL)
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	List<MenuCommentResponse> add(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId,
@@ -43,12 +47,14 @@ class MenuCommentController {
 		return menuCommentService.add(pollId, optionId, loginUser.getUserId(), request.body());
 	}
 
+	@Restricted(Restriction.POLL)
 	@PutMapping("/{commentId}")
 	List<MenuCommentResponse> edit(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId,
 			@PathVariable Long optionId, @PathVariable Long commentId, @Valid @RequestBody CommentRequest request) {
 		return menuCommentService.edit(pollId, optionId, commentId, loginUser.getUserId(), request.body());
 	}
 
+	@Unrestricted
 	@DeleteMapping("/{commentId}")
 	List<MenuCommentResponse> delete(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId,
 			@PathVariable Long optionId, @PathVariable Long commentId) {

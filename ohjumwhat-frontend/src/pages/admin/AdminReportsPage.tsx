@@ -5,6 +5,7 @@ import Button from '../../components/Button.tsx'
 import ConfirmDialog from '../../components/ConfirmDialog.tsx'
 import { EmptyRow, ListCard } from '../../components/AdminParts.tsx'
 import { PageLoader } from '../../components/PageState.tsx'
+import SanctionModal from '../../components/SanctionModal.tsx'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.ts'
 import { useNow } from '../../hooks/useNow.ts'
 import { ApiError } from '../../lib/api.ts'
@@ -31,6 +32,7 @@ const REPORT_LIMIT = 100
 /**
  * Figma A09·DA09 쪽지 신고, A09b·DA09b 방명록 신고. 위의 [쪽지 N][방명록 N](처리 전 수)으로 바꾸고 주소 ?type=guestbook으로 기억한다.
  * 쪽지는 받은 사람이, 방명록은 프로필 주인이 신고한 글만 본다(신고되지 않은 글은 관리자도 볼 수 없다).
+ * 줄마다 쓴 사람을 「제재하기」(A03-M5)할 수 있고, 쪽지 신고는 제재가 들어가면 처리 완료로 바꾼다.
  */
 export default function AdminReportsPage() {
   const [params, setParams] = useSearchParams()
@@ -97,10 +99,14 @@ function Notes({ children }: { children: ReactNode }) {
   return <ul className="space-y-1 rounded-xl bg-bg-muted px-3.5 py-3 text-xs text-text-secondary">{children}</ul>
 }
 
+/** 신고에서 「제재하기」를 열 때 미리 고르는 사유(신고 사유는 자유 글이라 가장 흔한 「욕설·비방」으로 시작한다) */
+const REPORT_REASON = 'ABUSE'
+
 /** 쪽지 신고: 익명 쪽지도 실제 보낸 사람이 보이고, 「보낸 사람 보기」에서 강제 탈퇴할 수 있다. */
 function LetterReports({ status, now }: { status: Status; now: number }) {
   const reports = useAdminLetterReports(status)
   const resolve = useResolveLetterReport()
+  const [sanctioning, setSanctioning] = useState<AdminLetterReport | null>(null)
 
   return (
     <>
@@ -117,7 +123,14 @@ function LetterReports({ status, now }: { status: Status; now: number }) {
             <ListCard>
               {reports.data.length === 0 && <EmptyRow>{status === 'open' ? '처리할 신고가 없어요.' : '신고가 없어요.'}</EmptyRow>}
               {reports.data.map((report) => (
-                <LetterReportRow key={report.id} report={report} now={now} resolving={resolve.isPending} onResolve={() => resolve.mutate(report.id)} />
+                <LetterReportRow
+                  key={report.id}
+                  report={report}
+                  now={now}
+                  resolving={resolve.isPending}
+                  onResolve={() => resolve.mutate(report.id)}
+                  onSanction={() => setSanctioning(report)}
+                />
               ))}
             </ListCard>
           )}
@@ -130,13 +143,26 @@ function LetterReports({ status, now }: { status: Status; now: number }) {
         <Notes>
           <li>· 받은 사람이 신고한 쪽지만 볼 수 있어요. 신고되지 않은 쪽지는 관리자도 볼 수 없어요.</li>
           <li>· 익명 쪽지도 실제 보낸 사람이 보여요. 「보낸 사람 보기」에서 강제 탈퇴할 수 있고, 강제 탈퇴하면 그 사람의 열린 신고는 처리 완료가 돼요.</li>
+          <li>· 「제재하기」로 보낸 사람을 제재하면(제한·프로필 초기화·경고) 그 신고는 처리 완료가 돼요.</li>
         </Notes>
       </div>
+      <SanctionModal
+        userId={sanctioning?.senderId ?? -1}
+        open={sanctioning !== null && sanctioning.senderId !== null}
+        onClose={() => setSanctioning(null)}
+        initialReason={REPORT_REASON}
+        onApplied={() => {
+          if (sanctioning && !sanctioning.resolvedAt) resolve.mutate(sanctioning.id)
+          setSanctioning(null)
+        }}
+      />
     </>
   )
 }
 
-function LetterReportRow({ report, now, resolving, onResolve }: { report: AdminLetterReport; now: number; resolving: boolean; onResolve: () => void }) {
+type LetterRowProps = { report: AdminLetterReport; now: number; resolving: boolean; onResolve: () => void; onSanction: () => void }
+
+function LetterReportRow({ report, now, resolving, onResolve, onSanction }: LetterRowProps) {
   return (
     <li className="space-y-2 py-3.5">
       <div className="flex items-center gap-1.5">
@@ -152,11 +178,16 @@ function LetterReportRow({ report, now, resolving, onResolve }: { report: AdminL
         신고한 사람(받은 사람) · {report.recipientName ?? '탈퇴한 사용자'} · {report.organizationName ?? '삭제된 조직'} · {formatDayTime(report.sentAt, now)}
       </p>
       <p className="text-xs text-text-secondary">{report.reason ? `사유 · ${report.reason}` : '사유 없음'}</p>
-      <div className="flex items-center justify-end gap-3">
+      <div className="flex flex-wrap items-center justify-end gap-3">
         {report.senderId != null && (
-          <Link to={`/admin/users/${report.senderId}`} className="text-sm font-medium text-text-brand hover:underline">
-            보낸 사람 보기 ›
-          </Link>
+          <>
+            <Link to={`/admin/users/${report.senderId}`} className="text-sm font-medium text-text-brand hover:underline">
+              보낸 사람 보기 ›
+            </Link>
+            <Button variant="secondary" className="py-1.5" onClick={onSanction}>
+              제재하기
+            </Button>
+          </>
         )}
         {report.resolvedAt ? (
           <span className="text-xs text-text-tertiary">
@@ -178,6 +209,7 @@ function GuestbookReports({ status, now }: { status: Status; now: number }) {
   const restrict = useRestrictGuestbookReport()
   const dismiss = useDismissGuestbookReport()
   const [restricting, setRestricting] = useState<AdminGuestbookReport | null>(null)
+  const [sanctioning, setSanctioning] = useState<AdminGuestbookReport | null>(null)
   const closeRestrict = () => {
     restrict.reset()
     setRestricting(null)
@@ -208,6 +240,7 @@ function GuestbookReports({ status, now }: { status: Status; now: number }) {
                     restrict.reset()
                     setRestricting(report)
                   }}
+                  onSanction={() => setSanctioning(report)}
                 />
               ))}
             </ListCard>
@@ -235,13 +268,27 @@ function GuestbookReports({ status, now }: { status: Status; now: number }) {
       >
         모두에게 「{RESTRICTED_TEXT}」로 보이고, 작성자에게 경고 안내가 가요. 되돌릴 수 없어요.
       </ConfirmDialog>
+      <SanctionModal
+        userId={sanctioning?.authorId ?? -1}
+        open={sanctioning !== null && sanctioning.authorId !== null}
+        onClose={() => setSanctioning(null)}
+        initialReason={REPORT_REASON}
+        onApplied={() => setSanctioning(null)}
+      />
     </>
   )
 }
 
-type GuestbookRowProps = { report: AdminGuestbookReport; now: number; busy: boolean; onDismiss: () => void; onRestrict: () => void }
+type GuestbookRowProps = {
+  report: AdminGuestbookReport
+  now: number
+  busy: boolean
+  onDismiss: () => void
+  onRestrict: () => void
+  onSanction: () => void
+}
 
-function GuestbookReportRow({ report, now, busy, onDismiss, onRestrict }: GuestbookRowProps) {
+function GuestbookReportRow({ report, now, busy, onDismiss, onRestrict, onSanction }: GuestbookRowProps) {
   // 쓴 날 신고했으면 신고 시각은 시:분만(「작성 10월 6일 오후 12:30 · 신고 오후 1:02」)
   const sameDay = formatDay(report.reportedAt, now) === formatDay(report.writtenAt, now)
 
@@ -274,9 +321,14 @@ function GuestbookReportRow({ report, now, busy, onDismiss, onRestrict }: Guestb
           </span>
         )}
         {report.authorId != null && (
-          <Link to={`/admin/users/${report.authorId}`} className="text-sm font-medium text-text-brand hover:underline">
-            작성자 보기 ›
-          </Link>
+          <>
+            <Link to={`/admin/users/${report.authorId}`} className="text-sm font-medium text-text-brand hover:underline">
+              작성자 보기 ›
+            </Link>
+            <Button variant="secondary" onClick={onSanction}>
+              제재하기
+            </Button>
+          </>
         )}
         {report.resolution === null && (
           <>

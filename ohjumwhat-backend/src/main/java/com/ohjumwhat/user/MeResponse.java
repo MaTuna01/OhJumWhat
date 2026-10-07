@@ -2,6 +2,8 @@ package com.ohjumwhat.user;
 
 import java.util.List;
 
+import com.ohjumwhat.sanction.ActiveSanction;
+
 /**
  * @param name 화면에 보여줄 이름(별명, 없으면 구글 이름)
  * @param nickname 마이페이지에서 정한 별명. 없으면 null
@@ -14,8 +16,9 @@ import java.util.List;
  * @param details 상세 프로필(MBTI·퍼스널컬러·취미·나이·직급). 채우지 않았으면 null
  * @param lastVisitedOrgId 로그인 후 이동할 최근 조직. 속한 조직이 없으면 null
  * @param admin 관리자면 프로필 메뉴에 관리자 콘솔이 보인다
+ * @param sanctions 지금 걸려 있는 제재(오래된 순, 없으면 빈 목록). 화면이 막힌 기능을 끄고 안내한다
  */
 public record MeResponse(Long id, String name, String nickname, String googleName, String email,
 		String profileImageUrl, String googleProfileImageUrl, boolean customPhoto, String bio, List<String> foodTags,
-		ProfileDetailsResponse details, Long lastVisitedOrgId, boolean admin) {
+		ProfileDetailsResponse details, Long lastVisitedOrgId, boolean admin, List<ActiveSanction> sanctions) {
 }
