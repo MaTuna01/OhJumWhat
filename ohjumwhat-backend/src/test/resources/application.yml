@@ -17,6 +17,25 @@ spring:
             client-secret: test-client-secret
             scope: openid,profile,email
 
+# actuator는 운영(application.example.yml)과 같게 두고 관리 포트만 빈 포트를 쓴다(ManagementEndpointsTest).
+# 포트 말고 다르면 ManagementConfigTest가 실패한다.
+management:
+  server:
+    port: 0
+  endpoints:
+    web:
+      exposure:
+        include: health, prometheus
+  endpoint:
+    health:
+      group:
+        public:
+          include: db, diskSpace, readinessState
+          additional-path: "server:/healthz"
+  metrics:
+    enable:
+      spring.data.repository: false
+
 # 백그라운드 스케줄러는 끄고, 테스트에서 ScheduledPollOpener를 고정된 시계로 직접 호출한다.
 ohjumwhat:
   scheduler:

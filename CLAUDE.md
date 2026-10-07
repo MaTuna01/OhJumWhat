@@ -73,6 +73,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 프로필 사진 폴더는 `ohjumwhat.photos.dir`(`PHOTOS_DIR`)다. 로컬은 비어 있으면 `ohjumwhat-backend/data/photos`(gitignore), 운영은 이미지의 `/data/photos`(Docker 볼륨 `photos`), 테스트는 `build/test-photos`(`IntegrationTest`가 테스트마다 비운다)다.
 - 지도 키는 `ohjumwhat.maps`(`KAKAO_REST_KEY`, `NAVER_MAP_KEY_ID`)다. 비어 있으면 지도·거리를 끄고 링크 방식만 쓴다(테스트·로컬에서 키 없이도 뜬다). 네이버 지도 키는 프론트 빌드에 넣지 않고 `GET /api/config`로 받는다.
 - 웹 푸시 키는 `ohjumwhat.push`다: 공개 값 `FIREBASE_API_KEY`·`FIREBASE_PROJECT_ID`·`FIREBASE_APP_ID`·`FIREBASE_MESSAGING_SENDER_ID`·`FIREBASE_VAPID_KEY`와 비밀 값 `FIREBASE_SERVICE_ACCOUNT_BASE64`(서비스 계정 JSON을 base64 한 줄로)다. 하나라도 비거나 잘못되면(서비스 계정의 project_id가 다른 경우 포함) 푸시만 끄고 서버는 그대로 뜬다. 공개 값은 `GET /api/config`의 `push`로 주고, 꺼져 있으면 null이다. 준비 순서는 `docs/DEPLOY.md` 「5-2. Firebase 푸시」에 있다. 서비스 계정 JSON 파일은 저장소에 두지 않는다(`.gitignore`).
+- actuator(헬스·지표)는 관리 포트 `management.server.port`(8081)에서만 연다(아래 「배포」의 모니터링). 로컬에서 앱을 두 개 띄우면 두 번째 앱은 `SERVER_PORT`와 함께 `MANAGEMENT_SERVER_PORT`도 바꾼다(아니면 8081이 겹쳐 뜨지 않는다). 공개 헬스 체크는 앱 포트의 `/healthz`다.
 
 ## 아키텍처
 
@@ -285,6 +286,14 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - Caddy가 HTTPS를 맡고, `X-Forwarded-*` 헤더로 원래 주소를 넘긴다. 그래서 앱은 https 리디렉션 URI를 만들고, `Secure` 쿠키를 쓴다.
 - 서버 설정, Secrets, 롤백, 백업·복원 방법은 `docs/DEPLOY.md`에 있다.
 - 올린 프로필 사진은 Docker 볼륨 `photos`(앱 컨테이너 `/data/photos`, 소유자 `app`)에 있다. `deploy/backup.sh`가 매일 DB와 함께 tar.gz로 백업하고, 복원도 같은 시각의 DB와 사진을 함께 한다.
+- **모니터링**(이슈 #107, Notion 「27. 서버 모니터링 구축」): 서버에 직접 설치한 Netdata(서버·컨테이너 지표) + 앱 지표 + 외부 업타임 체크. 설치·설정은 `docs/DEPLOY.md` 「모니터링」에 있다.
+  - actuator는 관리 포트 8081에서만 연다(`health`, `prometheus`). Caddy는 앱 포트 8080만 프록시하므로 지표는 인터넷에 나가지 않고, 운영 compose는 8081을 서버의 127.0.0.1에만 연다. Netdata가 `/actuator/prometheus`(요청 수·응답 시간 `http_server_requests`, JVM 힙, DB 커넥션 풀 `hikaricp`, 채팅 연결 수 `ohjumwhat_chat_connections`(`chat/ChatMetrics`))를 읽고, 대시보드는 SSH 터널로만 본다.
+  - 관리 포트는 인증 없이 열린다(`SecurityConfig`가 `/api/**`만 막고 관리 포트에도 같은 체인이 걸린다). 그래서 네트워크(127.0.0.1·Caddy가 8080만 프록시)로만 막는다.
+  - 공개 헬스 체크는 앱 포트의 `/healthz`(health 그룹 `public`의 `additional-path`, 상태만)다. `db, diskSpace, readinessState`만 보고(시작·종료 중 503), 새 의존성이 저절로 들어오지 않게 하나씩 적는다. 배포 헬스 체크와 외부 업타임 체크(키워드 `"status":"UP"`)가 쓴다. 앱 포트의 `/actuator/**`는 없는 경로라 SPA가 index.html을 200으로 주므로, 업타임 체크는 상태 코드가 아니라 키워드로 본다.
+  - 저장소 호출 지표(`spring.data.repository`)는 시계열만 늘려서 끈다(`management.metrics.enable`).
+  - 테스트는 지표 내보내기가 꺼져 있어(Spring Boot 기본) `@AutoConfigureMetrics`로 켠다(`ManagementEndpointsTest`, 실제 포트, 별도 컨텍스트). 테스트 설정의 관리 포트는 0(빈 포트)이다.
+  - 운영 이미지는 `application.example.yml`을 쓰고 테스트는 test `application.yml`만 읽으므로, `ManagementConfigTest`가 예시 파일의 관리 포트·공개 범위를 확인하고 두 파일의 `management.*`가 포트 말고 같은지 본다. `management` 설정을 바꾸면 두 파일을 함께 고친다.
+  - 컨테이너 로그는 compose `x-logging`으로 서비스마다 10MB × 5개까지만 둔다(로그 설정이 바뀌면 `up -d`가 그 컨테이너를 다시 만든다).
 - `dev` → `main` 승격 하나가 릴리스 하나다. 승격 전에 버전(`build.gradle.kts`, `package.json`)을 올리고 `CHANGELOG.md`를 적는다. 배포 뒤에는 `vX.Y.Z` 태그와 GitHub Release를 만든다(`docs/DEPLOY.md` 「릴리스와 버전」).
   - 사용자에게 보이는 변경이 있으면 업데이트 글 `ohjumwhat-backend/src/main/resources/release-notes/X.Y.Z.md`도 함께 적는다. 배포되면 새 소식에 자동으로 올라간다. CHANGELOG는 개발자용, 업데이트 글은 사용자용이다(사용자 말투 3~5줄, DB·마이그레이션 같은 개발 용어는 쓰지 않는다).
 - 보안 헤더

@@ -91,9 +91,9 @@ jobs:
               echo "$caddy_hash" > .caddyfile.sha256
               echo "Caddyfile 변경을 반영했습니다."
             fi
-            # 앱이 뜰 때까지 최대 2분 기다린다(Caddy 컨테이너에서 내부 주소로 확인).
+            # 앱이 뜰 때까지 최대 2분 기다린다(Caddy 컨테이너에서 내부 주소로 확인). /healthz는 앱 포트의 공개 헬스 체크(DB 포함)다.
             for i in $(seq 1 40); do
-              if docker compose exec -T caddy wget -qO- http://app:8080/actuator/health 2>/dev/null | grep -q '"UP"'; then
+              if docker compose exec -T caddy wget -qO- http://app:8080/healthz 2>/dev/null | grep -q '"UP"'; then
                 echo "배포 완료: 앱이 정상입니다."
                 docker image prune -f > /dev/null
                 exit 0

@@ -14,12 +14,12 @@
 | 파일 | 역할 |
 |---|---|
 | `Dockerfile` | 프론트 빌드 → `static/`에 복사 → Spring Boot jar → JRE 21 이미지(비루트 사용자, `MaxRAMPercentage=50`, 프로필 사진 폴더 `/data/photos`) |
-| `deploy/docker-compose.yml` | 운영 스택. DB는 외부 포트를 열지 않고, 80·443은 Caddy만 연다. 볼륨은 `db-data`(DB), `photos`(올린 프로필 사진), `caddy-*`(인증서) |
+| `deploy/docker-compose.yml` | 운영 스택. DB는 외부 포트를 열지 않고, 80·443은 Caddy만 연다. 앱의 관리 포트(8081, 헬스·지표)는 서버의 127.0.0.1에만 연다(아래 「모니터링」). 볼륨은 `db-data`(DB), `photos`(올린 프로필 사진), `caddy-*`(인증서). 컨테이너 로그는 서비스마다 10MB × 5개까지만 둔다 |
 | `deploy/Caddyfile` | 인증서 자동 발급·갱신, 압축, 보안 헤더(CSP 등), 루트 도메인 → www 리디렉션. 바뀌면 배포 때 검증한 뒤 Caddy 컨테이너를 다시 만든다(파일 하나를 마운트해서 `up -d`만으로는 반영되지 않는다). |
 | `deploy/backup.sh` | `pg_dump`와 프로필 사진 폴더(tar.gz)의 일일 백업(14일 보관). `.env`를 셸로 읽지 않고 db 컨테이너의 환경변수(`POSTGRES_USER`·`POSTGRES_DB`)로 덤프한다. 실패하면 쓰던 파일을 지우고 「백업 실패」를 남긴다 |
 | `deploy/.env.example` | 서버 `.env` 템플릿 |
 | `.github/workflows/ci.yml` | PR과 `dev` push에서 백엔드 테스트, 프론트 린트·테스트·빌드 |
-| `.github/workflows/deploy.yml` | `main` push(또는 수동 실행) 시 CI → 이미지 → 배포 → 헬스 체크(2분) |
+| `.github/workflows/deploy.yml` | `main` push(또는 수동 실행) 시 CI → 이미지 → 배포 → 헬스 체크(`/healthz`, 2분) |
 
 ## 처음 한 번 해야 할 일
 
@@ -47,7 +47,7 @@ dig +short A www.ohjumwhat.cloud
 | 443/TCP (HTTPS) | 서비스 |
 | 443/UDP | HTTP/3(선택). 막아도 HTTP/2로 동작한다. |
 
-DB(5432)와 앱(8080)은 컨테이너 안에서만 쓰므로 열지 않는다.
+DB(5432)와 앱(8080)은 컨테이너 안에서만 쓰므로 열지 않는다. 앱의 관리 포트(8081, 헬스·지표)는 서버의 127.0.0.1에만 열리므로 방화벽에서도 열지 않는다(아래 「모니터링」).
 
 ### 3. 서버 초기 설정 (SSH로 접속해서 한 번 실행)
 
@@ -221,7 +221,7 @@ docker compose restart app           # 앱만 재시작
 sed -i 's|^APP_IMAGE=.*|APP_IMAGE=ghcr.io/matuna01/ohjumwhat:<이전 커밋 sha>|' .env
 docker compose pull app && docker compose up -d
 ```
-다음 배포 전에 `APP_IMAGE`를 `:latest`로 되돌린다. DB 스키마(Flyway)는 앞으로만 적용되므로, 스키마가 바뀐 버전을 되돌릴 때는 호환 여부를 먼저 확인한다.
+다음 배포 전에 `APP_IMAGE`를 `:latest`로 되돌린다(옛 이미지로 남아 있으면 배포 헬스 체크가 실패한다). DB 스키마(Flyway)는 앞으로만 적용되므로, 스키마가 바뀐 버전을 되돌릴 때는 호환 여부를 먼저 확인한다. v1.11.1까지의 이미지에는 `/healthz`와 관리 포트가 없어서 업타임 체크가 장애로 알리고 Netdata의 앱 지표가 끊긴다(아래 「모니터링」).
 
 **백업에서 복원**: DB(`users.photo_key`)가 사진 파일을 가리키므로 같은 시각의 DB와 사진을 함께 복원한다.
 ```bash
@@ -231,3 +231,117 @@ docker compose exec -T app tar xzf - -C /data < backups/ohjumwhat-photos-YYYYMMD
 ```
 
 **프로필 사진**: 올린 사진은 `photos` 볼륨(앱 컨테이너 `/data/photos`)에 `{키}.jpg`로 있다. 한 장에 수 KB~수십 KB다. `docker compose down -v`는 볼륨까지 지우므로 사진(과 DB)이 사라진다. 볼륨을 남기려면 `down`만 쓴다.
+
+## 모니터링
+
+서버 한 대·소규모라 Prometheus·Grafana를 따로 띄우지 않고 아래 세 가지로 본다(이슈 #107, Notion 「27. 서버 모니터링 구축」).
+
+| 무엇을 | 어떻게 | 어디서 보나 |
+|---|---|---|
+| 서비스가 살아 있는지 | 외부 업타임 체크가 `https://www.ohjumwhat.cloud/healthz`를 5분마다 부른다 | 업타임 서비스의 알림(이메일·앱) |
+| 서버·컨테이너 사용량(CPU·메모리·스왑·디스크·네트워크) | 서버에 직접 설치한 Netdata | SSH 터널로 Netdata 대시보드 |
+| 앱 트래픽(엔드포인트별 요청 수·응답 시간, JVM 힙, DB 커넥션 풀, 채팅 연결 수) | Netdata가 앱의 관리 포트 `127.0.0.1:8081/actuator/prometheus`를 읽는다 | 같은 대시보드 |
+
+- `/healthz`는 앱 포트의 공개 헬스 체크로, 상태(`{"status":"UP"}`)만 준다. DB·디스크·준비 상태를 보므로 DB가 멈추면 503 `DOWN`이 되고(DB 연결을 기다리느라 약 30초 걸린다), 앱이 뜨는 중이거나 멈추는 중에도 503이다. 배포 헬스 체크도 이 주소를 쓴다.
+- 관리 포트(8081)는 인증 없이 열리므로 네트워크로만 막는다. 서버의 127.0.0.1에만 열려 있고 Caddy가 프록시하지 않으며, 가비아 방화벽에서도 열지 않는다. 앱 포트의 `/actuator/**`는 없는 경로라 화면(index.html)이 나온다.
+- JVM은 `MaxRAMPercentage=50`이라 서버 RAM의 절반(약 2GB)까지 힙을 잡고 잘 돌려주지 않는다. 서버 메모리 그래프보다 실제로 쓰는 힙(`jvm_memory_used_bytes{area="heap"}`)과 스왑 사용량으로 여유를 판단한다.
+- 컨테이너 로그는 서비스마다 10MB × 5개까지만 남는다(`docker compose logs`로 볼 수 있는 범위도 그만큼이다). 로그 설정이 들어간 첫 배포는 db·caddy 컨테이너도 다시 만들어 수십 초 끊기고, 다시 만든 컨테이너의 지난 로그는 사라진다. 남겨야 하면 배포 전에 `docker compose logs --no-color > logs-before-monitoring.txt`로 저장한다.
+
+### 1. 설치 전 기준선 측정
+
+지금 사용량을 먼저 적어 둔다. 사용 가능한 메모리(`available`)가 1GB보다 적으면 Netdata 대신 더 가벼운 Beszel을 검토한다.
+```bash
+free -h; swapon --show; docker stats --no-stream; df -h /; sudo du -sh /var/lib/docker/containers
+```
+Docker 엔진이 28 이상인지도 본다. 그보다 낮으면 127.0.0.1에만 연 포트(관리 포트)에 같은 네트워크 구간의 다른 서버가 닿을 수 있어(28.0에서 막혔다) Docker를 먼저 올린다.
+```bash
+docker version --format '{{.Server.Version}}'
+```
+
+### 2. 외부 업타임 체크 (UptimeRobot)
+
+Netdata는 서버와 함께 꺼지므로 서버 밖에서 따로 확인한다. 가입할 때 무료 플랜의 이용 조건(상업적 이용)을 확인한다.
+
+1. https://uptimerobot.com 에 가입한다(무료 플랜: 모니터 50개, 5분 간격).
+2. New monitor → **Keyword**, URL `https://www.ohjumwhat.cloud/healthz`, 키워드 `"status":"UP"`, 「키워드가 없으면 장애(Alert when keyword not exists)」, 간격 5분. DB가 멈추면 응답이 30초 가까이 걸리므로 시간 초과를 넉넉히(30초 이상) 둔다.
+   - 상태 코드만 보는 HTTP(s) 모니터는 쓰지 않는다. `/healthz`가 없는 이미지(롤백한 옛 버전 등)에서는 SPA가 화면(index.html)을 200으로 주므로, DB가 죽어도 정상으로 보인다.
+3. 알림 받을 곳(이메일, 모바일 앱)을 정한다.
+
+장애 알림이 오면 서버에서 `docker compose ps`와 `docker compose logs --tail 200 app`부터 본다.
+
+### 3. Netdata 설치 (서버에 직접, 한 번)
+
+공식 설치 스크립트로 안정판을 깔고 익명 통계는 끈다. 스크립트의 기본 채널은 nightly라서 `--stable-channel`을 꼭 붙인다. Netdata Cloud에는 연결하지 않는다(나중에 원하면 아래 「Netdata Cloud」). 자동 업데이트(매일)는 그대로 둔다.
+```bash
+wget -O /tmp/netdata-kickstart.sh https://get.netdata.cloud/kickstart.sh && sh /tmp/netdata-kickstart.sh --stable-channel --disable-telemetry --non-interactive
+```
+설치 직후에는 대시보드가 모든 주소(`*:19999`)에서 뜨지만, ufw와 가비아 방화벽이 22·80·443만 열어 두었으므로 밖에서는 닿지 않는다. 바로 아래 설정으로 127.0.0.1에만 열리게 바꾼다.
+
+설정 파일(`/etc/netdata/netdata.conf`)을 연다. 처음에는 주석만 있는 것이 정상이다.
+```bash
+cd /etc/netdata && sudo ./edit-config netdata.conf
+```
+아래를 넣는다. 대시보드는 서버 안(127.0.0.1)에서만 열고, 메모리·CPU를 쓰는 이상 탐지(ML)는 끈다. 보관 기간은 기본값(초 단위 14일 · 분 단위 3개월 · 시간 단위 2년, 단계마다 1GiB, 메타데이터까지 4GB쯤)으로 충분하다. 점심시간 패턴은 분 단위 기록으로 몇 주를 비교한다.
+```ini
+[web]
+    bind to = 127.0.0.1
+
+[ml]
+    enabled = no
+```
+
+컨테이너 이름(app·db·caddy)으로 보려면 netdata 사용자가 Docker에 물어볼 수 있어야 한다. 안 하면 컨테이너 ID 앞 12자로 보이고, 배포 때마다 ID가 바뀌어 알아보기 어렵다. docker 그룹은 root와 같은 권한이라 대시보드를 밖에 열지 않는 지금 구성에서만 쓴다.
+```bash
+sudo usermod -aG docker netdata
+```
+그러면 Netdata가 Docker 컨테이너를 찾아 수집 작업을 자동으로 만드는데, Postgres 컨테이너에는 없는 계정으로 접속하려다 실패해 로그만 쌓인다. 자동 찾기를 끈다(컨테이너별 CPU·메모리는 이것과 상관없이 보인다).
+```bash
+cd /etc/netdata && sudo ./edit-config go.d/sd/docker.conf    # disabled: no → disabled: yes
+```
+
+### 4. 앱 지표 수집 (Spring → Netdata)
+
+앱 지표는 자동으로 찾지 못하므로 수집 작업을 직접 적는다. 먼저 지표가 나오는지와 개수(시계열 수)를 본다. 로컬에서는 약 190개였지만, 요청 지표는 호출된 경로·상태 조합마다 늘어난다.
+```bash
+curl -s http://127.0.0.1:8081/actuator/prometheus | grep -vc '^#'
+```
+Netdata는 시계열이 전체 한도(기본 2000)를 넘으면 그 수집 전체를, 지표 하나의 한도(기본 200)를 넘으면 그 지표를 말없이 버린다. 그래서 한도를 넉넉히 올려 둔다. 1~2주 뒤 위 명령으로 다시 세어 한도에 가까우면 늘린다.
+```bash
+cd /etc/netdata && sudo ./edit-config go.d/prometheus.conf
+```
+```yaml
+jobs:
+  - name: ohjumwhat
+    url: http://127.0.0.1:8081/actuator/prometheus
+    update_every: 10
+    max_time_series: 3000
+    max_time_series_per_metric: 1000
+```
+설정을 다 넣었으면 다시 띄우고 확인한다.
+```bash
+sudo systemctl restart netdata
+ss -ltnp | grep 19999                    # 127.0.0.1:19999만 나와야 한다
+sudo -u netdata -s                       # netdata 사용자로 수집 작업을 한 번 돌려 본다(끝나면 exit)
+cd /usr/libexec/netdata/plugins.d/ && ./go.d.plugin -d -m prometheus -j ohjumwhat
+```
+
+### 5. 대시보드 보기
+
+내 PC에서 SSH 터널을 연 채로 브라우저에서 http://localhost:19999 를 연다.
+```bash
+ssh -i ohjumwhat.pem -L 19999:localhost:19999 <SSH 사용자>@1.201.114.178
+```
+
+| 알고 싶은 것 | 볼 차트 |
+|---|---|
+| 서버가 얼마나 한가한지 | System Overview의 CPU, RAM, Swap(사용량·swap in/out), Disk Space |
+| 컨테이너별 사용량 | Containers & VMs의 app·db·caddy CPU·메모리 |
+| 점심시간 요청 수 | `http_server_requests_seconds_count`(초당 요청 수, uri·status별). 대시보드에서 `ohjumwhat`이나 `http_server_requests`로 찾는다 |
+| 응답 시간 | `http_server_requests_seconds_sum` ÷ `_count`(평균), `http_server_requests_seconds_max` |
+| JVM 메모리 여유 | `jvm_memory_used_bytes`(area=heap)와 `jvm_memory_max_bytes` |
+| DB 커넥션 | `hikaricp_connections_active`·`hikaricp_connections_pending`(기다리는 요청이 생기면 부족) |
+| 채팅을 보고 있는 화면 수 | `ohjumwhat_chat_connections` |
+
+Netdata는 RAM 100~350MB, CPU 한 코어의 1~5% 정도를 쓴다(공식 안내, ML을 끄면 더 적다). 설치 뒤 `systemctl status netdata`로 실제 사용량을 확인하고, 1~2주 동안 점심시간 피크를 본 다음 서버 사양(유지·축소)을 정한다.
+
+**Netdata Cloud(선택)**: 터널 없이 브라우저로 보고 싶으면 무료 플랜(노드 5대까지)에 연결할 수 있다. 무료 플랜의 알림은 이메일·Discord 같은 기본 방식이다(모바일 앱 푸시는 유료). 연결은 대시보드의 「Connect」나 `/etc/netdata/claim.conf`로 한다(https://github.com/netdata/netdata/blob/master/src/claim/README.md). Cloud에 연결하면 대시보드를 밖에 열지 않는다는 전제가 바뀌므로, netdata 사용자를 docker 그룹(root와 같은 권한)에 둘지 다시 정한다. 서비스가 죽었는지는 Cloud가 아니어도 위 업타임 체크가 알려준다.
