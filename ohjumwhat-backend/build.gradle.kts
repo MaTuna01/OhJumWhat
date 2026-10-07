@@ -46,6 +46,8 @@ dependencies {
 	// ./gradlew dependencies에서 google-http-client 버전을 보고 함께 올린다).
 	implementation("com.google.http-client:google-http-client-jackson2:2.2.0")
 	compileOnly("org.projectlombok:lombok")
+	// 서버 모니터링: 관리 포트의 /actuator/prometheus를 Netdata가 읽는다(docs/DEPLOY.md 「모니터링」).
+	runtimeOnly("io.micrometer:micrometer-registry-prometheus")
 	runtimeOnly("org.postgresql:postgresql")
 	annotationProcessor("org.projectlombok:lombok")
 	testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")

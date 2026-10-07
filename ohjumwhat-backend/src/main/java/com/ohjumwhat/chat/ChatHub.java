@@ -98,6 +98,11 @@ public class ChatHub {
 			.count();
 	}
 
+	/** 지금 열린 연결 수(모니터링 지표, ChatMetrics) */
+	int connectionCount() {
+		return connections.size();
+	}
+
 	/** 연결이 있는 투표들(주기적 점검용) */
 	Set<Long> connectedPollIds() {
 		return connections.values().stream().map(Connection::pollId).collect(Collectors.toSet());
