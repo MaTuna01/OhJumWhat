@@ -6,6 +6,7 @@ import {
   chatSocketUrl,
   dividerAnchor,
   firstLine,
+  previewText,
   mayHaveOlderUnread,
   mergeChatPage,
   mergeMessages,
@@ -43,6 +44,28 @@ describe('mergeMessages', () => {
     const later = message(1, { body: '다시 고침', editedAt: '2026-09-30T02:05:00.5Z' })
     expect(mergeMessages([later], [early])[0].body).toBe('다시 고침')
     expect(mergeMessages([early], [later])[0].body).toBe('다시 고침')
+  })
+})
+
+describe('mergeMessages · 사진', () => {
+  const photo = { width: 1600, height: 1200, expired: false, url: '/api/chat-photos/a.jpg', thumbnailUrl: '/api/chat-photos/a_t.jpg' }
+  const expired = { width: 1600, height: 1200, expired: true, url: null, thumbnailUrl: null }
+
+  it('다시 받은 「보관 기간 지남」이 먼저 받은 사진에 묻히지 않는다', () => {
+    const fresh = message(1, { body: null, photo })
+    const old = message(1, { body: null, photo: expired })
+    expect(mergeMessages([fresh], [old])[0].photo?.expired).toBe(true)
+    expect(mergeMessages([old], [fresh])[0].photo?.expired).toBe(true)
+  })
+
+  it('지운 사진이 가장 최신이다', () => {
+    const removed = message(1, { body: null, photo: null, deleted: true })
+    expect(mergeMessages([message(1, { body: null, photo: expired })], [removed])[0].deleted).toBe(true)
+  })
+
+  it('미리보기는 사진이면 「📷 사진」', () => {
+    expect(previewText(message(1, { body: null, photo }))).toBe('📷 사진')
+    expect(previewText(message(2, { body: '첫 줄\n둘째 줄' }))).toBe('첫 줄')
   })
 })
 

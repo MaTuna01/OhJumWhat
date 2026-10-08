@@ -5,13 +5,29 @@ import { mergeChatPage, mergeMessages } from '../lib/chat.ts'
 import { type Person, pollKeys } from './polls.ts'
 
 /**
+ * 사진 메시지의 사진. 30일이 지나면 expired이고 주소가 없다(사진 메시지인 것은 남는다).
+ * width·height는 서버가 만든 원본 크기(px)로, 사진이 뜨기 전에 말풍선 자리를 잡는 데 쓴다.
+ */
+export type ChatPhoto = {
+  width: number
+  height: number
+  expired: boolean
+  /** 원본(긴 변 1600px, 뷰어) */
+  url: string | null
+  /** 썸네일(긴 변 480px, 말풍선) */
+  thumbnailUrl: string | null
+}
+
+/**
  * 투표 채팅 메시지. 같은 투표를 보는 모두에게 WebSocket으로도 오므로 "내 글인지"는 author로 판단한다.
- * author가 null이면 강제 탈퇴로 삭제된 회원("탈퇴한 사용자"), 지운 메시지는 body가 null이다.
+ * author가 null이면 강제 탈퇴로 삭제된 회원("탈퇴한 사용자"), 지운 메시지는 body·photo가 null이다.
+ * 글 메시지는 body, 사진 메시지는 photo가 있다(사진 1장, 글 없음).
  */
 export type ChatMessage = {
   id: number
   author: Person | null
   body: string | null
+  photo?: ChatPhoto | null
   createdAt: string
   /** 마지막으로 고친 시각. 같은 메시지를 여러 번 받으면 더 늦은 쪽이 최신이다 */
   editedAt: string | null
@@ -74,6 +90,22 @@ export function useSendMessage(pollId: number) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (body: string) => api<ChatMessage>(messagesUrl(pollId), { method: 'POST', body: { body } }),
+    onSuccess: (message) => {
+      upsertMessages(queryClient, pollId, [message])
+      raiseLastRead(queryClient, pollId, message.id)
+    },
+  })
+}
+
+/** 사진 1장을 메시지 하나로 보낸다(브라우저가 줄인 JPEG, lib/chatPhoto.ts preparePhoto). */
+export function useSendPhoto(pollId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (photo: Blob) => {
+      const form = new FormData()
+      form.append('photo', photo, 'photo.jpg')
+      return api<ChatMessage>(`${messagesUrl(pollId)}/photo`, { method: 'POST', body: form })
+    },
     onSuccess: (message) => {
       upsertMessages(queryClient, pollId, [message])
       raiseLastRead(queryClient, pollId, message.id)

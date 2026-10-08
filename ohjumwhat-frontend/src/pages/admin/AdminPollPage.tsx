@@ -1,15 +1,18 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { ActionRow, DangerZone, EmptyRow } from '../../components/AdminParts.tsx'
 import Button from '../../components/Button.tsx'
+import ChatPhoto from '../../components/ChatPhoto.tsx'
 import ConfirmDialog from '../../components/ConfirmDialog.tsx'
 import MessageBody from '../../components/MessageBody.tsx'
 import { CommentList, CommentRow } from '../../components/OptionComments.tsx'
 import { PageLoader, PageMessage, Section } from '../../components/PageState.tsx'
+import PhotoViewer from '../../components/PhotoViewer.tsx'
 import PollStatusBadge from '../../components/PollStatusBadge.tsx'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.ts'
 import { useNow } from '../../hooks/useNow.ts'
 import { ApiError } from '../../lib/api.ts'
+import { BUBBLE_MAX, viewerPhotos } from '../../lib/chatPhoto.ts'
 import { withJosa } from '../../lib/josa.ts'
 import { closedPollDayLabel } from '../../lib/pollStatus.ts'
 import { formatClock } from '../../lib/time.ts'
@@ -186,17 +189,19 @@ export default function AdminPollPage() {
   )
 }
 
-/** 투표 채팅(A06-C): 채팅이 닫힌 뒤에도 지운다. 실시간으로 받지는 않는다. */
+/** 투표 채팅(A06-C): 채팅이 닫힌 뒤에도 지운다. 실시간으로 받지는 않는다. 사진은 썸네일을 누르면 뷰어로 크게 본다. */
 function AdminChat({ pollId }: { pollId: number }) {
   const chat = useAdminChat(pollId)
   const remove = useDeleteChatMessage()
   const [removing, setRemoving] = useState<ChatMessage | null>(null)
+  const [viewingId, setViewingId] = useState<number | null>(null)
   const close = () => {
     remove.reset()
     setRemoving(null)
   }
   // 페이지는 최신 → 오래된 순으로 쌓이므로 뒤집어 오래된 → 최신으로 보여준다.
-  const messages = [...(chat.data?.pages ?? [])].reverse().flatMap((page) => page.messages)
+  const messages = useMemo(() => [...(chat.data?.pages ?? [])].reverse().flatMap((page) => page.messages), [chat.data])
+  const photos = useMemo(() => viewerPhotos(messages), [messages])
 
   return (
     <Section title="채팅">
@@ -230,9 +235,20 @@ function AdminChat({ pollId }: { pollId: number }) {
                     {m.editedAt && !m.deleted && ' · 수정됨'}
                   </span>
                 </p>
-                <p className={`text-sm break-words ${m.deleted ? 'text-text-placeholder' : 'text-text-secondary'}`}>
-                  {m.deleted || m.body == null ? '삭제된 메시지예요' : <MessageBody body={m.body} />}
-                </p>
+                {m.photo && !m.deleted ? (
+                  <div className="mt-1">
+                    <ChatPhoto
+                      photo={m.photo}
+                      max={BUBBLE_MAX.side}
+                      onOpen={m.photo.expired ? undefined : () => setViewingId(m.id)}
+                      alt={`${m.author?.name ?? '탈퇴한 사용자'}님이 보낸 사진`}
+                    />
+                  </div>
+                ) : (
+                  <p className={`text-sm break-words ${m.deleted ? 'text-text-placeholder' : 'text-text-secondary'}`}>
+                    {m.deleted || m.body == null ? '삭제된 메시지예요' : <MessageBody body={m.body} />}
+                  </p>
+                )}
               </div>
               {!m.deleted && (
                 <button
@@ -258,10 +274,20 @@ function AdminChat({ pollId }: { pollId: number }) {
         pending={remove.isPending}
         error={remove.error?.message}
       >
-        <p className="break-words whitespace-pre-wrap">
-          {removing?.author?.name ?? '탈퇴한 사용자'}: 「{removing?.body}」
-        </p>
+        {removing?.photo ? (
+          <>
+            <p>{removing.author?.name ?? '탈퇴한 사용자'}님이 보낸 사진</p>
+            <div className="mt-2">
+              <ChatPhoto photo={removing.photo} max={BUBBLE_MAX.side} alt="지울 사진" />
+            </div>
+          </>
+        ) : (
+          <p className="break-words whitespace-pre-wrap">
+            {removing?.author?.name ?? '탈퇴한 사용자'}: 「{removing?.body}」
+          </p>
+        )}
       </ConfirmDialog>
+      <PhotoViewer photos={photos} openId={viewingId} onChange={setViewingId} />
     </Section>
   )
 }

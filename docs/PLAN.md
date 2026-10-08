@@ -47,7 +47,7 @@
 | 24 | 진행 중·지난 투표 구분(Notion 「24. 현재 진행 중인 투표랑 지난 투표가 구분이 잘 안 되는 문제」): 조직 홈을 진행 중·오늘 마감으로 나누고 마감 카드는 흐리게, 지난 투표 줄은 날짜 먼저·「마감」 배지, 마감된 투표 상세에 날짜 줄(관리자 포함) | 완료(v1.11.4) | [#127](https://github.com/MaTuna01/OhJumWhat/pull/127) |
 | 25 | 정기 투표 이름의 오늘 날짜(Notion 「25. 정기 투표 이름에 '날짜 + 오점왓'」): 규칙 이름에 `${오늘날짜}`를 넣으면 투표가 열릴 때 한국 날짜 `YYYY-MM-DD`로 바뀐다. 모달의 「+ 오늘 날짜」 칩·예시, 길이는 토큰을 10자로 셈, 목록은 「오늘 날짜」 칩 | 완료(v1.11.4) | [#126](https://github.com/MaTuna01/OhJumWhat/pull/126) |
 | - | 검색 노출 개선: 로그인하지 않은 `/`에 공개 소개 페이지(빌드 때 HTML로 그림, 브라우저 JS 없음), 앱 화면 noindex, canonical·`robots.txt`·`sitemap.xml` | 완료(v1.11.4) | [#125](https://github.com/MaTuna01/OhJumWhat/pull/125) |
-| 19 | 채팅에서 사진 전송(Notion 「19. 채팅에서 사진 전송 기능 추가」) | 시작 전 | - |
+| 19 | 채팅에서 사진 전송(Notion 「19. 채팅에서 사진 전송 기능 추가」): 사진 메시지(1장, 한 번에 5장까지 장마다 메시지), 말풍선에는 크기를 정한 썸네일, 누르면 전체 화면 뷰어(확대·이동·이전/다음·원본), 원본 1600px·썸네일 480px로 다시 그려 저장, 30일 보관 뒤 매일 정리, 보기는 그 조직 멤버·관리자만 | 구현 완료 — dev 머지 대기 | [#135](https://github.com/MaTuna01/OhJumWhat/issues/135) |
 | 12 | 중복 투표(관심 표시 후 최종 한 곳 확정) | 시작 전 | - |
 | 13 | 최소 인원 미달 메뉴 자동 해산 후 재선택(12 다음) | 시작 전 | - |
 | - | 랭킹 「메뉴 연주자」(연속 3회 채택) 칭호 | 보류 — '연속'의 정의를 PM과 정한 뒤 | - |
@@ -129,6 +129,7 @@ ohjumwhat/
 - V18: `letters.recipient_id` `SET NULL`(받은 사람이 강제 탈퇴해도 쪽지·신고를 남긴다)
 - V19: `guestbook_entries`·`guestbook_reports`(방명록, 소프트 삭제), `users.guestbook_seen_at`·`guestbook_warnings_seen_at`
 - V20: `push_devices`(웹 푸시 기기 FID. `spring_session.primary_id`에 CASCADE로 묶어 로그아웃·만료·강제 탈퇴 때 함께 지운다, 한 사람 10대)
+- V23: `chat_messages.image_key`·`image_width`·`image_height`(채팅 사진. 글과 사진 중 하나만, 지우면 둘 다 비운다. 파일은 `ohjumwhat.chat-photos.dir`의 `{key}.jpg`·`{key}_t.jpg`)
 - UNIQUE: memberships(org, user), votes(poll, user), polls(schedule_id, poll_date), menu_options(poll_id, name)
 - CHECK: close_time > open_time, closes_at > opens_at. 인덱스: polls(organization_id, poll_date)
 - FK
@@ -168,6 +169,7 @@ ohjumwhat/
 | 지도 | `GET /api/config` (네이버 지도 키, 위치 찾기 가능 여부), `GET /api/orgs/{id}/places?optionIds=` (조직·식당 좌표, 카카오 식당은 이름까지, 볼 때마다 찾음, 30개까지), `GET /api/orgs/{id}/places/search?q=` (근처 식당 찾기, 45개까지, 이름·분류가 맞는 곳이 앞) | 완료 |
 | 참여 | `PUT /api/polls/{pollId}/vote` `{optionId: number \| null}` (null이면 "오늘은 패스"), `DELETE /api/polls/{pollId}/vote` (응답 취소 → 미응답, 진행 중에만) | 완료 |
 | 채팅 | `GET /api/polls/{pollId}/messages?before=` (50개씩), `POST …/messages`, `PUT/DELETE …/messages/{id}` (투표 오픈 ~ 마감 + 1시간, 300자, 한 사람 10초 10개), `PUT …/messages/read {lastReadId}` (읽은 위치), 받기는 WebSocket `/api/polls/{pollId}/ws` | 완료 |
+| 채팅 사진 | `POST /api/polls/{pollId}/messages/photo` (multipart `photo`, 사진 1장 = 메시지 하나, 10분 20장), `GET /api/chat-photos/{key}.jpg`·`{key}_t.jpg` (그 조직 멤버·관리자, 30일 안) | 완료 |
 | 정기 | `GET/POST /api/orgs/{id}/schedules`, `PUT/DELETE /api/orgs/{id}/schedules/{sid}` | 완료 |
 | 새 소식 | `GET /api/notices?page=` (최신순 10개씩, 항목마다 unread), `GET /api/notices/unread` (안 읽은 수·가장 최근 것), `POST /api/notices/seen` | 완료 |
 | 쪽지 | `GET /api/letters?box=received\|sent&before=` (20통씩), `GET /api/letters/unread`, `POST /api/letters` (같은 조직 멤버에게, 500자, 10분에 10통), `POST /api/letters/{id}/reply`, `PUT /api/letters/{id}/read`, `DELETE /api/letters/{id}` (내 쪽에서만), `POST /api/letters/{id}/block`·`report`, `GET /api/letters/blocks`, `DELETE /api/letters/blocks/{id}` | 완료 |
@@ -215,7 +217,7 @@ ohjumwhat/
 - **27. 서버 모니터링**: v1.11.2로 배포했고(#108), 운영 서버에 UptimeRobot 키워드 감시(`/healthz`)와 Netdata(앱 지표 수집 포함)를 `docs/DEPLOY.md` 「모니터링」대로 설정했다. 남은 일은 10/8~10/21 동안 점심시간 사용량을 Notion 27 「서버 상태 판단 기준」과 비교해 서버 사양(유지·축소)을 정하는 것이다. 배포 전 기준선(2026-10-07, Notion 27)은 가용 메모리 2.6GiB·스왑 0, 컨테이너 합계 약 650MiB, CPU 1% 미만, 디스크 13G/49G, Docker 29.8.1이다.
 - **v1.11.4**(릴리스 #132): 진행 중·지난 투표 구분(#127), 정기 투표 이름의 오늘 날짜(#126), 소개 페이지·검색 노출(#125), 자정 직전 투표 날짜 수정(#131)을 낸다. 마이그레이션·설정 키·CSP 변경은 없다. 배포 뒤 로그아웃 상태 `/`에 소개 페이지가 뜨는지(https에서 CSP 위반 0건), Search Console에 `sitemap.xml`을 제출하고 `/` 색인을 요청한다(네이버 서치어드바이저·다음 웹마스터도구도 등록).
 - **28. 사용자 제재 수단**: v1.11.3로 배포했다(이용 제한 #116, 사람 신고 #117, 릴리스 #118). 기획·결정은 Notion 28번 「개발 검토·결정 사항 (2026-10-07)」, 시안은 Figma Section/Sanctions·00-S·03-N7·05-X·A03b·A10 등.
-- **19. 채팅에서 사진 전송**: Notion Tasks 「시작 전」.
+- **19. 채팅에서 사진 전송**: 구현했다(#135). 기획 검토는 「좁은 채팅 영역에서는 썸네일만, 자세히는 전체 화면 뷰어」이고 시안은 Figma Section/ChatPhoto·05-C7·05-C7b·05-C8·05-I·05-I2·D05-C3·D05-I. dev에 머지한 뒤 릴리스에 넣는다(마이그레이션 V23, multipart 한도 5MB, 백업에서 채팅 사진 제외). 배포 뒤 아이폰·안드로이드 실기기에서 사진 고르기(HEIC 변환)·핀치·두 번 누르기를 확인한다.
 - **12. 중복 투표(관심 표시 후 최종 한 곳 확정)**: Notion Tasks 「시작 전」. 지금은 votes가 (poll, user)당 한 행이라 참여 규칙(서버 `PollService.detail`·화면 `applyVote`)과 스키마가 함께 바뀐다.
 - **13. 최소 인원 미달 메뉴 자동 해산 후 재선택**: Notion Tasks 「시작 전」, 12 다음에 한다.
 - **랭킹 「메뉴 연주자」 칭호**: 연속 3회 채택. '연속'의 정의를 PM과 정한 뒤 2차로 한다.

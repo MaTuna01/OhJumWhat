@@ -35,9 +35,15 @@ export type ChatReading = {
  * 채팅 목록을 보고 있는지 재고 읽은 위치를 올린다(Figma 05-C5·05-C6·D05-C2).
  * 목록 끝이 화면 안이고 탭이 보이고 목록이 맨 아래에 붙어 있을 때만 읽은 것으로 한다(위로 올려 읽는 중에 온 메시지는 안 읽음으로 남는다).
  * 보이기 시작하는 순간(시트를 열거나 카드가 화면에 들어올 때) 안 읽었던 범위에 구분선을 고정하고, 보고 있는 동안 온 메시지는 잠깐 강조한다.
- * atBottom은 ChatPanel이 스크롤할 때 재는 값이다.
+ * atBottom은 ChatPanel이 스크롤할 때 재는 값이다. covered: 채팅 위를 가리는 창(사진 뷰어)이 열려 있으면 보이지 않는 것으로 한다
+ * (IntersectionObserver는 가려진 것을 모른다).
  */
-export function useChatReading(pollId: number, listRef: RefObject<HTMLUListElement | null>, atBottom: RefObject<boolean>): ChatReading {
+export function useChatReading(
+  pollId: number,
+  listRef: RefObject<HTMLUListElement | null>,
+  atBottom: RefObject<boolean>,
+  covered = false,
+): ChatReading {
   const orgId = useOrgId()
   const { data: me } = useMe()
   const { data: page } = useChatMessages(pollId)
@@ -56,7 +62,7 @@ export function useChatReading(pollId: number, listRef: RefObject<HTMLUListEleme
   const newestId = messages.at(-1)?.id ?? 0
   const lastReadId = page?.lastReadId ?? 0
   const unread = page ? unreadCount(messages, lastReadId, me?.id) : 0
-  const visible = inView === true && docVisible
+  const visible = inView === true && docVisible && !covered
 
   useEffect(() => {
     const sentinel = sentinelRef.current
