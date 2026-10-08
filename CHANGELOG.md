@@ -2,6 +2,18 @@
 
 버전은 `vMAJOR.MINOR.PATCH`로 붙인다. 릴리스 절차는 [docs/DEPLOY.md](docs/DEPLOY.md#릴리스와-버전)에 있다.
 
+## v1.11.5 — 2026-10-08
+
+- 채팅에서 사진 보내기(#135, #136, Notion 「19. 채팅에서 사진 전송 기능 추가」): 새 화면이 아니라 기존 투표 채팅의 강화라 PATCH로 올렸다. 채팅 영역이 좁아(데스크톱 사이드 카드 폭 320px) 말풍선에는 정한 크기의 썸네일만 두고, 누르면 전체 화면 뷰어로 크게 본다.
+  - 사진 메시지는 글 없이 사진 1장이다(V23 `chat_messages.image_key`·`image_width`·`image_height`, CHECK 「지우지 않은 메시지는 글과 사진 중 하나」). 한 번에 5장까지 고르면 장마다 메시지 하나로 보낸다. 고칠 수 없고(400) 지우기만 되며, 지우면 파일도 커밋 뒤에 지운다.
+  - `POST /api/polls/{pollId}/messages/photo`(multipart `photo`, `@Restricted(CHAT)`): 멤버·채팅 기간·속도 제한(메시지 10초 10개 + 사진 10분 20장)을 먼저 보고, 원본 긴 변 1600px·썸네일 480px JPEG로 다시 그린다(EXIF 제거, 동시에 2장까지). 이미지 처리는 프로필 사진과 함께 쓰는 `common/ImageFiles`로 꺼냈다.
+  - `GET /api/chat-photos/{key}.jpg`·`{key}_t.jpg`: 프로필 사진과 달리 그 조직 멤버이거나 관리자이고, 지우지 않았고 30일 안일 때만 준다(아니면 404, `private, max-age=1일`). 응답에 `photo {width, height, expired, url, thumbnailUrl}`.
+  - 30일 보관: 요청 시각으로 판정해 `expired`가 되고, 매일 04:00 KST `ChatPhotoJanitor`가 만료·삭제·투표/조직 삭제·저장 실패로 남은 파일을 지운다.
+  - 화면: 📷·붙여넣기, 브라우저에서 긴 변 1600px로 줄여 차례로 보냄(진행 표시·보내는 중 미리보기), 사진이 뜨기 전에 크기를 잡는 썸네일(`ChatPhoto`), 전체 화면 뷰어(`PhotoViewer`: 이전/다음·밀기, 두 번 누르기·휠·핀치 1~4배, 끌어서 옮기기, 원본 새 탭), 미리보기 「📷 사진」, 관리자 콘솔 채팅에도 썸네일·뷰어. 뷰어 색 토큰 `bg-viewer`·`bg-viewer-control`·`text-on-viewer`·`text-on-viewer-muted`.
+- 설정: multipart 한도 2MB → 5MB(요청 6MB). 채팅 사진 폴더 `ohjumwhat.chat-photos.dir`(`CHAT_PHOTOS_DIR`)는 비우면 프로필 사진 폴더 아래 `chat`(운영 `/data/photos/chat`, 같은 `photos` 볼륨)이라 서버 `.env`·compose는 바꾸지 않는다.
+- `deploy/backup.sh`: 30일이면 지워지는 채팅 사진(`photos/chat`)은 백업하지 않는다.
+- DB: V23 마이그레이션. CSP 변경은 없다(사진은 같은 출처, 미리보기는 `data:`).
+
 ## v1.11.4 — 2026-10-08
 
 - 진행 중인 투표와 지난 투표 구분(#123, #127, Notion 「24. 현재 진행 중인 투표랑 지난 투표가 구분이 잘 안 되는 문제」): 화면만 바꾸고 API·스키마는 그대로다.

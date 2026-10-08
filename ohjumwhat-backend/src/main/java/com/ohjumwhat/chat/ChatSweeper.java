@@ -30,14 +30,17 @@ class ChatSweeper {
 
 	private final ChatRateLimiter rateLimiter;
 
+	private final ChatPhotoRateLimiter photoRateLimiter;
+
 	private final Clock clock;
 
 	ChatSweeper(ChatHub chatHub, PollRepository pollRepository, MembershipRepository membershipRepository,
-			ChatRateLimiter rateLimiter, Clock clock) {
+			ChatRateLimiter rateLimiter, ChatPhotoRateLimiter photoRateLimiter, Clock clock) {
 		this.chatHub = chatHub;
 		this.pollRepository = pollRepository;
 		this.membershipRepository = membershipRepository;
 		this.rateLimiter = rateLimiter;
+		this.photoRateLimiter = photoRateLimiter;
 		this.clock = clock;
 	}
 
@@ -65,5 +68,6 @@ class ChatSweeper {
 		}
 		chatHub.ping();
 		rateLimiter.prune();
+		photoRateLimiter.prune();
 	}
 }

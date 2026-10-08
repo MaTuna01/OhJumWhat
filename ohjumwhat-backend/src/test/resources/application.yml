@@ -6,8 +6,8 @@ spring:
       ddl-auto: validate
   servlet:
     multipart:
-      max-file-size: 2MB
-      max-request-size: 3MB
+      max-file-size: 5MB
+      max-request-size: 6MB
   security:
     oauth2:
       client:
@@ -64,3 +64,6 @@ ohjumwhat:
   # 프로필 사진 폴더(테스트용). build 아래라 git·Docker에 들어가지 않고, IntegrationTest가 테스트마다 비운다.
   photos:
     dir: build/test-photos
+  # 채팅 사진 폴더(테스트용). IntegrationTest가 테스트마다 비운다.
+  chat-photos:
+    dir: build/test-chat-photos

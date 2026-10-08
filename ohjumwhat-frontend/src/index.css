@@ -26,6 +26,9 @@
   --color-bg-warning-soft: var(--color-amber-100);
   --color-bg-success-soft: var(--color-green-100);
   --color-bg-scrim: rgb(28 25 23 / 0.4);
+  /* 사진 뷰어(전체 화면) */
+  --color-bg-viewer: rgb(28 25 23 / 0.95);
+  --color-bg-viewer-control: rgb(255 255 255 / 0.14);
 
   /* 텍스트 */
   --color-text-primary: var(--color-stone-900);
@@ -38,6 +41,8 @@
   --color-text-danger: var(--color-red-600);
   --color-text-warning: var(--color-amber-700);
   --color-text-success: var(--color-green-700);
+  --color-text-on-viewer: var(--color-white);
+  --color-text-on-viewer-muted: var(--color-stone-300);
 
   /* 테두리·아이콘 */
   --color-border-default: var(--color-stone-200);

@@ -18,9 +18,9 @@ spring:
     enabled: true
   servlet:
     multipart:
-      # 프로필 사진 올리기. 브라우저가 512px JPEG(대개 100KB 안팎)로 줄여 보내므로 넉넉한 한도다.
-      max-file-size: 2MB
-      max-request-size: 3MB
+      # 프로필 사진·채팅 사진 올리기. 브라우저가 줄여 보낸다(프로필 512px, 채팅 긴 변 1600px JPEG, 대개 1MB 이하).
+      max-file-size: 5MB
+      max-request-size: 6MB
   security:
     oauth2:
       client:
@@ -93,3 +93,7 @@ ohjumwhat:
     # 올린 프로필 사진({키}.jpg)을 두는 폴더. 운영은 Docker 볼륨(/data/photos, Dockerfile의 PHOTOS_DIR)이고,
     # 로컬은 백엔드 폴더의 data/photos(gitignore 대상)다. 백업은 deploy/backup.sh가 DB와 함께 한다.
     dir: ${PHOTOS_DIR:./data/photos}
+  chat-photos:
+    # 채팅 사진({키}.jpg 원본, {키}_t.jpg 썸네일)을 두는 폴더. 비우면 프로필 사진 폴더 아래 chat이다(운영 /data/photos/chat).
+    # 30일 보관하고 매일 04:00에 정리한다. 30일이면 지워지는 사진이라 deploy/backup.sh는 이 폴더를 백업하지 않는다.
+    dir: ${CHAT_PHOTOS_DIR:}
