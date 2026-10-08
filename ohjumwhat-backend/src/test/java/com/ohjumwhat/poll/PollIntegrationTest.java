@@ -3,6 +3,7 @@ package com.ohjumwhat.poll;
 import static com.ohjumwhat.TestAuth.loginAs;
 import static com.ohjumwhat.TestAuth.xsrf;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
@@ -14,7 +15,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +29,8 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import com.jayway.jsonpath.JsonPath;
 import com.ohjumwhat.IntegrationTest;
+import com.ohjumwhat.common.ApiException;
+import com.ohjumwhat.common.TimeConfig;
 import com.ohjumwhat.organization.OrganizationService;
 import com.ohjumwhat.organization.InviteService;
 import com.ohjumwhat.schedule.PollSchedule;
@@ -40,6 +46,9 @@ class PollIntegrationTest extends IntegrationTest {
 
 	@Autowired
 	PollRepository pollRepository;
+
+	@Autowired
+	PollService pollService;
 
 	@Autowired
 	PollScheduleRepository scheduleRepository;
@@ -84,6 +93,31 @@ class PollIntegrationTest extends IntegrationTest {
 			.andExpect(jsonPath("$[0].title").value("점심"))
 			.andExpect(jsonPath("$[0].status").value("OPEN"))
 			.andExpect(jsonPath("$[0].myResponse").value("NONE"));
+	}
+
+	@Test
+	void 자정_직전에_만들어도_투표_날짜는_오픈_시각의_날짜로_정한다() {
+		// 읽을 때마다 1ms씩 가는 시계: 시계를 두 번 읽으면 두 번째 읽기가 10월 1일로 넘어간다.
+		clock.tick(ZonedDateTime.of(2026, 9, 30, 23, 59, 59, 999_000_000, TimeConfig.KST).toInstant(),
+				Duration.ofMillis(1));
+
+		// 지금(9월 30일 23:59:59.999) 기준으로 오늘 12:00은 지났다. 날짜를 따로 읽으면 poll_date는 10월 1일,
+		// opens_at은 9월 30일인 투표가 10월 1일 12:00 마감으로 만들어졌다.
+		assertThatThrownBy(() -> pollService.create(orgId, kim.getId(), new PollRequest("야식", "12:00")))
+			.isInstanceOf(ApiException.class)
+			.hasMessage("마감 시간은 지금보다 뒤여야 해요.");
+		assertThat(jdbcTemplate.queryForObject("select count(*) from polls", Long.class)).isZero();
+	}
+
+	@Test
+	void 자정에_만든_투표의_날짜와_오픈_시각은_같은_한국_날짜다() throws Exception {
+		clock.set(2026, 10, 1, 0, 0);
+		createPoll(kim, "점심", "12:00").andExpect(status().isCreated());
+
+		assertThat(jdbcTemplate.queryForObject("select poll_date from polls", LocalDate.class))
+			.isEqualTo(LocalDate.of(2026, 10, 1))
+			.isEqualTo(jdbcTemplate.queryForObject("select (opens_at at time zone 'Asia/Seoul')::date from polls",
+					LocalDate.class));
 	}
 
 	@Test

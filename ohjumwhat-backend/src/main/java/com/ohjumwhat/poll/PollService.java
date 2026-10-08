@@ -91,8 +91,9 @@ public class PollService {
 	@Transactional
 	public PollDetailResponse create(Long organizationId, Long userId, PollRequest request) {
 		membershipService.requireMember(organizationId, userId);
+		// 시계를 한 번만 읽는다. 따로 읽으면 자정에 poll_date와 opens_at의 날짜가 어긋날 수 있다.
 		Instant now = Instant.now(clock);
-		LocalDate today = LocalDate.now(clock);
+		LocalDate today = LocalDate.ofInstant(now, TimeConfig.KST);
 		Instant closesAt = closingTime(today, request.closesAt(), now);
 		Poll poll = pollRepository.save(Poll.manual(organizationId, userId, request.title().strip(), today, now,
 				closesAt));
@@ -162,7 +163,7 @@ public class PollService {
 		Instant now = Instant.now(clock);
 		int memberCount = (int) membershipRepository.countByOrganizationId(organizationId);
 		List<Poll> polls = pollRepository.findByOrganizationIdAndPollDateOrderByOpensAtAscIdAsc(organizationId,
-				LocalDate.now(clock));
+				LocalDate.ofInstant(now, TimeConfig.KST));
 		Map<Long, Long> unreadByPoll = polls.isEmpty() ? Map.of()
 				: chatReadRepository.countUnread(polls.stream().map(Poll::getId).toList(), userId).stream()
 					.collect(Collectors.toMap(ChatUnreadCount::pollId, ChatUnreadCount::count));

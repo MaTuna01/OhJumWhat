@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ohjumwhat.common.ApiException;
+import com.ohjumwhat.common.TimeConfig;
 import com.ohjumwhat.place.PlaceLink;
 import com.ohjumwhat.poll.PollRepository;
 import com.ohjumwhat.vote.VoteRepository;
@@ -114,8 +115,9 @@ public class OrganizationService {
 			return List.of();
 		}
 		Instant now = Instant.now(clock);
+		LocalDate today = LocalDate.ofInstant(now, TimeConfig.KST);
 		Set<Long> withOpenPoll = new HashSet<>(pollRepository.findOrganizationIdsWithOpenPoll(
-				rows.stream().map(MyOrganizationRow::id).toList(), LocalDate.now(clock), now));
+				rows.stream().map(MyOrganizationRow::id).toList(), today, now));
 		return rows.stream()
 			.map(row -> new MyOrganizationResponse(row.id(), row.name(), row.memberCount(),
 					withOpenPoll.contains(row.id())))
