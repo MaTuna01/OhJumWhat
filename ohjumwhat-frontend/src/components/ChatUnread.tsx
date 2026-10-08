@@ -1,6 +1,6 @@
 import type { ReactNode, Ref } from 'react'
 import { useChatUnread } from '../hooks/useChatUnread.ts'
-import { firstLine } from '../lib/chat.ts'
+import { previewText } from '../lib/chat.ts'
 import type { ChatMessage } from '../queries/chat.ts'
 
 /** Figma UnreadBadge: 안 읽은 수(빨간 원). 버튼·카드 위에서 떨어져 보이게 바깥에 흰 테두리를 두른다. */
@@ -14,7 +14,7 @@ export function UnreadBadge({ children, className = '' }: { children: ReactNode;
   )
 }
 
-/** Figma ChatPreview: 채팅을 안 보는 중에 온 남의 메시지(이름 · 첫 줄). 누르면 채팅을 연다. */
+/** Figma ChatPreview: 채팅을 안 보는 중에 온 남의 메시지(이름 · 첫 줄, 사진이면 「📷 사진」). 누르면 채팅을 연다. */
 function ChatPreview({ message, onClick }: { message: ChatMessage; onClick: () => void }) {
   return (
     <div role="status" className="pointer-events-auto max-w-[300px] min-w-0">
@@ -24,7 +24,7 @@ function ChatPreview({ message, onClick }: { message: ChatMessage; onClick: () =
         className="flex w-full items-center gap-2 rounded-xl border border-border-default bg-bg-surface px-3.5 py-2.5 text-left text-sm shadow-lg hover:bg-bg-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-brand"
       >
         <span className="shrink-0 font-bold text-text-primary">{message.author?.name ?? '탈퇴한 사용자'}</span>
-        <span className="truncate text-text-secondary">{firstLine(message.body)}</span>
+        <span className="truncate text-text-secondary">{previewText(message)}</span>
       </button>
     </div>
   )

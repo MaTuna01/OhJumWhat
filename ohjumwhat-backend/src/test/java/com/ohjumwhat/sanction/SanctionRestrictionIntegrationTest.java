@@ -173,6 +173,8 @@ class SanctionRestrictionIntegrationTest extends SanctionTestBase {
 				new Endpoint("채팅 고치기", Restriction.CHAT, HttpStatus.OK,
 						t -> json(put("/api/polls/{id}/messages/{messageId}", t.pollId, t.messageId),
 								"{\"body\": \"고쳤어요\"}")),
+				new Endpoint("채팅 사진 보내기", Restriction.CHAT, HttpStatus.CREATED,
+						t -> multipart("/api/polls/{id}/messages/photo", t.pollId).file(photo())),
 				// 쪽지 금지
 				new Endpoint("쪽지 보내기", Restriction.LETTER, HttpStatus.CREATED,
 						t -> json(post("/api/letters"), "{\"organizationId\": %d, \"recipientId\": %d, \"body\": \"안녕하세요\"}"

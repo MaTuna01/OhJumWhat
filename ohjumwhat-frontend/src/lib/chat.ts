@@ -8,9 +8,14 @@ export function chatLength(text: string): number {
   return [...text.trim()].length
 }
 
-/** 같은 메시지를 여러 번 받으면(목록·WebSocket·내 요청의 응답) 지운 것, 그다음 늦게 고친 것이 최신이다. */
+/**
+ * 같은 메시지를 여러 번 받으면(목록·WebSocket·내 요청의 응답) 지운 것, 보관 기간이 지난 사진, 그다음 늦게 고친 것이 최신이다.
+ * 사진은 고치지 않아 editedAt이 같으므로, 다시 받은 「기간 지남」이 먼저 받은 사진에 묻히지 않게 따로 본다.
+ */
 function latest(a: ChatMessage, b: ChatMessage): ChatMessage {
   if (a.deleted !== b.deleted) return a.deleted ? a : b
+  const expired = (m: ChatMessage) => m.photo?.expired === true
+  if (expired(a) !== expired(b)) return expired(a) ? a : b
   const edited = (m: ChatMessage) => (m.editedAt ? Date.parse(m.editedAt) : 0)
   return edited(b) > edited(a) ? b : a
 }
@@ -98,6 +103,11 @@ export function dividerAnchor(messages: ChatMessage[], after: number, upTo: numb
 /** afterId 뒤에 새로 온 남의 메시지(미리보기·강조). 이전 메시지 더 보기·고친 글·내 글은 빠진다 */
 export function arrivals(messages: ChatMessage[], afterId: number, meId: number | undefined): ChatMessage[] {
   return messages.filter((m) => isUnread(m, afterId, meId))
+}
+
+/** 채팅 미리보기 글: 사진 메시지는 「📷 사진」, 글은 첫 줄 */
+export function previewText(message: ChatMessage): string {
+  return message.photo ? '📷 사진' : firstLine(message.body)
 }
 
 /** 미리보기에 쓸 첫 줄(빈 줄은 건너뛴다) */

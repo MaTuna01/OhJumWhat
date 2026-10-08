@@ -1,18 +1,22 @@
-import { type FormEvent, type KeyboardEvent, useLayoutEffect, useRef, useState } from 'react'
+import { type ClipboardEvent, type FormEvent, type KeyboardEvent, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { type ChatPhotoSender, type PendingPhoto, useChatPhotoSender } from '../hooks/useChatPhotoSender.ts'
 import { useChatReading } from '../hooks/useChatReading.ts'
 import type { ChatConnection } from '../hooks/usePollChatSocket.ts'
 import { useNow } from '../hooks/useNow.ts'
 import { useRestriction } from '../hooks/useRestriction.ts'
 import { CHAT_MAX, chatLength } from '../lib/chat.ts'
+import { BUBBLE_MAX, type Size, viewerPhotos } from '../lib/chatPhoto.ts'
 import { formatClock } from '../lib/time.ts'
 import { inputClass } from '../lib/ui.ts'
 import { type ChatMessage, useChatMessages, useDeleteMessage, useEditMessage, useLoadOlderMessages, useSendMessage } from '../queries/chat.ts'
 import { useMe } from '../queries/me.ts'
 import Avatar from './Avatar.tsx'
 import Button from './Button.tsx'
+import ChatPhoto, { SendingPhoto } from './ChatPhoto.tsx'
 import { ChatJumpButton, ListEnd, UnreadDivider } from './ChatUnread.tsx'
 import ConfirmDialog from './ConfirmDialog.tsx'
 import MessageBody from './MessageBody.tsx'
+import PhotoViewer from './PhotoViewer.tsx'
 import { ProfileButton } from './ProfileViewer.tsx'
 import RestrictionNotice from './RestrictionNotice.tsx'
 
@@ -31,6 +35,8 @@ type Props = {
  * 아래에 붙어 있으면 새 메시지가 올 때 따라 내려간다.
  * 관리자가 채팅을 제한했으면(05-X) 입력창 대신 RestrictionNotice를 두고 내 글의 「고치기」를 숨긴다(「삭제」는 그대로).
  * 안 읽은 메시지(useChatReading): 열 때 「여기부터 새 메시지」, 위로 올려 읽는 중이면 「새 메시지 N ↓」, 데스크톱 카드가 화면 밖이면 떠 있는 버튼.
+ * 사진(05-C7·05-C8·D05-C3): 📷·붙여넣기로 한 번에 5장까지 보내고(장마다 메시지 하나), 말풍선에는 썸네일(ChatPhoto)만 두고
+ * 누르면 전체 화면 뷰어(PhotoViewer)로 크게 본다. 사진은 고칠 수 없어 「고치기」가 없다.
  */
 export default function ChatPanel({ pollId, chatClosesAt, connection, variant }: Props) {
   const { data: me } = useMe()
@@ -44,17 +50,23 @@ export default function ChatPanel({ pollId, chatClosesAt, connection, variant }:
   const remove = useDeleteMessage(pollId)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [removing, setRemoving] = useState<ChatMessage | null>(null)
+  const [viewingId, setViewingId] = useState<number | null>(null)
   const listRef = useRef<HTMLUListElement>(null)
   const atBottom = useRef(true)
-  const reading = useChatReading(pollId, listRef, atBottom)
-  const messages = chat.data?.messages ?? []
+  const reading = useChatReading(pollId, listRef, atBottom, viewingId != null)
+  const photoSender = useChatPhotoSender(pollId, () => {
+    atBottom.current = true
+  })
+  const messages = useMemo(() => chat.data?.messages ?? [], [chat.data])
+  const photos = useMemo(() => viewerPhotos(messages), [messages])
   const lastId = messages.at(-1)?.id
+  const photoMax = BUBBLE_MAX[variant]
 
-  // 아래에 붙어 있었으면 새 메시지를 따라 내려간다(위로 올려 읽는 중이면 그대로 둔다).
+  // 아래에 붙어 있었으면 새 메시지(보내는 중인 사진 포함)를 따라 내려간다(위로 올려 읽는 중이면 그대로 둔다).
   useLayoutEffect(() => {
     const list = listRef.current
     if (list && atBottom.current) list.scrollTop = list.scrollHeight
-  }, [lastId])
+  }, [lastId, photoSender.pending.length])
 
   const closeRemove = () => {
     remove.reset()
@@ -127,13 +139,20 @@ export default function ChatPanel({ pollId, chatClosesAt, connection, variant }:
                 <MessageItem
                   message={message}
                   mine={mine}
-                  onEdit={open && !blocked && mine && !message.deleted ? () => setEditingId(message.id) : undefined}
+                  photoMax={photoMax}
+                  onOpenPhoto={message.photo && !message.photo.expired ? () => setViewingId(message.id) : undefined}
+                  onEdit={open && !blocked && mine && !message.deleted && !message.photo ? () => setEditingId(message.id) : undefined}
                   onDelete={open && mine && !message.deleted ? () => setRemoving(message) : undefined}
                 />
               )}
             </li>
           )
         })}
+        {photoSender.pending.map((photo) => (
+          <li key={photo.key}>
+            <SendingItem photo={photo} max={photoMax} />
+          </li>
+        ))}
         <ListEnd sentinelRef={reading.sentinelRef} newLabel={reading.showNewPill ? reading.unreadLabel : ''} onJump={reading.scrollToBottom} />
       </ul>
 
@@ -151,7 +170,8 @@ export default function ChatPanel({ pollId, chatClosesAt, connection, variant }:
             atBottom.current = true
             send.mutate(body, { onSuccess: clear })
           }}
-          hint="Enter로 보내고 Shift+Enter로 줄을 바꿔요"
+          photo={photoSender}
+          hint="Enter로 보내고 Shift+Enter로 줄을 바꿔요 · 사진은 붙여넣어도 돼요"
         />
       ) : (
         <p className="rounded-lg bg-bg-subtle px-3 py-2 text-xs text-text-tertiary">채팅은 마감 1시간 뒤에 닫혀요. 지난 대화는 읽기만 할 수 있어요</p>
@@ -167,15 +187,30 @@ export default function ChatPanel({ pollId, chatClosesAt, connection, variant }:
         pending={remove.isPending}
         error={remove.error?.message}
       >
-        <p className="break-words whitespace-pre-wrap">「{removing?.body}」</p>
+        {removing?.photo ? (
+          <ChatPhoto photo={removing.photo} max={BUBBLE_MAX.side} alt="지울 사진" />
+        ) : (
+          <p className="break-words whitespace-pre-wrap">「{removing?.body}」</p>
+        )}
         <p className="mt-2">채팅에는 「삭제된 메시지예요」로 남아요.</p>
       </ConfirmDialog>
+      <PhotoViewer photos={photos} openId={viewingId} onChange={setViewingId} />
       {variant === 'side' && <ChatJumpButton pollId={pollId} active={reading.inView === false} onClick={reading.reveal} />}
     </section>
   )
 }
 
-function MessageItem({ message, mine, onEdit, onDelete }: { message: ChatMessage; mine: boolean; onEdit?: () => void; onDelete?: () => void }) {
+type ItemProps = {
+  message: ChatMessage
+  mine: boolean
+  /** 사진 말풍선 최대 크기 */
+  photoMax: Size
+  onOpenPhoto?: () => void
+  onEdit?: () => void
+  onDelete?: () => void
+}
+
+function MessageItem({ message, mine, photoMax, onOpenPhoto, onEdit, onDelete }: ItemProps) {
   const name = message.author?.name ?? '탈퇴한 사용자'
   const time = (
     <span className="text-text-tertiary">
@@ -183,7 +218,9 @@ function MessageItem({ message, mine, onEdit, onDelete }: { message: ChatMessage
       {message.editedAt && !message.deleted && ' · 수정됨'}
     </span>
   )
-  const bubble = (
+  const bubble = message.photo && !message.deleted ? (
+    <ChatPhoto photo={message.photo} max={photoMax} onOpen={onOpenPhoto} alt={`${name}님이 보낸 사진`} />
+  ) : (
     <p
       className={`max-w-full rounded-xl px-3 py-2 text-sm break-words ${
         message.deleted
@@ -235,6 +272,16 @@ function MessageItem({ message, mine, onEdit, onDelete }: { message: ChatMessage
   )
 }
 
+/** Figma ChatPhoto(Sending): 내 쪽에 보내는 중인 사진 */
+function SendingItem({ photo, max }: { photo: PendingPhoto; max: Size }) {
+  return (
+    <div className="flex flex-col items-end gap-1 pl-8">
+      <span className="text-xs text-text-tertiary">보내는 중</span>
+      <SendingPhoto previewUrl={photo.previewUrl} width={photo.width} height={photo.height} max={max} />
+    </div>
+  )
+}
+
 type FormProps = {
   initial?: string
   label: string
@@ -247,10 +294,13 @@ type FormProps = {
   /** clear: 입력창을 비운다(보낸 뒤) */
   onSubmit: (body: string, clear: () => void) => void
   onCancel?: () => void
+  /** 사진 보내기(보내기 창에만): 📷 버튼, 붙여넣기 */
+  photo?: ChatPhotoSender
 }
 
-function MessageForm({ initial = '', label, placeholder, submitLabel, primary, pending, error, hint, onSubmit, onCancel }: FormProps) {
+function MessageForm({ initial = '', label, placeholder, submitLabel, primary, pending, error, hint, onSubmit, onCancel, photo }: FormProps) {
   const [value, setValue] = useState(initial)
+  const fileRef = useRef<HTMLInputElement>(null)
   const length = chatLength(value)
   const over = length > CHAT_MAX
   const submit = (e?: FormEvent) => {
@@ -266,13 +316,48 @@ function MessageForm({ initial = '', label, placeholder, submitLabel, primary, p
     }
   }
 
+  // 클립보드에 사진이 있으면(스크린샷 붙여넣기) 글 대신 사진으로 보낸다.
+  const onPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = [...e.clipboardData.files].filter((f) => f.type.startsWith('image/'))
+    if (!photo || files.length === 0) return
+    e.preventDefault()
+    photo.send(files)
+  }
+
   return (
     <form onSubmit={submit} className="space-y-1.5">
+      {photo?.status && <p className="text-xs font-medium text-text-brand">{photo.status}</p>}
       <div className="flex items-end gap-2">
+        {photo && (
+          <>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              onChange={(e) => {
+                const files = [...(e.target.files ?? [])]
+                e.target.value = ''
+                if (files.length > 0) photo.send(files)
+              }}
+            />
+            <button
+              type="button"
+              aria-label="사진 보내기"
+              disabled={photo.busy}
+              onClick={() => fileRef.current?.click()}
+              className="flex size-9.5 shrink-0 items-center justify-center rounded-lg border border-border-strong bg-bg-surface text-lg hover:bg-bg-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-brand disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <span aria-hidden>📷</span>
+            </button>
+          </>
+        )}
         <textarea
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={onKeyDown}
+          onPaste={onPaste}
           rows={1}
           placeholder={placeholder}
           aria-label={label}
@@ -295,6 +380,11 @@ function MessageForm({ initial = '', label, placeholder, submitLabel, primary, p
       {error && (
         <p role="alert" className="text-xs text-text-danger">
           {error}
+        </p>
+      )}
+      {photo?.notice && (
+        <p role={photo.notice.error ? 'alert' : 'status'} className={`text-xs ${photo.notice.error ? 'text-text-danger' : 'text-text-tertiary'}`}>
+          {photo.notice.text}
         </p>
       )}
       {hint && <p className="hidden text-xs text-text-tertiary lg:block">{hint}</p>}

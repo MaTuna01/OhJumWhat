@@ -35,9 +35,15 @@ export type ChatReading = {
  * 채팅 목록을 보고 있는지 재고 읽은 위치를 올린다(Figma 05-C5·05-C6·D05-C2).
  * 목록 끝이 화면 안이고 탭이 보이고 목록이 맨 아래에 붙어 있을 때만 읽은 것으로 한다(위로 올려 읽는 중에 온 메시지는 안 읽음으로 남는다).
  * 보이기 시작하는 순간(시트를 열거나 카드가 화면에 들어올 때) 안 읽었던 범위에 구분선을 고정하고, 보고 있는 동안 온 메시지는 잠깐 강조한다.
- * atBottom은 ChatPanel이 스크롤할 때 재는 값이다.
+ * atBottom은 ChatPanel이 스크롤할 때 재는 값이다. covered: 채팅 위를 가리는 창(사진 뷰어)이 열려 있으면 보이지 않는 것으로 한다
+ * (IntersectionObserver는 가려진 것을 모른다).
  */
-export function useChatReading(pollId: number, listRef: RefObject<HTMLUListElement | null>, atBottom: RefObject<boolean>): ChatReading {
+export function useChatReading(
+  pollId: number,
+  listRef: RefObject<HTMLUListElement | null>,
+  atBottom: RefObject<boolean>,
+  covered = false,
+): ChatReading {
   const orgId = useOrgId()
   const { data: me } = useMe()
   const { data: page } = useChatMessages(pollId)
@@ -48,7 +54,7 @@ export function useChatReading(pollId: number, listRef: RefObject<HTMLUListEleme
   const [bottom, setBottom] = useState(true)
   const [mark, setMark] = useState<{ after: number; upTo: number } | null>(null)
   const [freshIds, setFreshIds] = useState<ReadonlySet<number>>(NONE)
-  const wasVisible = useRef(false)
+  const wasShown = useRef(false)
   const seenNewest = useRef<number | null>(null)
   const freshTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
@@ -56,7 +62,9 @@ export function useChatReading(pollId: number, listRef: RefObject<HTMLUListEleme
   const newestId = messages.at(-1)?.id ?? 0
   const lastReadId = page?.lastReadId ?? 0
   const unread = page ? unreadCount(messages, lastReadId, me?.id) : 0
-  const visible = inView === true && docVisible
+  // 화면에 들어온 것(구분선을 새로 긋는 때)과 지금 읽을 수 있는 것을 나눈다. 뷰어를 닫았다고 구분선을 다시 긋지 않는다.
+  const shown = inView === true && docVisible
+  const visible = shown && !covered
 
   useEffect(() => {
     const sentinel = sentinelRef.current
@@ -69,10 +77,10 @@ export function useChatReading(pollId: number, listRef: RefObject<HTMLUListEleme
   // 보이기 시작하면 안 읽었던 범위에 구분선을 고정하고, 보고 있고 맨 아래면 읽은 위치를 올린다.
   useEffect(() => {
     if (!page) return
-    if (visible && !wasVisible.current) setMark(unread > 0 ? { after: lastReadId, upTo: newestId } : null)
-    wasVisible.current = visible
+    if (shown && !wasShown.current) setMark(unread > 0 ? { after: lastReadId, upTo: newestId } : null)
+    wasShown.current = shown
     if (visible && atBottom.current && newestId > 0) markRead(newestId)
-  }, [page, visible, unread, lastReadId, newestId, markRead, atBottom])
+  }, [page, shown, visible, unread, lastReadId, newestId, markRead, atBottom])
 
   // 보고 있는 동안 온 남의 메시지는 잠깐 강조한다(처음 받은 목록·이전 메시지는 아니다).
   useEffect(() => {

@@ -223,7 +223,7 @@ docker compose pull app && docker compose up -d
 ```
 다음 배포 전에 `APP_IMAGE`를 `:latest`로 되돌린다(옛 이미지로 남아 있으면 배포 헬스 체크가 실패한다). DB 스키마(Flyway)는 앞으로만 적용되므로, 스키마가 바뀐 버전을 되돌릴 때는 호환 여부를 먼저 확인한다. v1.11.1까지의 이미지에는 `/healthz`와 관리 포트가 없어서 업타임 체크가 장애로 알리고 Netdata의 앱 지표가 끊긴다(아래 「모니터링」).
 
-**백업에서 복원**: DB(`users.photo_key`)가 사진 파일을 가리키므로 같은 시각의 DB와 사진을 함께 복원한다.
+**백업에서 복원**: DB(`users.photo_key`)가 사진 파일을 가리키므로 같은 시각의 DB와 사진을 함께 복원한다. 채팅 사진(`photos/chat`)은 백업하지 않는다(아래 「채팅 사진」).
 ```bash
 gunzip -c backups/ohjumwhat-YYYYMMDD-HHMM.sql.gz | docker compose exec -T db psql -U ohjumwhat -d ohjumwhat
 # 사진은 앱 컨테이너(app 사용자)로 풀어야 파일 소유자가 맞는다.
@@ -231,6 +231,8 @@ docker compose exec -T app tar xzf - -C /data < backups/ohjumwhat-photos-YYYYMMD
 ```
 
 **프로필 사진**: 올린 사진은 `photos` 볼륨(앱 컨테이너 `/data/photos`)에 `{키}.jpg`로 있다. 한 장에 수 KB~수십 KB다. `docker compose down -v`는 볼륨까지 지우므로 사진(과 DB)이 사라진다. 볼륨을 남기려면 `down`만 쓴다.
+
+**채팅 사진**: 채팅에서 보낸 사진은 같은 볼륨의 `/data/photos/chat`(`CHAT_PHOTOS_DIR`)에 `{키}.jpg`(원본, 긴 변 1600px, 수백 KB)와 `{키}_t.jpg`(썸네일)로 있다. 30일 동안만 보여주고, 매일 04:00(KST)에 앱이 보관 기간이 지났거나 지운·없어진 메시지의 파일을 지운다. 30일이면 지워지는 사진이라 `backup.sh`는 이 폴더를 백업하지 않는다(복원하면 채팅 사진은 「사진을 불러올 수 없어요」로 보인다). 디스크 사용량은 Netdata의 Disk Space로 본다.
 
 ## 모니터링
 
