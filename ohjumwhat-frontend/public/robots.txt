@@ -1,0 +1,8 @@
+# 검색에 나오는 페이지는 로그인하지 않은 방문자가 /에서 보는 소개 페이지다.
+# 앱 화면은 index.html의 noindex로 빼므로 여기서 막지 않는다(막으면 로봇이 noindex를 읽지 못한다).
+User-agent: *
+Disallow: /api/
+Disallow: /oauth2/
+Disallow: /login/oauth2/
+
+Sitemap: https://www.ohjumwhat.cloud/sitemap.xml

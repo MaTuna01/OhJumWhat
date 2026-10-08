@@ -1,9 +1,9 @@
 import { Navigate, useSearchParams } from 'react-router'
+import GoogleSignInLink from '../components/GoogleSignInLink.tsx'
 import Logo, { LogoMark } from '../components/Logo.tsx'
-import OptionCard from '../components/OptionCard.tsx'
+import PollPreview from '../components/PollPreview.tsx'
 import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { useMe } from '../queries/me.ts'
-import type { Person, PollOption } from '../queries/polls.ts'
 
 export default function LoginPage() {
   const me = useMe()
@@ -43,14 +43,7 @@ export default function LoginPage() {
             </p>
           )}
 
-          {/* 서버의 OAuth2 로그인 시작 주소. 로그인 후 서버가 /로 돌려보낸다. */}
-          <a
-            href="/oauth2/authorization/google"
-            className="mt-8 flex w-full items-center justify-center gap-3 rounded-xl border border-border-strong bg-bg-surface px-4 py-3 font-medium shadow-sm hover:bg-bg-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-brand lg:mt-6"
-          >
-            <GoogleLogo />
-            구글 계정으로 계속하기
-          </a>
+          <GoogleSignInLink className="mt-8 lg:mt-6">구글 계정으로 계속하기</GoogleSignInLink>
           <p className="mt-3 text-xs text-text-tertiary">
             회사·학교 등 조직의 초대 링크로 들어왔다면
             <br />
@@ -61,13 +54,6 @@ export default function LoginPage() {
     </main>
   )
 }
-
-const previewMe: Person = { userId: 1, name: '김오점', profileImageUrl: null }
-const person = (userId: number, name: string): Person => ({ userId, name, profileImageUrl: null })
-const previewOptions: PollOption[] = [
-  { id: 1, name: '돈까스', link: null, placeName: null, placeAddress: null, kakaoPlaceId: null, placeQuery: null, createdBy: previewMe, voters: [previewMe, person(2, '김철수'), person(3, '정하늘')], mine: true, deletable: false, commentCount: 0 },
-  { id: 2, name: '김치찌개', link: null, placeName: null, placeAddress: null, kakaoPlaceId: null, placeQuery: null, createdBy: person(4, '이영희'), voters: [person(5, '박민수'), person(6, '최지우')], mine: false, deletable: false, commentCount: 0 },
-]
 
 /** 데스크톱 왼쪽 소개(Figma D01): 서비스 설명과 투표 화면 미리보기. 미리보기는 눌리지 않는다(inert). */
 function Intro() {
@@ -80,22 +66,7 @@ function Intro() {
         <br />
         결과는 1등 메뉴 하나가 아니라 메뉴별로 모인 팀이에요.
       </p>
-      <div inert className="mt-10 w-full max-w-[27.5rem] space-y-2.5">
-        {previewOptions.map((option) => (
-          <OptionCard key={option.id} option={option} meId={previewMe.userId} selected={option.id === 1} />
-        ))}
-      </div>
+      <PollPreview className="mt-10 w-full max-w-[27.5rem]" />
     </section>
-  )
-}
-
-function GoogleLogo() {
-  return (
-    <svg viewBox="0 0 48 48" className="size-5" aria-hidden>
-      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
-      <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
-      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z" />
-      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z" />
-    </svg>
   )
 }
