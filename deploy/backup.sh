@@ -26,11 +26,11 @@ docker compose exec -T db sh -c '
 	: "${POSTGRES_DB:?db 컨테이너에 POSTGRES_DB가 없습니다(.env의 DB_NAME)}"
 	exec pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner
 ' | gzip > "$file"
-# 쓰는 중인 임시 파일(*.tmp)은 뺀다. 백업 중에 사진을 올리거나 지우면 GNU tar가 경고와 함께 1로 끝나지만
+# 쓰는 중인 임시 파일(*.tmp)과 채팅 사진(photos/chat, 30일이면 지워지는 사진이라 매일 백업하면 용량만 커진다)은 뺀다. 백업 중에 사진을 올리거나 지우면 GNU tar가 경고와 함께 1로 끝나지만
 # 아카이브는 온전하므로 성공으로 본다(컨테이너 안에서 바꿔서, 컨테이너가 없어 compose가 1로 끝나는 경우와 구분한다).
 partial="$photos"
 docker compose exec -T app sh -c '
-	tar czf - --exclude="*.tmp" -C /data photos
+	tar czf - --exclude="*.tmp" --exclude="photos/chat" -C /data photos
 	rc=$?
 	[ "$rc" -eq 1 ] && rc=0
 	exit "$rc"

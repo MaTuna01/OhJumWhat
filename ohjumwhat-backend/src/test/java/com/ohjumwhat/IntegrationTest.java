@@ -23,6 +23,8 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import com.ohjumwhat.FakePushSenderConfiguration.FakePushSender;
 import com.ohjumwhat.FakePushSenderConfiguration.QueuedPushDispatcher;
+import com.ohjumwhat.chat.ChatPhotoRateLimiter;
+import com.ohjumwhat.chat.ChatPhotoStorage;
 import com.ohjumwhat.chat.ChatRateLimiter;
 import com.ohjumwhat.guestbook.GuestbookRateLimiter;
 import com.ohjumwhat.letter.LetterRateLimiter;
@@ -31,7 +33,7 @@ import com.ohjumwhat.user.User;
 
 /**
  * 통합 테스트 공통 설정. 모든 테스트가 같은 스프링 컨텍스트와 PostgreSQL 컨테이너를 공유하고,
- * 테스트가 끝날 때마다 테이블과 프로필 사진 폴더를 비우고 시계를 실제 시각으로 되돌리고 가짜 푸시를 비운다.
+ * 테스트가 끝날 때마다 테이블과 프로필 사진·채팅 사진 폴더를 비우고 시계를 실제 시각으로 되돌리고 가짜 푸시를 비운다.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -61,6 +63,12 @@ public abstract class IntegrationTest {
 	private ChatRateLimiter chatRateLimiter;
 
 	@Autowired
+	private ChatPhotoRateLimiter chatPhotoRateLimiter;
+
+	@Autowired
+	private ChatPhotoStorage chatPhotoStorage;
+
+	@Autowired
 	private LetterRateLimiter letterRateLimiter;
 
 	@Autowired
@@ -73,6 +81,7 @@ public abstract class IntegrationTest {
 	void cleanDatabase() throws IOException {
 		clock.reset();
 		chatRateLimiter.clear();
+		chatPhotoRateLimiter.clear();
 		letterRateLimiter.clear();
 		guestbookRateLimiter.clear();
 		pushDispatcher.clear();
@@ -85,6 +94,14 @@ public abstract class IntegrationTest {
 		try (Stream<Path> files = Files.list(photoStorage.dir())) {
 			for (Path file : files.toList()) {
 				Files.delete(file);
+			}
+		}
+		// 채팅 사진 폴더는 처음 사진을 쓸 때 생긴다.
+		if (Files.isDirectory(chatPhotoStorage.dir())) {
+			try (Stream<Path> files = Files.list(chatPhotoStorage.dir())) {
+				for (Path file : files.toList()) {
+					Files.delete(file);
+				}
 			}
 		}
 	}
