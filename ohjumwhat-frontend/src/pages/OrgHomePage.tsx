@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
-import Badge from '../components/Badge.tsx'
 import Button from '../components/Button.tsx'
 import { UnreadBadge } from '../components/ChatUnread.tsx'
 import CreatePollModal from '../components/CreatePollModal.tsx'
 import MemberList from '../components/MemberList.tsx'
 import NoticeBanner from '../components/NoticeBanner.tsx'
 import { PageLoader, Section } from '../components/PageState.tsx'
+import PollStatusBadge from '../components/PollStatusBadge.tsx'
 import { RankingCard, RankingHint } from '../components/RankingTeaser.tsx'
 import ScheduleNameLabel from '../components/ScheduleNameLabel.tsx'
 import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
@@ -15,6 +15,7 @@ import { useOrgId } from '../hooks/useOrgId.ts'
 import { useRestriction } from '../hooks/useRestriction.ts'
 import { unreadLabel } from '../lib/chat.ts'
 import { daysLabel } from '../lib/daysOfWeek.ts'
+import { splitTodayPolls } from '../lib/pollStatus.ts'
 import { scheduleNameText } from '../lib/scheduleName.ts'
 import { formatClock, formatPollDay, formatRemaining, formatTimeRange } from '../lib/time.ts'
 import { buttonClass, columnsClass } from '../lib/ui.ts'
@@ -22,7 +23,7 @@ import { type PollHistoryItem, type PollSummary, usePollHistory, useTodayPolls }
 import { useOrganization } from '../queries/orgs.ts'
 import { useSchedules } from '../queries/schedules.ts'
 
-/** Figma 04 조직 홈: 새 소식 배너(04-B), 오늘 열린 투표 카드와 투표 만들기, 이번 주 메뉴 메이커(04-R), 지난 투표(04-H) */
+/** Figma 04 조직 홈: 새 소식 배너(04-B), 진행 중·오늘 마감된 투표 카드(04-S)와 투표 만들기, 이번 주 메뉴 메이커(04-R), 지난 투표(04-H) */
 export default function OrgHomePage() {
   const orgId = useOrgId()
   const polls = useTodayPolls(orgId)
@@ -37,7 +38,7 @@ export default function OrgHomePage() {
       <div className="min-w-0 space-y-4">
         <NoticeBanner />
         <div className="flex items-center justify-between gap-3">
-          <h2 className="font-bold">오늘 열린 투표</h2>
+          <h2 className="font-bold">진행 중인 투표</h2>
           <Button onClick={() => setCreating(true)} disabled={pollBlocked !== null} title={pollBlocked ? '관리자가 투표 만들기를 제한했어요' : undefined}>
             + 투표 만들기
           </Button>
@@ -46,20 +47,8 @@ export default function OrgHomePage() {
           <PageLoader />
         ) : polls.isError ? (
           <p className="text-sm text-text-danger">{polls.error.message}</p>
-        ) : polls.data.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border-strong bg-bg-surface px-4 py-10 text-center">
-            <p className="font-medium">오늘 열린 투표가 없어요</p>
-            <p className="mt-1 text-sm text-text-tertiary">투표를 만들면 바로 열리고, 멤버들이 메뉴를 올릴 수 있어요.</p>
-          </div>
         ) : (
-          <ul className="space-y-3">
-            {/* 진행 중인 투표를 먼저, 같은 상태끼리는 서버 순서(열린 시각 순) */}
-            {[...polls.data].sort((a, b) => Number(b.status === 'OPEN') - Number(a.status === 'OPEN')).map((poll) => (
-              <li key={poll.id}>
-                <PollCard orgId={orgId} poll={poll} />
-              </li>
-            ))}
-          </ul>
+          <TodayPolls orgId={orgId} polls={polls.data} />
         )}
         <RankingHint orgId={orgId} />
         <PollHistory orgId={orgId} />
@@ -73,6 +62,46 @@ export default function OrgHomePage() {
       </aside>
       <CreatePollModal orgId={orgId} open={creating} onClose={() => setCreating(false)} />
     </div>
+  )
+}
+
+/** Figma 04-S: 진행 중인 투표를 위에, 오늘 마감된 투표는 소제목 아래 흐린 카드로 나눈다 */
+function TodayPolls({ orgId, polls }: { orgId: number; polls: PollSummary[] }) {
+  const now = useNow()
+  const { open, closed } = splitTodayPolls(polls, now)
+  return (
+    <>
+      {open.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border-strong bg-bg-surface px-4 py-10 text-center">
+          <p className="font-medium">진행 중인 투표가 없어요</p>
+          <p className="mt-1 text-sm text-text-tertiary">
+            {closed.length > 0 ? '오늘 투표는 모두 마감됐어요.' : '투표를 만들면 바로 열리고, 멤버들이 메뉴를 올릴 수 있어요.'}
+          </p>
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {open.map((poll) => (
+            <li key={poll.id}>
+              <PollCard orgId={orgId} poll={poll} open />
+            </li>
+          ))}
+        </ul>
+      )}
+      {closed.length > 0 && (
+        <section aria-labelledby="today-closed-polls" className="space-y-2">
+          <h3 id="today-closed-polls" className="text-sm font-bold text-text-secondary">
+            오늘 마감된 투표
+          </h3>
+          <ul className="space-y-3">
+            {closed.map((poll) => (
+              <li key={poll.id}>
+                <PollCard orgId={orgId} poll={poll} open={false} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </>
   )
 }
 
@@ -125,8 +154,10 @@ function HistoryRow({ orgId, poll, now }: { orgId: number; poll: PollHistoryItem
       className="-mx-2 flex flex-col items-start gap-1 rounded-lg px-2 py-3 hover:bg-bg-subtle focus-visible:outline-2 focus-visible:outline-border-brand"
     >
       <span className="flex w-full items-center gap-2">
-        <span className="truncate text-sm font-bold">{poll.title}</span>
+        {/* Figma 04-S: 날짜를 제목 앞에 두고 「마감」 배지를 붙인다(매일 같은 제목의 정기 투표도 날짜로 구분) */}
         <span className="shrink-0 text-xs text-text-tertiary">{formatPollDay(poll.pollDate, now)}</span>
+        <span className="truncate text-sm font-bold">{poll.title}</span>
+        <PollStatusBadge open={false} />
         <span className="ml-auto text-base text-icon-muted" aria-hidden>
           ›
         </span>
@@ -192,21 +223,23 @@ function ScheduleCard({ orgId }: { orgId: number }) {
   )
 }
 
-function PollCard({ orgId, poll }: { orgId: number; poll: PollSummary }) {
+/** open은 TodayPolls가 지금 시각으로 다시 판단한 값이다(서버 상태는 15초마다 받는다) */
+function PollCard({ orgId, poll, open }: { orgId: number; poll: PollSummary; open: boolean }) {
   const now = useNow()
-  const open = poll.status === 'OPEN'
   const remaining = open ? formatRemaining(poll.closesAt, now) : null
   const myChoice =
-    poll.myResponse === 'OPTION' ? `내 선택: ${poll.myOptionName}` : poll.myResponse === 'PASS' ? '내 선택: 오늘은 패스' : '아직 응답하지 않았어요'
+    poll.myResponse === 'OPTION' ? `내 선택: ${poll.myOptionName}` : poll.myResponse === 'PASS' ? '내 선택: 오늘은 패스' : open ? '아직 응답하지 않았어요' : '응답하지 않았어요'
 
   return (
     <Link
       to={`/orgs/${orgId}/polls/${poll.id}`}
-      className="flex flex-col gap-2.5 rounded-2xl border border-border-default bg-bg-surface p-4 transition-colors hover:border-border-brand-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-brand"
+      className={`flex flex-col gap-2.5 rounded-2xl border p-4 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-brand ${
+        open ? 'border-border-brand-soft bg-bg-surface hover:border-border-brand' : 'border-border-default bg-bg-subtle hover:border-border-strong'
+      }`}
     >
       <div className="flex items-center gap-2">
-        <span className="truncate font-bold">{poll.title}</span>
-        <Badge tone={open ? 'brand' : 'neutral'}>{open ? '진행 중' : '마감'}</Badge>
+        <span className={open ? 'truncate font-bold' : 'truncate font-bold text-text-secondary'}>{poll.title}</span>
+        <PollStatusBadge open={open} />
         <span className="ml-auto flex shrink-0 items-center gap-2">
           {poll.unreadMessages > 0 && (
             <UnreadBadge>

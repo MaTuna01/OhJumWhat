@@ -1,15 +1,17 @@
 import { Fragment, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { ActionRow, DangerZone, EmptyRow } from '../../components/AdminParts.tsx'
-import Badge from '../../components/Badge.tsx'
 import Button from '../../components/Button.tsx'
 import ConfirmDialog from '../../components/ConfirmDialog.tsx'
 import MessageBody from '../../components/MessageBody.tsx'
 import { CommentList, CommentRow } from '../../components/OptionComments.tsx'
 import { PageLoader, PageMessage, Section } from '../../components/PageState.tsx'
+import PollStatusBadge from '../../components/PollStatusBadge.tsx'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.ts'
+import { useNow } from '../../hooks/useNow.ts'
 import { ApiError } from '../../lib/api.ts'
 import { withJosa } from '../../lib/josa.ts'
+import { closedPollDayLabel } from '../../lib/pollStatus.ts'
 import { formatClock } from '../../lib/time.ts'
 import { columnsClass } from '../../lib/ui.ts'
 import { commentsPanelId } from '../../lib/comments.ts'
@@ -43,6 +45,7 @@ export default function AdminPollPage() {
   const [openComments, setOpenComments] = useState<number | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [withSchedule, setWithSchedule] = useState(true)
+  const now = useNow(60_000)
   useDocumentTitle(poll.data?.title, '관리자 콘솔')
 
   if (poll.error instanceof ApiError && poll.error.status === 404) {
@@ -69,9 +72,10 @@ export default function AdminPollPage() {
         ‹ {org.data?.organization.name ?? '조직'}
       </Link>
       <header className="space-y-2">
+        {!open && <p className="text-xs font-medium text-text-tertiary">{closedPollDayLabel(p.opensAt, now)}</p>}
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-bold tracking-tight">{p.title}</h1>
-          <Badge tone={open ? 'brand' : 'neutral'}>{open ? '진행 중' : '마감'}</Badge>
+          <PollStatusBadge open={open} />
         </div>
         <p className="text-sm text-text-tertiary">
           {formatClock(p.closesAt)} 마감{p.scheduled && ' · 정기 투표'} · 응답 {responded} / {p.memberCount}명
