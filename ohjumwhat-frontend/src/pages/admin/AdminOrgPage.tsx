@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { ActionRow, DangerZone, EmptyRow, ListRow } from '../../components/AdminParts.tsx'
-import Badge from '../../components/Badge.tsx'
 import Button from '../../components/Button.tsx'
 import ConfirmDialog from '../../components/ConfirmDialog.tsx'
 import { PageLoader, PageMessage, Section } from '../../components/PageState.tsx'
+import PollStatusBadge from '../../components/PollStatusBadge.tsx'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.ts'
 import { useNow } from '../../hooks/useNow.ts'
 import { ApiError } from '../../lib/api.ts'
@@ -71,7 +71,7 @@ export default function AdminOrgPage() {
                   key={p.id}
                   to={`/admin/polls/${p.id}`}
                   title={p.title}
-                  badge={<Badge tone={p.status === 'OPEN' ? 'brand' : 'neutral'}>{p.status === 'OPEN' ? '진행 중' : '마감'}</Badge>}
+                  badge={<PollStatusBadge open={p.status === 'OPEN'} />}
                   subtitle={`${formatDay(p.pollDate, now)} · 메뉴 ${p.optionCount}개 · 응답 ${p.responseCount}명`}
                   meta={p.scheduled ? '정기' : undefined}
                 />
