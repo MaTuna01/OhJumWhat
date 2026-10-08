@@ -23,6 +23,8 @@ export function fitBox(width: number, height: number, stage: Box): Box {
 
 /** 배율은 1~4배, 사진이 무대보다 크면 가장자리가 무대 안으로 들어오지 않을 만큼만 옮긴다. */
 export function clampView(view: ZoomView, fit: Box, stage: Box): ZoomView {
+  // 좌표를 주지 않는 제스처(iOS GestureEvent 등)로 NaN이 들어오면 transform 전체가 무효가 되므로 처음으로 돌린다.
+  if (![view.scale, view.x, view.y].every(Number.isFinite)) return initialView
   const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, view.scale))
   const maxX = Math.max(0, (fit.width * scale - stage.width) / 2)
   const maxY = Math.max(0, (fit.height * scale - stage.height) / 2)

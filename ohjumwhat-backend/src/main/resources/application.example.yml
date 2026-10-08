@@ -96,4 +96,4 @@ ohjumwhat:
   chat-photos:
     # 채팅 사진({키}.jpg 원본, {키}_t.jpg 썸네일)을 두는 폴더. 비우면 프로필 사진 폴더 아래 chat이다(운영 /data/photos/chat).
     # 30일 보관하고 매일 04:00에 정리한다. 30일이면 지워지는 사진이라 deploy/backup.sh는 이 폴더를 백업하지 않는다.
-    dir: ${CHAT_PHOTOS_DIR:${PHOTOS_DIR:./data/photos}/chat}
+    dir: ${CHAT_PHOTOS_DIR:}

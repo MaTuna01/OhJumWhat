@@ -67,7 +67,7 @@ class SanctionCoverageTest extends IntegrationTest {
 			.collect(Collectors.groupingBy(SanctionRestrictionIntegrationTest.Endpoint::type, Collectors.counting()));
 
 		assertThat(tested).isEqualTo(annotated);
-		// 계약서의 대상: 조직 4, 투표·메뉴·식당·정기 투표·댓글 11, 채팅 2, 쪽지 2, 방명록 1, 프로필 5
+		// 계약서의 대상: 조직 4, 투표·메뉴·식당·정기 투표·댓글 11, 채팅 3, 쪽지 2, 방명록 1, 프로필 5
 		assertThat(annotated).containsExactlyInAnyOrderEntriesOf(Map.of(Restriction.SUSPEND, 4L, Restriction.POLL, 11L,
 				Restriction.CHAT, 3L, Restriction.LETTER, 2L, Restriction.GUESTBOOK, 1L, Restriction.PROFILE, 5L));
 	}

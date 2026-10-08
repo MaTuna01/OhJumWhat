@@ -1,6 +1,5 @@
 package com.ohjumwhat.chat;
 
-import java.io.IOException;
 import java.time.Duration;
 
 import org.springframework.core.io.FileSystemResource;
@@ -25,12 +24,12 @@ import com.ohjumwhat.sanction.Restriction;
 
 /**
  * 채팅 사진 보내기·보기. 보기는 프로필 사진과 달리 그 투표 조직의 멤버(또는 관리자)만, 지우지 않았고 보관 기간(30일) 안일 때만 된다.
- * 아니면 모두 같은 404다. 사진은 지워지거나 만료되므로 immutable·1년이 아니라 보관 기간만큼만 캐시한다.
+ * 아니면 모두 같은 404다. 사진은 지워지거나(관리자 포함) 만료되므로 immutable·1년이 아니라 하루만 브라우저에 캐시한다.
  */
 @RestController
 class ChatPhotoController {
 
-	private static final CacheControl CACHE = CacheControl.maxAge(Duration.ofDays(30)).cachePrivate();
+	private static final CacheControl CACHE = CacheControl.maxAge(Duration.ofDays(1)).cachePrivate();
 
 	private final ChatPhotoService chatPhotoService;
 
@@ -52,11 +51,11 @@ class ChatPhotoController {
 	@PostMapping("/api/polls/{pollId}/messages/photo")
 	@ResponseStatus(HttpStatus.CREATED)
 	ChatMessageResponse send(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long pollId,
-			@RequestParam("photo") MultipartFile photo) throws IOException {
+			@RequestParam("photo") MultipartFile photo) {
 		if (photo.isEmpty()) {
 			throw ApiException.badRequest("사진 파일을 보내 주세요.");
 		}
-		return chatPhotoService.send(pollId, loginUser.getUserId(), photo.getBytes());
+		return chatPhotoService.send(pollId, loginUser.getUserId(), photo);
 	}
 
 	/** 원본(긴 변 1600px, 뷰어) */

@@ -20,6 +20,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import com.ohjumwhat.user.ProfilePhotoProperties;
+
 /**
  * 채팅 사진 파일 저장소. 사진 하나는 {폴더}/{key}.jpg(원본)와 {key}_t.jpg(썸네일) 두 파일이고, key는 UUID hex 32자다.
  * DB(chat_messages.image_key)가 파일을 가리키므로 파일은 DB에 저장하기 전에 쓰고, 지운 메시지의 파일은 커밋한 뒤에 지운다.
@@ -37,8 +39,18 @@ public class ChatPhotoStorage {
 
 	private final Path dir;
 
-	public ChatPhotoStorage(ChatPhotoProperties properties) {
-		this.dir = Path.of(properties.dir()).toAbsolutePath().normalize();
+	/**
+	 * 폴더를 정하지 않았으면 프로필 사진 폴더 아래 chat이다. 프로필 사진 폴더와 같으면 정리 작업이 프로필 사진을 지우므로 그 아래 chat을 쓴다.
+	 */
+	public ChatPhotoStorage(ChatPhotoProperties properties, ProfilePhotoProperties profilePhotos) {
+		Path profileDir = Path.of(profilePhotos.dir()).toAbsolutePath().normalize();
+		Path chosen = properties.dir() == null ? profileDir.resolve("chat")
+				: Path.of(properties.dir()).toAbsolutePath().normalize();
+		if (chosen.equals(profileDir)) {
+			log.error("채팅 사진 폴더가 프로필 사진 폴더와 같아 그 아래 chat을 씁니다: {}", profileDir);
+			chosen = profileDir.resolve("chat");
+		}
+		this.dir = chosen;
 		log.info("채팅 사진 폴더: {}", dir);
 	}
 

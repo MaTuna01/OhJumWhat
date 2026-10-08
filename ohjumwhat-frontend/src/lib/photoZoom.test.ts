@@ -22,6 +22,10 @@ describe('clampView·panBy', () => {
     expect(panBy({ scale: 2, x: 0, y: 0 }, 500, 500, fit, stage)).toEqual({ scale: 2, x: 200, y: 0 })
   })
 
+  it('NaN이 들어오면 처음으로 돌린다', () => {
+    expect(clampView({ scale: 2, x: Number.NaN, y: 0 }, fit, stage)).toEqual(initialView)
+  })
+
   it('배율은 1~4배다', () => {
     expect(clampView({ scale: 0.3, x: 0, y: 0 }, fit, stage).scale).toBe(1)
     expect(clampView({ scale: 9, x: 0, y: 0 }, fit, stage).scale).toBe(MAX_SCALE)

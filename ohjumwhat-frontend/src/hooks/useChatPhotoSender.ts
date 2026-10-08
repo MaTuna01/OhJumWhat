@@ -28,7 +28,10 @@ export function useChatPhotoSender(pollId: number, beforeEach: () => void): Chat
   const [notice, setNotice] = useState<ChatPhotoSender['notice']>(null)
 
   const send = async (files: File[]) => {
-    if (progress) return
+    if (progress) {
+      setNotice({ text: '보내는 중인 사진이 끝나면 다시 보내 주세요.', error: false })
+      return
+    }
     const picked = pickPhotos(files)
     const pickText = pickNotice(picked)
     setNotice(pickText ? { text: pickText, error: false } : null)

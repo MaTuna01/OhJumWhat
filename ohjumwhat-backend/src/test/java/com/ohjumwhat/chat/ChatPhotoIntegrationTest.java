@@ -127,7 +127,7 @@ class ChatPhotoIntegrationTest extends IntegrationTest {
 		byte[] full = mockMvc.perform(get(url).with(loginAs(lee)))
 			.andExpect(status().isOk())
 			.andExpect(header().string("Content-Type", "image/jpeg"))
-			.andExpect(header().string("Cache-Control", "max-age=2592000, private"))
+			.andExpect(header().string("Cache-Control", "max-age=86400, private"))
 			.andReturn().getResponse().getContentAsByteArray();
 		BufferedImage fullImage = TestImages.read(full);
 		assertThat(fullImage.getWidth()).isEqualTo(1600);

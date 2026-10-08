@@ -102,11 +102,17 @@ function ViewerBody({ photo, position, onPrev, onNext, onClose }: BodyProps) {
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   const gesture = useRef<Gesture | null>(null)
   const lastTap = useRef<Tap | null>(null)
+  // 빈 곳을 누르면 닫는다. pointerup에서 바로 닫으면 뒤따르는 click이 아래 채팅 시트(사진·배경)에 떨어지므로 click에서 닫는다.
+  const closeOnClick = useRef(false)
+  const viewRef = useRef(view)
   const fit = stage ? fitBox(photo.width, photo.height, stage) : null
   // 휠·Safari 제스처 리스너는 한 번만 걸고 최신 크기는 ref로 읽는다.
   const sizes = useRef<{ fit: Box; stage: Box } | null>(null)
   const fitWidth = fit?.width
   const fitHeight = fit?.height
+  useLayoutEffect(() => {
+    viewRef.current = view
+  }, [view])
   useLayoutEffect(() => {
     sizes.current = stage && fitWidth != null && fitHeight != null ? { fit: { width: fitWidth, height: fitHeight }, stage } : null
   }, [stage, fitWidth, fitHeight])
@@ -143,20 +149,20 @@ function ViewerBody({ photo, position, onPrev, onNext, onClose }: BodyProps) {
     let gestureStart = 1
     let gestureView = initialView
     type SafariGesture = Event & { scale: number; clientX: number; clientY: number }
+    // iOS는 손가락 핀치에도 gesture*를 보낸다. 그때는 포인터 이벤트가 이미 핀치를 맡으므로 페이지 확대만 막는다.
+    // iOS의 GestureEvent에는 좌표가 없어서 그때는 가운데를 기준으로 한다.
     const onGestureStart = (e: Event) => {
       e.preventDefault()
-      gestureStart = (e as SafariGesture).scale
-      setView((v) => {
-        gestureView = v
-        return v
-      })
+      gestureStart = (e as SafariGesture).scale || 1
+      gestureView = viewRef.current
     }
     const onGestureChange = (e: Event) => {
       e.preventDefault()
       const s = sizes.current
       const g = e as SafariGesture
-      if (!s) return
-      setView(zoomAt(gestureView, gestureView.scale * (g.scale / gestureStart), local(g.clientX, g.clientY), s.fit, s.stage))
+      if (!s || pointers.current.size > 0 || !Number.isFinite(g.scale)) return
+      const point = Number.isFinite(g.clientX) && Number.isFinite(g.clientY) ? local(g.clientX, g.clientY) : { x: 0, y: 0 }
+      setView(zoomAt(gestureView, gestureView.scale * (g.scale / gestureStart), point, s.fit, s.stage))
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     el.addEventListener('gesturestart', onGestureStart)
@@ -175,6 +181,7 @@ function ViewerBody({ photo, position, onPrev, onNext, onClose }: BodyProps) {
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return
+    closeOnClick.current = false
     e.currentTarget.setPointerCapture(e.pointerId)
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
     if (pointers.current.size === 1) {
@@ -233,7 +240,7 @@ function ViewerBody({ photo, position, onPrev, onNext, onClose }: BodyProps) {
     if (!g.moved) {
       const tap = { time: e.timeStamp, x: e.clientX, y: e.clientY }
       if (!g.onImage) {
-        if (view.scale === 1) onClose()
+        closeOnClick.current = view.scale === 1
         return
       }
       if (isDoubleTap(lastTap.current, tap) && fit && stage) {
@@ -314,6 +321,11 @@ function ViewerBody({ photo, position, onPrev, onNext, onClose }: BodyProps) {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
+        onClick={() => {
+          if (!closeOnClick.current) return
+          closeOnClick.current = false
+          onClose()
+        }}
         className={`relative min-h-0 flex-1 touch-none overflow-hidden select-none ${zoomed ? 'cursor-grab active:cursor-grabbing' : ''}`}
       >
         {fit && (

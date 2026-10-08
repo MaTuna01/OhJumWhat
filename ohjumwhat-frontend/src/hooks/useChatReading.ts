@@ -54,7 +54,7 @@ export function useChatReading(
   const [bottom, setBottom] = useState(true)
   const [mark, setMark] = useState<{ after: number; upTo: number } | null>(null)
   const [freshIds, setFreshIds] = useState<ReadonlySet<number>>(NONE)
-  const wasVisible = useRef(false)
+  const wasShown = useRef(false)
   const seenNewest = useRef<number | null>(null)
   const freshTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
@@ -62,7 +62,9 @@ export function useChatReading(
   const newestId = messages.at(-1)?.id ?? 0
   const lastReadId = page?.lastReadId ?? 0
   const unread = page ? unreadCount(messages, lastReadId, me?.id) : 0
-  const visible = inView === true && docVisible && !covered
+  // 화면에 들어온 것(구분선을 새로 긋는 때)과 지금 읽을 수 있는 것을 나눈다. 뷰어를 닫았다고 구분선을 다시 긋지 않는다.
+  const shown = inView === true && docVisible
+  const visible = shown && !covered
 
   useEffect(() => {
     const sentinel = sentinelRef.current
@@ -75,10 +77,10 @@ export function useChatReading(
   // 보이기 시작하면 안 읽었던 범위에 구분선을 고정하고, 보고 있고 맨 아래면 읽은 위치를 올린다.
   useEffect(() => {
     if (!page) return
-    if (visible && !wasVisible.current) setMark(unread > 0 ? { after: lastReadId, upTo: newestId } : null)
-    wasVisible.current = visible
+    if (shown && !wasShown.current) setMark(unread > 0 ? { after: lastReadId, upTo: newestId } : null)
+    wasShown.current = shown
     if (visible && atBottom.current && newestId > 0) markRead(newestId)
-  }, [page, visible, unread, lastReadId, newestId, markRead, atBottom])
+  }, [page, shown, visible, unread, lastReadId, newestId, markRead, atBottom])
 
   // 보고 있는 동안 온 남의 메시지는 잠깐 강조한다(처음 받은 목록·이전 메시지는 아니다).
   useEffect(() => {
