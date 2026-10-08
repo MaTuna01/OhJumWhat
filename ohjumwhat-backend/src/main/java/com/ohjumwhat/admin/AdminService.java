@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ohjumwhat.common.ApiException;
+import com.ohjumwhat.common.TimeConfig;
 import com.ohjumwhat.guestbook.GuestbookReportRepository;
 import com.ohjumwhat.guestbook.GuestbookService;
 import com.ohjumwhat.letter.LetterReportRepository;
@@ -142,11 +143,12 @@ public class AdminService {
 	@Transactional(readOnly = true)
 	public AdminResponses.Stats stats() {
 		Instant now = Instant.now(clock);
+		LocalDate today = LocalDate.ofInstant(now, TimeConfig.KST);
 		long openLetterReports = letterReportRepository.countOpen();
 		long openGuestbookReports = guestbookReportRepository.countOpen();
 		long openProfileReports = profileReportService.countOpen();
 		return new AdminResponses.Stats(adminRepository.countUsers(), adminRepository.countOrganizations(),
-				adminRepository.countPollsOn(LocalDate.now(clock)), adminRepository.countOpenPolls(now),
+				adminRepository.countPollsOn(today), adminRepository.countOpenPolls(now),
 				adminRepository.countUsersSince(now.minus(7, ChronoUnit.DAYS)), adminRepository.countBlocks(),
 				openLetterReports + openGuestbookReports + openProfileReports, openLetterReports, openGuestbookReports,
 				openProfileReports, sanctionRepository.countRestrictedUsers(now));

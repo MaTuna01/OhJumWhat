@@ -77,6 +77,22 @@ class ScheduledPollOpenerTest extends IntegrationTest {
 	}
 
 	@Test
+	void 규칙_이름의_날짜_토큰은_그날_날짜로_바꿔_제목을_만든다() {
+		PollSchedule schedule = schedule("${오늘날짜} 오점왓?!", WEEKDAYS, "11:00", "11:50");
+		schedule("${오늘 날짜} 저녁", WEEKDAYS, "11:00", "11:50");
+
+		clock.set(2026, 9, 30, 11, 0);
+		opener.openDuePolls();
+		clock.set(2026, 10, 1, 11, 0);
+		opener.openDuePolls();
+
+		assertThat(pollRepository.findAll().stream().map(Poll::getTitle).sorted()).containsExactly("${오늘 날짜} 저녁",
+				"${오늘 날짜} 저녁", "2026-09-30 오점왓?!", "2026-10-01 오점왓?!");
+		// 규칙 이름은 그대로다
+		assertThat(scheduleRepository.findById(schedule.getId()).orElseThrow().getName()).isEqualTo("${오늘날짜} 오점왓?!");
+	}
+
+	@Test
 	void 여러_번_실행해도_하루에_하나만_연다() {
 		schedule("점심", WEEKDAYS, "11:00", "11:50");
 		clock.set(2026, 9, 30, 11, 0);

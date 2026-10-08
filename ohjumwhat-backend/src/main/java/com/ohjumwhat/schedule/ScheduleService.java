@@ -36,9 +36,10 @@ public class ScheduleService {
 	@Transactional
 	public ScheduleResponse create(Long organizationId, Long userId, ScheduleRequest request) {
 		membershipService.requireMember(organizationId, userId);
+		String name = validName(request);
 		LocalTime[] times = times(request);
-		PollSchedule schedule = scheduleRepository.save(new PollSchedule(organizationId, request.name().strip(),
-				request.daysOfWeek(), times[0], times[1]));
+		PollSchedule schedule = scheduleRepository.save(new PollSchedule(organizationId, name, request.daysOfWeek(),
+				times[0], times[1]));
 		log.info("정기 투표 규칙 추가: scheduleId={}, organizationId={}, userId={}", schedule.getId(), organizationId,
 				userId);
 		return ScheduleResponse.of(schedule);
@@ -48,8 +49,9 @@ public class ScheduleService {
 	@Transactional
 	public ScheduleResponse update(Long organizationId, Long scheduleId, Long userId, ScheduleRequest request) {
 		PollSchedule schedule = find(organizationId, scheduleId, userId);
+		String name = validName(request);
 		LocalTime[] times = times(request);
-		schedule.update(request.name().strip(), request.daysOfWeek(), times[0], times[1]);
+		schedule.update(name, request.daysOfWeek(), times[0], times[1]);
 		log.info("정기 투표 규칙 수정: scheduleId={}, userId={}", scheduleId, userId);
 		return ScheduleResponse.of(schedule);
 	}
@@ -66,6 +68,15 @@ public class ScheduleService {
 		return scheduleRepository.findById(scheduleId)
 			.filter(s -> s.getOrganizationId().equals(organizationId))
 			.orElseThrow(() -> ApiException.notFound("정기 투표 규칙을 찾을 수 없어요."));
+	}
+
+	/** 요청의 @Size는 글자 그대로 세므로, 날짜 토큰을 바뀐 길이로 센 한도는 여기서 본다. */
+	private static String validName(ScheduleRequest request) {
+		String name = request.name().strip();
+		if (ScheduleName.length(name) > ScheduleName.MAX_LENGTH) {
+			throw ApiException.badRequest(ScheduleName.TOO_LONG);
+		}
+		return name;
 	}
 
 	private static LocalTime[] times(ScheduleRequest request) {

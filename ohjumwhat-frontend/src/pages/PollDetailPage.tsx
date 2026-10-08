@@ -1,6 +1,5 @@
 import { type ReactNode, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
-import Badge from '../components/Badge.tsx'
 import Button from '../components/Button.tsx'
 import ChatPanel from '../components/ChatPanel.tsx'
 import ChatSheet from '../components/ChatSheet.tsx'
@@ -12,6 +11,7 @@ import PersonChip from '../components/PersonChip.tsx'
 import PlaceModal from '../components/PlaceModal.tsx'
 import PollManageMenu from '../components/PollManageMenu.tsx'
 import PollPlacesMap from '../components/PollPlacesMap.tsx'
+import PollStatusBadge from '../components/PollStatusBadge.tsx'
 import RestrictionNotice from '../components/RestrictionNotice.tsx'
 import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { DESKTOP_QUERY, useMediaQuery } from '../hooks/useMediaQuery.ts'
@@ -22,6 +22,7 @@ import { useRestriction } from '../hooks/useRestriction.ts'
 import { ApiError } from '../lib/api.ts'
 import { NO_PLACE, naverPlaceSearchUrl } from '../lib/place.ts'
 import { confirmedTeams } from '../lib/pollDetail.ts'
+import { closedPollDayLabel, openedToday } from '../lib/pollStatus.ts'
 import { copyText, resultText } from '../lib/share.ts'
 import { formatClock, formatRemaining } from '../lib/time.ts'
 import { buttonClass, columnsClass } from '../lib/ui.ts'
@@ -191,7 +192,7 @@ function OpenPoll({ orgId, poll, comments, chat }: { orgId: number; poll: PollDe
           <div className="flex items-start justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
               <h1 className="min-w-0 text-2xl font-bold tracking-tight break-words">{poll.title}</h1>
-              <Badge tone="brand">진행 중</Badge>
+              <PollStatusBadge open />
             </div>
             {!pollBlocked && <PollManageMenu orgId={orgId} poll={poll} />}
           </div>
@@ -347,15 +348,18 @@ function ClosedPoll({ orgId, poll, comments, chat }: { orgId: number; poll: Poll
   const myTeam = teams.find((t) => t.id === poll.myOptionId)
   const adoption = poll.adoption
   const { distances, resolved, highlighted, mobileMap, desktopMap } = usePollMap(orgId, poll, teams, false)
+  const now = useNow(60_000)
 
   return (
     <div className={`flex flex-col gap-4 ${columnsClass}`}>
       <div className="min-w-0 space-y-4">
         <header className="space-y-2">
+          {/* Figma 05b-D: 지난 투표인지 날짜로 알려 준다(정기 투표는 날마다 제목이 같다) */}
+          <p className="text-xs font-medium text-text-tertiary">{closedPollDayLabel(poll.opensAt, now)}</p>
           <div className="flex items-start justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
               <h1 className="min-w-0 text-2xl font-bold tracking-tight break-words">{poll.title}</h1>
-              <Badge tone="neutral">마감</Badge>
+              <PollStatusBadge open={false} />
             </div>
             <CopyResultButton poll={poll} resolved={resolved} />
           </div>
@@ -366,7 +370,7 @@ function ClosedPoll({ orgId, poll, comments, chat }: { orgId: number; poll: Poll
 
         {myTeam ? (
           <section className="rounded-2xl bg-bg-brand p-4 text-text-on-brand">
-            <p className="text-xs font-medium">오늘 내 팀</p>
+            <p className="text-xs font-medium">{openedToday(poll.opensAt, now) ? '오늘 내 팀' : '내 팀'}</p>
             <p className="mt-0.5 text-lg font-bold">
               {myTeam.name} · {myTeam.voters.length}명
             </p>

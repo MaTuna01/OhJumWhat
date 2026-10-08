@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ohjumwhat.common.ApiException;
+import com.ohjumwhat.common.TimeConfig;
 import com.ohjumwhat.menu.MenuOption;
 import com.ohjumwhat.menu.MenuOptionRepository;
 import com.ohjumwhat.menu.MenuStatsService;
@@ -62,7 +63,8 @@ public class RankingService {
 	@Transactional(readOnly = true)
 	public RankingResponse ranking(Long organizationId, Long userId, RankingPeriod period, LocalDate date) {
 		membershipService.requireMember(organizationId, userId);
-		LocalDate today = LocalDate.now(clock);
+		Instant now = Instant.now(clock);
+		LocalDate today = LocalDate.ofInstant(now, TimeConfig.KST);
 		LocalDate day = date == null ? today : date;
 		if (day.isAfter(today)) {
 			throw ApiException.badRequest("아직 오지 않은 기간이에요.");
@@ -72,8 +74,7 @@ public class RankingService {
 			throw ApiException.badRequest("랭킹은 12개월 전까지 볼 수 있어요.");
 		}
 
-		List<Poll> polls = pollRepository.findClosedBetween(organizationId, range.from(), range.to(),
-				Instant.now(clock));
+		List<Poll> polls = pollRepository.findClosedBetween(organizationId, range.from(), range.to(), now);
 		List<Long> pollIds = polls.stream().map(Poll::getId).toList();
 		Map<Long, MenuOption> options = pollIds.isEmpty() ? Map.of()
 				: menuOptionRepository.findByPollIdIn(pollIds).stream()
