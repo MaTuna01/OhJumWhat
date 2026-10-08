@@ -74,6 +74,21 @@ class ScheduleIntegrationTest extends IntegrationTest {
 	}
 
 	@Test
+	void 이름_길이는_날짜_토큰을_10자로_센다() throws Exception {
+		// 토큰(7자) + 41자 = 48자지만 제목이 되면 51자
+		create(kim, "${오늘날짜}" + "가".repeat(41), 31, "11:00", "11:50")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("규칙 이름은 50자 이하로 입력해 주세요. 오늘 날짜는 10자로 세요."));
+		create(kim, "${오늘날짜}" + "가".repeat(40), 31, "11:00", "11:50")
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.name").value("${오늘날짜}" + "가".repeat(40)));
+		Long id = id(create(kim, "${오늘날짜} 점심", 31, "11:00", "11:50"));
+		mockMvc.perform(put("/api/orgs/" + orgId + "/schedules/" + id).with(loginAs(kim)).with(xsrf())
+				.contentType(MediaType.APPLICATION_JSON).content(body("${오늘날짜}" + "가".repeat(41), 31, "11:00", "11:50")))
+			.andExpect(status().isBadRequest());
+	}
+
+	@Test
 	void 규칙을_수정한다() throws Exception {
 		Long id = id(create(kim, "점심", 31, "11:00", "11:50"));
 

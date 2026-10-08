@@ -5,10 +5,12 @@ import DayPills from '../components/DayPills.tsx'
 import { PageLoader } from '../components/PageState.tsx'
 import RestrictionNotice from '../components/RestrictionNotice.tsx'
 import ScheduleModal from '../components/ScheduleModal.tsx'
+import ScheduleNameLabel from '../components/ScheduleNameLabel.tsx'
 import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { useOrgId } from '../hooks/useOrgId.ts'
 import { useRestriction } from '../hooks/useRestriction.ts'
 import { daysLabel } from '../lib/daysOfWeek.ts'
+import { scheduleNameText } from '../lib/scheduleName.ts'
 import { formatTimeRange } from '../lib/time.ts'
 import { columnsClass } from '../lib/ui.ts'
 import { useOrganization } from '../queries/orgs.ts'
@@ -57,7 +59,9 @@ export default function SchedulesPage() {
               <li key={schedule.id} className="space-y-3 rounded-2xl border border-border-default bg-bg-surface p-4">
                 <div className="flex items-center gap-1">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-bold">{schedule.name}</p>
+                    <p className="truncate font-bold">
+                      <ScheduleNameLabel name={schedule.name} />
+                    </p>
                     <p className="text-sm text-text-secondary">
                       {daysLabel(schedule.daysOfWeek)} · {formatTimeRange(schedule.openTime, schedule.closeTime)}
                     </p>
@@ -87,7 +91,7 @@ export default function SchedulesPage() {
         open={deleting != null}
         onClose={closeDelete}
         onConfirm={() => deleting && remove.mutate(deleting.id, { onSuccess: closeDelete })}
-        title={`${deleting?.name ?? ''} 규칙을 삭제할까요?`}
+        title={`${scheduleNameText(deleting?.name ?? '')} 규칙을 삭제할까요?`}
         confirmLabel="삭제"
         danger
         pending={remove.isPending}

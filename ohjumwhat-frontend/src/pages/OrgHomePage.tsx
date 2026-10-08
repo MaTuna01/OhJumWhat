@@ -8,12 +8,14 @@ import MemberList from '../components/MemberList.tsx'
 import NoticeBanner from '../components/NoticeBanner.tsx'
 import { PageLoader, Section } from '../components/PageState.tsx'
 import { RankingCard, RankingHint } from '../components/RankingTeaser.tsx'
+import ScheduleNameLabel from '../components/ScheduleNameLabel.tsx'
 import { useDocumentTitle } from '../hooks/useDocumentTitle.ts'
 import { useNow } from '../hooks/useNow.ts'
 import { useOrgId } from '../hooks/useOrgId.ts'
 import { useRestriction } from '../hooks/useRestriction.ts'
 import { unreadLabel } from '../lib/chat.ts'
 import { daysLabel } from '../lib/daysOfWeek.ts'
+import { scheduleNameText } from '../lib/scheduleName.ts'
 import { formatClock, formatPollDay, formatRemaining, formatTimeRange } from '../lib/time.ts'
 import { buttonClass, columnsClass } from '../lib/ui.ts'
 import { type PollHistoryItem, type PollSummary, usePollHistory, useTodayPolls } from '../queries/polls.ts'
@@ -150,7 +152,7 @@ function ScheduleHint({ orgId }: { orgId: number }) {
   const summary =
     schedules.length === 0
       ? NO_SCHEDULE
-      : `정기 투표 · ${schedules.map((s) => `${s.name} ${daysLabel(s.daysOfWeek)} ${formatTimeRange(s.openTime, s.closeTime)}`).join(', ')}`
+      : `정기 투표 · ${schedules.map((s) => `${scheduleNameText(s.name)} ${daysLabel(s.daysOfWeek)} ${formatTimeRange(s.openTime, s.closeTime)}`).join(', ')}`
   return (
     <div className="flex items-center gap-2 rounded-xl bg-bg-muted px-3.5 py-3 lg:hidden">
       <p className="flex-1 text-xs text-text-secondary">{summary}</p>
@@ -173,7 +175,9 @@ function ScheduleCard({ orgId }: { orgId: number }) {
         <ul className="space-y-3">
           {schedules.map((s) => (
             <li key={s.id}>
-              <p className="truncate text-sm font-bold">{s.name}</p>
+              <p className="truncate text-sm font-bold">
+                <ScheduleNameLabel name={s.name} />
+              </p>
               <p className="text-sm text-text-secondary">
                 {daysLabel(s.daysOfWeek)} · {formatTimeRange(s.openTime, s.closeTime)}
               </p>

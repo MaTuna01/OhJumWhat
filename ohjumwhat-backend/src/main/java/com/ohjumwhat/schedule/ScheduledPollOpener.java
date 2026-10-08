@@ -19,6 +19,7 @@ import com.ohjumwhat.poll.PollRepository;
  * 정기 투표 규칙에 맞춰 오늘의 투표를 연다. 1분마다 {@link PollScheduler}가 호출한다.
  *
  * 오늘 요일이 규칙에 포함되고 지금이 오픈~마감 사이인데 (규칙, 오늘) 투표가 없으면 만든다.
+ * 제목은 규칙 이름이고, 이름의 날짜 토큰은 오늘 날짜로 바꾼다({@link ScheduleName}).
  * 같은 날 두 번 만들어지지 않도록 polls(schedule_id, poll_date) UNIQUE 제약에 기대고, 위반은 무시한다.
  * 그래서 서버가 오픈 시각에 꺼져 있었어도 마감 전에 다시 켜지면 그날 투표가 열린다.
  * 규칙마다 따로 저장해서, 한 규칙이 실패해도 다른 규칙의 투표는 열린다.
@@ -51,9 +52,10 @@ public class ScheduledPollOpener {
 			if (!due || pollRepository.existsByScheduleIdAndPollDate(schedule.getId(), today)) {
 				continue;
 			}
+			String title = ScheduleName.render(schedule.getName(), today);
 			try {
-				Poll poll = pollRepository.saveAndFlush(Poll.scheduled(schedule.getOrganizationId(), schedule.getId(),
-						schedule.getName(), today, at(today, schedule.getOpenTime()), at(today, schedule.getCloseTime())));
+				Poll poll = pollRepository.saveAndFlush(Poll.scheduled(schedule.getOrganizationId(), schedule.getId(), title,
+						today, at(today, schedule.getOpenTime()), at(today, schedule.getCloseTime())));
 				opened++;
 				log.info("정기 투표 열림: pollId={}, scheduleId={}, organizationId={}", poll.getId(), schedule.getId(),
 						schedule.getOrganizationId());
