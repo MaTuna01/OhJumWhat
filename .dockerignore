@@ -14,3 +14,5 @@ ohjumwhat-backend/data
 !ohjumwhat-backend/src/test/resources/application.yml
 client_secret_*.json
 *.pem
+loadtest
+loadtest-out

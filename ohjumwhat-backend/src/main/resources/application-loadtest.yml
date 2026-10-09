@@ -1,0 +1,24 @@
+# 부하 테스트 시드/정리 명령 전용 프로필(--spring.profiles.active=loadtest). LoadTestRunner만 이 프로필에서 뜬다.
+# 서버 포트를 열지 않고(DB·세션 저장소·보안 설정은 그대로 만든다), 백그라운드 작업은 모두 끈다.
+# spring.main.web-application-type=none은 쓸 수 없다: 세션 저장소 자동 설정과 SecurityConfig(HttpSecurity)가 서블릿 컨텍스트를 요구한다.
+server:
+  port: -1
+
+management:
+  server:
+    port: -1
+
+spring:
+  main:
+    banner-mode: off
+
+ohjumwhat:
+  scheduler:
+    enabled: false
+  release-notes:
+    enabled: false
+
+logging:
+  level:
+    root: warn
+    com.ohjumwhat.loadtest: info
