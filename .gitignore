@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!loadtest/.env.local.example
 
 # 백엔드 설정 (application.example.yml을 복사해 로컬에서 사용)
 ohjumwhat-backend/src/main/resources/application.yml
