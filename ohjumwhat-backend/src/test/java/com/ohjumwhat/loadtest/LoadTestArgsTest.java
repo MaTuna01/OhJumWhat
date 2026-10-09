@@ -16,7 +16,7 @@ class LoadTestArgsTest {
 	void 기본값은_조직_15개_멤버_20명_절반_참여_seed_json이다() {
 		LoadTestArgs args = parse("--ohjumwhat.loadtest.mode=seed");
 
-		assertThat(args).isEqualTo(new LoadTestArgs(LoadTestArgs.Mode.SEED, 15, 20, null, null, 0.5,
+		assertThat(args).isEqualTo(new LoadTestArgs(LoadTestArgs.Mode.SEED, 15, 20, null, null, 0.5, 0,
 				Path.of("seed.json")));
 	}
 
@@ -24,9 +24,11 @@ class LoadTestArgsTest {
 	void 모든_인자를_읽는다() {
 		LoadTestArgs args = parse("--ohjumwhat.loadtest.mode=seed", "--ohjumwhat.loadtest.orgs=50",
 				"--ohjumwhat.loadtest.members=20", "--ohjumwhat.loadtest.closes-in=PT30M",
-				"--ohjumwhat.loadtest.prevote=0", "--ohjumwhat.loadtest.out=/out/seed.json");
+				"--ohjumwhat.loadtest.prevote=0", "--ohjumwhat.loadtest.history=30",
+				"--ohjumwhat.loadtest.out=/out/seed.json");
 
 		assertThat(args.orgs()).isEqualTo(50);
+		assertThat(args.history()).isEqualTo(30);
 		assertThat(args.members()).isEqualTo(20);
 		assertThat(args.closesIn()).isEqualTo(Duration.ofMinutes(30));
 		assertThat(args.closesAt()).isNull();
@@ -64,6 +66,8 @@ class LoadTestArgsTest {
 		assertThatThrownBy(() -> parse("--ohjumwhat.loadtest.mode=seed", "--ohjumwhat.loadtest.members=abc"))
 			.isInstanceOf(IllegalArgumentException.class);
 		assertThatThrownBy(() -> parse("--ohjumwhat.loadtest.mode=seed", "--ohjumwhat.loadtest.prevote=1.5"))
+			.isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> parse("--ohjumwhat.loadtest.mode=seed", "--ohjumwhat.loadtest.history=-1"))
 			.isInstanceOf(IllegalArgumentException.class);
 		assertThatThrownBy(() -> parse("--ohjumwhat.loadtest.mode=seed", "--ohjumwhat.loadtest.orgs=1",
 				"--ohjumwhat.loadtest.orgs=2")).isInstanceOf(IllegalArgumentException.class);

@@ -35,7 +35,8 @@ import com.ohjumwhat.common.TimeConfig;
  *
  * <pre>
  * java -jar app.jar --spring.profiles.active=loadtest --ohjumwhat.loadtest.mode=seed \
- *   --ohjumwhat.loadtest.orgs=15 --ohjumwhat.loadtest.members=20 --ohjumwhat.loadtest.out=seed.json
+ *   --ohjumwhat.loadtest.orgs=15 --ohjumwhat.loadtest.members=20 --ohjumwhat.loadtest.history=0 \
+ *   --ohjumwhat.loadtest.out=seed.json
  * java -jar app.jar --spring.profiles.active=loadtest --ohjumwhat.loadtest.mode=clean
  * </pre>
  *
@@ -113,7 +114,7 @@ class LoadTestRunner implements ApplicationListener<ApplicationReadyEvent> {
 			closesAt = now.plus(args.closesIn() != null ? args.closesIn() : LoadTestArgs.DEFAULT_CLOSES_IN);
 		}
 		SeedResult result = seeder.seed(new LoadTestSeeder.SeedSpec(args.orgs(), args.members(), closesAt,
-				args.prevote()));
+				args.prevote(), args.history()));
 		write(args.out(), result);
 		return EXIT_OK;
 	}

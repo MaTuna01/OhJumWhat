@@ -17,9 +17,11 @@ import org.springframework.boot.ApplicationArguments;
  * @param closesAt 투표 마감 시각(한국 시간 HH:mm, 오늘). closesIn과 함께 쓸 수 없다
  * @param closesIn 지금부터 마감까지(ISO-8601, 예: PT30M). 둘 다 없으면 3시간
  * @param prevote 미리 참여시킬 멤버 비율(0~1)
+ * @param history 조직마다 만들 지난 투표 수(하루에 하나, 어제부터 거슬러). 메뉴 통계·자동완성·랭킹에 기록이 있는 상태를 만든다
  * @param out 결과 파일(JSON). 같은 이름의 .csv도 함께 쓴다
  */
-record LoadTestArgs(Mode mode, int orgs, int members, LocalTime closesAt, Duration closesIn, double prevote, Path out) {
+record LoadTestArgs(Mode mode, int orgs, int members, LocalTime closesAt, Duration closesIn, double prevote,
+		int history, Path out) {
 
 	enum Mode {
 		SEED, CLEAN
@@ -32,6 +34,8 @@ record LoadTestArgs(Mode mode, int orgs, int members, LocalTime closesAt, Durati
 	static final int MAX_ORGS = 1000;
 
 	static final int MAX_MEMBERS = 500;
+
+	static final int MAX_HISTORY = 3650;
 
 	static LoadTestArgs parse(ApplicationArguments args) {
 		Mode mode = switch (value(args, "mode", "")) {
@@ -73,8 +77,9 @@ record LoadTestArgs(Mode mode, int orgs, int members, LocalTime closesAt, Durati
 		if (prevote < 0 || prevote > 1) {
 			throw new IllegalArgumentException("prevote는 0~1 사이의 수입니다.");
 		}
+		int history = intValue(args, "history", 0, 0, MAX_HISTORY);
 		Path out = Path.of(value(args, "out", "seed.json"));
-		return new LoadTestArgs(mode, orgs, members, closesAt, closesIn, prevote, out);
+		return new LoadTestArgs(mode, orgs, members, closesAt, closesIn, prevote, history, out);
 	}
 
 	private static String value(ApplicationArguments args, String name, String defaultValue) {

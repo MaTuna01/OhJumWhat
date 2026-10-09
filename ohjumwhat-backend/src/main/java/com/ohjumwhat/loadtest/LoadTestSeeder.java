@@ -5,7 +5,12 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +64,16 @@ public class LoadTestSeeder {
 	/** 투표마다 두는 메뉴. (poll, name) UNIQUE라 서로 달라야 한다. */
 	static final List<String> MENU_NAMES = List.of("김치찌개", "제육볶음", "돈까스", "파스타");
 
+	/** 지난 투표에 돌아가며 넣는 메뉴 이름. 띄어쓰기만 다른 이름을 섞어 통계가 같은 메뉴로 묶는 경우도 만든다. */
+	static final List<String> HISTORY_MENUS = List.of("김치찌개", "된장찌개", "제육볶음", "돈까스", "파스타", "초밥", "쌀국수",
+			"칼국수", "냉면", "비빔밥", "순두부찌개", "부대찌개", "치킨", "피자", "햄버거", "떡볶이", "샐러드", "샌드위치", "마라탕", "짜장면",
+			"짬뽕", "탕수육", "갈비탕", "김치 찌개");
+
+	/** 지난 투표의 오픈·마감 시각(한국) */
+	static final LocalTime HISTORY_OPENS = LocalTime.of(11, 0);
+
+	static final LocalTime HISTORY_CLOSES = LocalTime.of(12, 0);
+
 	/** 세션 유효 기간. 정리를 잊어도 Spring Session의 만료 정리가 지운다. */
 	static final Duration SESSION_TTL = Duration.ofHours(12);
 
@@ -67,8 +82,13 @@ public class LoadTestSeeder {
 	 * @param members 조직당 멤버 수
 	 * @param closesAt 모든 투표의 마감 시각(지금보다 뒤)
 	 * @param prevote 미리 참여시킬 멤버 비율(0~1). 참여자는 메뉴를 돌아가며 고른다
+	 * @param history 조직마다 만들 지난 투표 수(어제부터 하루에 하나, 11:00~12:00, 메뉴 4개, 멤버 전원 참여)
 	 */
-	public record SeedSpec(int orgs, int members, Instant closesAt, double prevote) {
+	public record SeedSpec(int orgs, int members, Instant closesAt, double prevote, int history) {
+
+		public SeedSpec(int orgs, int members, Instant closesAt, double prevote) {
+			this(orgs, members, closesAt, prevote, 0);
+		}
 	}
 
 	/**
@@ -188,11 +208,67 @@ public class LoadTestSeeder {
 			voteRepository.upsert(poll.getId(), users.get(i).getId(), options.get(i % options.size()).getId());
 		}
 
+		if (spec.history() > 0) {
+			seedHistory(organization.getId(), creatorId, users.stream().map(User::getId).toList(), spec.history(), today);
+		}
+
 		List<SeedResult.Member> members = users.stream()
 			.map(user -> new SeedResult.Member(user.getId(), user.getGoogleSub(), sessionCookie(user)))
 			.toList();
 		return new SeedResult.Org(organization.getId(), organization.getName(), poll.getId(),
 				options.stream().map(MenuOption::getId).toList(), members);
+	}
+
+	/**
+	 * 지난 투표를 JDBC 배치로 넣는다(조직 50개 × 500일이면 엔티티 저장은 너무 느리다). 날짜마다 메뉴 4개를 이름 풀에서 돌아가며 고르고,
+	 * 멤버 전원이 (멤버 번호 + 날짜) 순서로 메뉴를 고른다. 마감된 투표에 참여자가 있어 통계·추천·자동완성·랭킹의 대상이 된다.
+	 */
+	private void seedHistory(Long orgId, Long creatorId, List<Long> userIds, int days, LocalDate today) {
+		List<Object[]> polls = new ArrayList<>();
+		for (int d = 1; d <= days; d++) {
+			LocalDate date = today.minusDays(d);
+			polls.add(new Object[] { orgId, creatorId, LoadTestNames.POLL_PREFIX + "점심", date, offset(date, HISTORY_OPENS),
+					offset(date, HISTORY_CLOSES) });
+		}
+		jdbcTemplate.batchUpdate("""
+				insert into polls (organization_id, created_by, title, poll_date, opens_at, closes_at)
+				values (?, ?, ?, ?, ?, ?)""", polls);
+		List<Map<String, Object>> pollRows = jdbcTemplate.queryForList(
+				"select id, poll_date from polls where organization_id = ? and poll_date < ? order by poll_date desc", orgId,
+				today);
+
+		List<Object[]> options = new ArrayList<>();
+		List<Long> pollIds = new ArrayList<>();
+		int d = 0;
+		for (Map<String, Object> row : pollRows) {
+			d++;
+			long pollId = ((Number) row.get("id")).longValue();
+			pollIds.add(pollId);
+			for (int i = 0; i < 4; i++) {
+				options.add(new Object[] { pollId, creatorId, HISTORY_MENUS.get((d * 4 + i) % HISTORY_MENUS.size()) });
+			}
+		}
+		jdbcTemplate.batchUpdate("insert into menu_options (poll_id, created_by, name) values (?, ?, ?)", options);
+		Map<Long, List<Long>> optionsByPoll = new LinkedHashMap<>();
+		namedJdbc.queryForList("select id, poll_id from menu_options where poll_id in (:ids) order by poll_id, id",
+				Map.of("ids", pollIds))
+			.forEach(row -> optionsByPoll.computeIfAbsent(((Number) row.get("poll_id")).longValue(), id -> new ArrayList<>())
+				.add(((Number) row.get("id")).longValue()));
+
+		List<Object[]> votes = new ArrayList<>();
+		d = 0;
+		for (Map.Entry<Long, List<Long>> entry : optionsByPoll.entrySet()) {
+			d++;
+			List<Long> optionIds = entry.getValue();
+			for (int m = 0; m < userIds.size(); m++) {
+				votes.add(new Object[] { entry.getKey(), userIds.get(m), optionIds.get((m + d) % optionIds.size()) });
+			}
+		}
+		jdbcTemplate.batchUpdate("insert into votes (poll_id, user_id, option_id) values (?, ?, ?)", votes);
+	}
+
+	private static OffsetDateTime offset(LocalDate date, LocalTime time) {
+		return ZonedDateTime.of(date, time, TimeConfig.KST).toInstant().atOffset(ZoneOffset.UTC);
 	}
 
 	/** 그 회원으로 구글 로그인한 세션을 저장하고 브라우저가 보낼 SESSION 쿠키 값을 만든다. */

@@ -3,6 +3,7 @@ package com.ohjumwhat.loadtest;
 import static com.ohjumwhat.TestAuth.xsrf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -113,6 +114,35 @@ class LoadTestSeederTest extends IntegrationTest {
 			.content("{\"optionId\": " + org.optionIds().getFirst() + "}"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.myOptionId").value(org.optionIds().getFirst()));
+	}
+
+	@Test
+	void history만큼_지난_투표를_만들어_통계_자동완성에_기록이_생긴다() throws Exception {
+		SeedResult result = seeder.seed(new SeedSpec(1, 3, closesAt, 0, 5));
+		SeedResult.Org org = result.orgs().getFirst();
+		Cookie session = new Cookie("SESSION", org.members().getFirst().sessionCookie());
+
+		// 오늘 투표 1개 + 지난 투표 5개(어제부터 하루에 하나, 11:00~12:00 KST), 메뉴 4개씩, 멤버 전원 참여
+		assertThat(count("polls")).isEqualTo(6);
+		assertThat(count("menu_options")).isEqualTo(24);
+		assertThat(count("votes")).isEqualTo(15);
+		assertThat(jdbcTemplate.queryForList("select poll_date::text from polls order by poll_date", String.class))
+			.containsExactly("2026-09-25", "2026-09-26", "2026-09-27", "2026-09-28", "2026-09-29", "2026-09-30");
+		assertThat(jdbcTemplate.queryForObject(
+				"select count(*) from polls where poll_date < '2026-09-30' and closes_at <> (poll_date::text || ' 12:00+09')::timestamptz",
+				Long.class)).isZero();
+		assertThat(jdbcTemplate.queryForObject("""
+				select count(distinct v.option_id) from votes v join polls p on p.id = v.poll_id
+				where p.poll_date < '2026-09-30'""", Long.class)).isGreaterThan(5);
+
+		mockMvc.perform(get("/api/orgs/" + org.orgId() + "/polls/history?page=0").cookie(session))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.polls", hasSize(5)))
+			.andExpect(jsonPath("$.polls[0].pollDate").value("2026-09-29"));
+		mockMvc.perform(get("/api/orgs/" + org.orgId() + "/menu-names?q=찌개").cookie(session))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$[*].name", hasItem("김치찌개")));
+		mockMvc.perform(get("/api/orgs/" + org.orgId() + "/menu-stats").cookie(session)).andExpect(status().isOk());
 	}
 
 	@Test
