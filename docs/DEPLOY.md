@@ -355,3 +355,25 @@ ssh -i ohjumwhat.pem -L 19999:localhost:19999 <SSH 사용자>@1.201.114.178
 Netdata는 RAM 100~350MB, CPU 한 코어의 1~5% 정도를 쓴다(공식 안내, ML을 끄면 더 적다). 설치 뒤 `systemctl status netdata`로 실제 사용량을 확인하고, 1~2주 동안 점심시간 피크를 본 다음 서버 사양(유지·축소)을 정한다.
 
 **Netdata Cloud(선택)**: 터널 없이 브라우저로 보고 싶으면 무료 플랜(노드 5대까지)에 연결할 수 있다. 무료 플랜의 알림은 이메일·Discord 같은 기본 방식이다(모바일 앱 푸시는 유료). 연결은 대시보드의 「Connect」나 `/etc/netdata/claim.conf`로 한다(https://github.com/netdata/netdata/blob/master/src/claim/README.md). Cloud에 연결하면 대시보드를 밖에 열지 않는다는 전제가 바뀌므로, netdata 사용자를 docker 그룹(root와 같은 권한)에 둘지 다시 정한다. 서비스가 죽었는지는 Cloud가 아니어도 위 업타임 체크가 알려준다.
+
+## 부하 측정
+
+부하 테스트 도구(k6 시나리오, 시드 명령, 로컬 복제 스택)는 [loadtest/README.md](../loadtest/README.md)에, 측정 결과와 병목·권장 조치는 [docs/PERFORMANCE.md](PERFORMANCE.md)에 있다(이슈 #140, #143, Notion 「29. 서버 부하테스트」). 운영 서버에서 재는 것은 **심야에, 사용자가 없을 때, 300명 단계까지**만 한다. 자세한 체크리스트·중단 기준은 README 「4. 운영 서버 심야 측정」이다.
+
+- 구글 로그인은 자동화할 수 없어서 **시드 명령**이 테스트 조직·회원·투표와 로그인 세션을 만든다. 지금 떠 있는 것과 같은 이미지로, 서버 포트를 열지 않고(`loadtest` 프로필), JVM 힙 예약을 줄여 실행한다(기본 `MaxRAMPercentage=50`이면 시드 JVM이 서버 RAM 절반을 예약한다). 푸시는 끈다.
+  ```bash
+  cd ~/ohjumwhat && mkdir -p loadtest-out && chmod 777 loadtest-out
+  docker compose run --rm --no-deps -v "$PWD/loadtest-out:/out" \
+    -e JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=10 -XX:+ExitOnOutOfMemoryError" -e FIREBASE_SERVICE_ACCOUNT_BASE64= \
+    app --spring.profiles.active=loadtest --ohjumwhat.loadtest.mode=seed \
+        --ohjumwhat.loadtest.orgs=15 --ohjumwhat.loadtest.members=20 --ohjumwhat.loadtest.out=/out/seed.json
+  chmod 600 loadtest-out/seed.json      # 로그인 쿠키 묶음. scp로 PC에 가져가 k6에 쓰고, 끝나면 양쪽에서 지운다
+  ```
+- 끝나면 같은 명령에 `--ohjumwhat.loadtest.mode=clean`으로 지우고(종료 코드 0), 접두어 행이 모두 0인지 확인한다. 실제 회원이 들어온 `[부하테스트]` 조직은 지우지 않고 로그에 알린다.
+  ```sql
+  select count(*) from users where google_sub like 'loadtest-%';
+  select count(*) from organizations where name like '[부하테스트] %';
+  select count(*) from spring_session where principal_name like 'loadtest-%';
+  select count(*) from polls where title like '[부하테스트]%';
+  ```
+- k6는 **개발자 PC에서** `https://www.ohjumwhat.cloud`로 실행한다(서버 안에서 돌리면 서버 CPU를 써 측정이 흐려진다). 서버에서는 `docker stats`와 `docker compose logs -f app`, Netdata(`hikaricp_connections_pending`, `jvm_memory_used_bytes`, 스왑)를 띄워 둔다. 요청 지표는 uri·status 조합마다 시계열이 늘어나므로 측정 뒤 Netdata 시계열 수가 한도(「4. 앱 지표 수집」)에 가깝지 않은지 본다.
