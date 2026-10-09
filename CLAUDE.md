@@ -130,6 +130,11 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - CSRF가 필요한 요청에는 `TestAuth.xsrf()`를 쓴다. Spring Security의 `csrf()` 헬퍼는 공유 CsrfFilter의 저장소를 세션 방식으로 바꿔 버려서, 이후 테스트에서 쿠키 발급이 깨진다. 그래서 쓰지 않는다.
 - 웹 푸시는 `FakePushSenderConfiguration`이 대신한다: `@Primary` 가짜 발송기(보낸 기록, stale로 답할 FID 지정)와 `QueuedPushDispatcher`(큐에 모았다가 `drain()`으로 실행, 동기로 돌리면 끝난 트랜잭션에 섞인다)다. 기기 등록에는 실제 로그인 세션(`spring_session` 행)이 필요한데 `loginAs`만으로는 생기지 않으므로 `IntegrationTest.loginSession(user)`·`registerPushDevice(...)`와 `TestAuth.xsrf(sessionId)`를 쓴다.
 
+**부하 테스트 시드/정리 명령**(`loadtest` 패키지, 이슈 #140). 구글 로그인은 자동화할 수 없어서, 부하 테스트용 조직·회원·투표와 로그인 세션을 `java -jar app.jar --spring.profiles.active=loadtest --ohjumwhat.loadtest.mode=seed|clean …`으로 만들고 지운다(인자는 `LoadTestArgs`, 결과는 `seed.json`·`seed.csv`에 세션 쿠키까지 들어 있으니 커밋·공유하지 않는다).
+- `LoadTestRunner`만 `@Profile("loadtest")`라 프로필 없이는 빈 자체가 없다. 프로필은 `application-loadtest.yml`(`.gitignore` 예외로 커밋)로 서버 포트를 열지 않고(`server.port=-1`) 스케줄러·릴리스 노트 동기화를 끈다. `spring.main.web-application-type=none`은 세션 저장소 자동 설정과 `SecurityConfig`가 서블릿 컨텍스트를 요구해 쓸 수 없다. 포트를 안 열어도 Tomcat 대기 스레드가 JVM을 붙들어, 러너가 `ApplicationReadyEvent` 뒤 별도 스레드에서 종료한다(종료 코드 0 성공·1 실패·2 인자 오류).
+- 접두어 규칙의 원본은 `LoadTestNames`다(`google_sub` `loadtest-`, 이메일 `@loadtest.invalid`, 조직 이름 `[부하테스트] `). 정리는 이 접두어로만 찾고, 실제 회원이 들어온 접두어 조직은 두고 알린다. 운영에서는 `docker compose run --rm --no-deps … app --spring.profiles.active=loadtest …`로 지금 떠 있는 것과 같은 이미지로 실행하고 `JAVA_TOOL_OPTIONS`를 줄여 준다(기본값이면 서버 RAM 절반을 예약한다).
+- 세션은 실제 구글 로그인과 같은 모양(`SPRING_SECURITY_CONTEXT`에 `OAuth2AuthenticationToken` + `LoginUser`, JDK 직렬화)으로 저장한다. `LoadTestSeeder.sessionCookie`와 `ChatSocketTest.sessionCookie`가 같은 코드라 로그인 principal 구조를 바꾸면 둘을 함께 고친다. 로컬 `bootRun`과 jar는 `../.env`를 cwd 기준으로 읽으므로 `ohjumwhat-backend/`에서 실행한다.
+
 **스키마는 Flyway가 소유한다.** `db/migration/V*.sql`이 원본이고 JPA는 `ddl-auto: validate`로 검증만 한다. 스키마를 바꿀 때는 기존 마이그레이션을 고치지 말고 새 `V{n}__*.sql`을 추가한 뒤 엔티티를 맞춘다. 컨텍스트 로드 테스트(`OhjumwhatApplicationTests`)가 불일치를 잡아낸다.
 
 **엔티티는 연관관계 매핑 없이 FK를 `Long` ID 필드로 들고 있다**(`organizationId`, `pollId` 등). 조회는 JPQL/쿼리로 조합하고, `open-in-view: false`이므로 지연 로딩에 기대지 않는다. Java 패키지는 도메인별이다(`user`, `organization`, `poll`, `schedule`, `menu`, `vote`, `ranking`, `notice`, `place`, `chat`, `letter`, `guestbook`, `push`, `admin`, `common`).

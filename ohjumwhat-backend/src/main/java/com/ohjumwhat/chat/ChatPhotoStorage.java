@@ -91,7 +91,7 @@ public class ChatPhotoStorage {
 	}
 
 	/** 원본·썸네일을 지운다. 실패해도 예외를 내지 않는다(정리 작업이 다시 지운다). */
-	void delete(String key) {
+	public void delete(String key) {
 		if (key == null || !KEY.matcher(key).matches()) {
 			return;
 		}
