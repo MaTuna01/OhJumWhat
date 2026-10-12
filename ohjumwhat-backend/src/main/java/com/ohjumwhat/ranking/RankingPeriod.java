@@ -7,10 +7,13 @@ import java.util.Locale;
 
 import com.ohjumwhat.common.ApiException;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * 랭킹 기간. 투표 날짜(poll_date, 한국 날짜) 기준으로 주간은 월~일, 월간은 1일~말일이다.
  * 화면의 lib/ranking.ts와 같은 규칙이라 함께 고친다.
  */
+@Schema(description = "랭킹 기간(투표 날짜 기준): WEEK = 주간(월~일), MONTH = 월간(1일~말일)")
 public enum RankingPeriod {
 
 	WEEK, MONTH;
