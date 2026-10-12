@@ -65,6 +65,21 @@ management:
       # 저장소 메서드 호출 지표(spring.data.repository.invocations)는 보지 않고 시계열만 늘려서 끈다.
       spring.data.repository: false
 
+springdoc:
+  # API 명세. 로컬·개발에서만 켠다(.env의 SWAGGER_ENABLED=true). 운영 이미지는 이 파일을 쓰고 서버 .env에 키가 없어 꺼진다.
+  # 켜면 /swagger-ui(화면)와 /v3/api-docs/user·admin(OpenAPI JSON)이 열린다. 문서 첫머리는 resources/apidoc/overview.md다.
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:false}
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:false}
+    # 「Try it out」이 XSRF-TOKEN 쿠키를 X-XSRF-TOKEN 헤더로 붙인다(GET이 아닌 요청의 CSRF).
+    csrf:
+      enabled: true
+    tags-sorter: none
+  # GlobalExceptionHandler의 응답을 모든 API에 붙이지 않는다. 오류 예시는 API마다 OpenApiConfig가 붙인다.
+  override-with-generic-response: false
+  default-produces-media-type: application/json
+
 ohjumwhat:
   admin:
     # 관리자 계정 이메일(쉼표로 여러 개). 서버 시작·로그인 때 이 계정을 관리자로 지정하고, 목록에 없는 관리자는 해제한다.

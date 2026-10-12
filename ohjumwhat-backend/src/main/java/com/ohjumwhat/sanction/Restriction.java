@@ -31,7 +31,8 @@ public enum Restriction {
 		this.message = message;
 	}
 
-	String message(String until) {
+	/** API 명세(OpenApiConfig)의 423 예시도 이 문구로 만든다. */
+	public String message(String until) {
 		return message.formatted(until);
 	}
 }

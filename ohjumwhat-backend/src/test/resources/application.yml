@@ -36,6 +36,18 @@ management:
     enable:
       spring.data.repository: false
 
+# API 명세는 테스트에서 켜서 문서가 만들어지는지·빠진 API가 없는지 확인한다(ApiDocsTest). 나머지는 운영 예시와 같다.
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    csrf:
+      enabled: true
+    tags-sorter: none
+  override-with-generic-response: false
+  default-produces-media-type: application/json
+
 # 백그라운드 스케줄러는 끄고, 테스트에서 ScheduledPollOpener를 고정된 시계로 직접 호출한다.
 ohjumwhat:
   scheduler:
