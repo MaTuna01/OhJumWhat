@@ -2,6 +2,16 @@
 
 버전은 `vMAJOR.MINOR.PATCH`로 붙인다. 릴리스 절차는 [docs/DEPLOY.md](docs/DEPLOY.md#릴리스와-버전)에 있다.
 
+## v1.11.6 — 2026-10-12
+
+사용자에게 보이는 기능 변경은 없다(업데이트 글 없음). 부하 테스트 도구와 동시성 테스트, 성능 보고서를 더했다(Notion 「29. 서버 부하테스트」).
+
+- 부하 테스트 시드/정리 명령(#140, #141): `--spring.profiles.active=loadtest --ohjumwhat.loadtest.mode=seed|clean`으로 테스트 조직·회원·투표(지난 투표 `history` 포함)와 로그인 세션을 만들고 지운다. `LoadTestRunner`만 프로필에 묶여 평소 운영 기동에서는 아무것도 하지 않고 HTTP 노출도 없다. `application-loadtest.yml`(서버 포트를 열지 않음), 접두어 규칙 `LoadTestNames`.
+- k6 시나리오·로컬 복제 스택·수집 스크립트(#140, #151): `loadtest/`(steady·lunch-peak·focus-burst·reconnect-storm·photo·pool-pressure·session-burst·close-race, `stack.sh`·`collect.sh`·`report.py`, 운영 심야 측정용 `prod/server.sh`·`prod/run.sh`). `.dockerignore`로 이미지에는 들어가지 않는다.
+- 동시성 경합 재현 테스트(#143, #144): `ConcurrencyTest` 헬퍼(DB 행 잠금으로 서비스 코드를 쓰기 직전에 멈춤)와 `*ConcurrencyTest` 22개. 결함은 현재 동작을 assert하는 `_현재_동작` 테스트로 남겼다(#145~#148에서 뒤집는다). Hibernate 7은 `PESSIMISTIC_WRITE`를 `FOR NO KEY UPDATE`로 낸다.
+- 문서(#149, #150): `docs/PERFORMANCE.md`(로컬 복제 스택 측정: 정상 부하 1,000명까지 오류 0·상한은 CPU, 동시 진입·포커스 버스트·재연결 폭주에서 수 초 지연과 502, 병목·권장 조치), `docs/DEPLOY.md` 「부하 측정」.
+- 운영 영향: DB 마이그레이션·설정·compose·Caddyfile 변경 없음. CI에 동시성 테스트가 더해져 1~2분 늘어난다.
+
 ## v1.11.5 — 2026-10-08
 
 - 채팅에서 사진 보내기(#135, #136, Notion 「19. 채팅에서 사진 전송 기능 추가」): 새 화면이 아니라 기존 투표 채팅의 강화라 PATCH로 올렸다. 채팅 영역이 좁아(데스크톱 사이드 카드 폭 320px) 말풍선에는 정한 크기의 썸네일만 두고, 누르면 전체 화면 뷰어로 크게 본다.

@@ -39,4 +39,4 @@ cd ohjumwhat-frontend && npm test
 
 ## 배포
 
-`main`에 push하면 GitHub Actions가 테스트 → Docker 이미지(GHCR) → 가비아 서버 배포를 자동으로 한다. 서버 초기 설정, Secrets, 운영·롤백·백업 방법은 [docs/DEPLOY.md](docs/DEPLOY.md)를 본다.
+`main`에 push하면 GitHub Actions가 테스트 → Docker 이미지(GHCR) → 가비아 서버 배포를 자동으로 한다. 서버 초기 설정, Secrets, 운영·롤백·백업 방법은 [docs/DEPLOY.md](docs/DEPLOY.md)를 본다. 부하 테스트 도구는 [loadtest/README.md](loadtest/README.md), 성능 측정 결과와 병목은 [docs/PERFORMANCE.md](docs/PERFORMANCE.md)에 있다.

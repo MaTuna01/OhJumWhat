@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.ohjumwhat"
-version = "1.11.5"
+version = "1.11.6"
 
 java {
 	toolchain {
@@ -71,4 +71,6 @@ tasks.withType<Test> {
 	useJUnitPlatform()
 	// 프로필 사진 테스트가 Java2D로 그림을 그린다. macOS에서 창(Dock 아이콘)을 띄우지 않게 헤드리스로 돌린다.
 	systemProperty("java.awt.headless", "true")
+	// 동시성 테스트(ProfilePhotoConcurrencyTest)가 2048px 사진 10장을 한꺼번에 그려 힙이 600MB까지 오른다. 기본 512MB면 CI에서 OOM이다(#154).
+	maxHeapSize = "1g"
 }

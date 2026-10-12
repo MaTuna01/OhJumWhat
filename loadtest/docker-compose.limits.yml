@@ -1,0 +1,35 @@
+# 로컬 복제 스택의 오버라이드. deploy/docker-compose.yml 위에 얹어 운영 서버와 비슷한 CPU·메모리 한도를 걸고, DB에 측정 도구를 켠다.
+# 한도 값은 운영 서버에서 `nproc; free -h`로 확인해 loadtest/.env.local의 LOADTEST_* 에 적는다(기본 2 vCPU·4GB).
+# JVM은 MaxRAMPercentage=50이라 cgroup 한도의 절반을 힙으로 잡으므로, app 메모리 한도를 서버 RAM과 같게 두면 힙 크기가 운영과 같다.
+# Docker Desktop VM 메모리가 app+db 한도 이상이어야 한다.
+services:
+  app:
+    env_file: !override
+      - ${LOADTEST_ENV_FILE}
+    deploy:
+      resources:
+        limits:
+          cpus: "${LOADTEST_APP_CPUS:-2}"
+          memory: "${LOADTEST_APP_MEM:-4g}"
+
+  db:
+    # pg_stat_statements(상위 쿼리), 200ms 넘는 느린 쿼리 로그, 커밋 시각(마감 경합 판정), 잠금 대기 로그. 운영에는 켜지 않는다.
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - pg_stat_statements.track=all
+      - -c
+      - log_min_duration_statement=200
+      - -c
+      - track_commit_timestamp=on
+      - -c
+      - log_lock_waits=on
+      - -c
+      - log_line_prefix=%m [%p] %u@%d 
+    deploy:
+      resources:
+        limits:
+          cpus: "${LOADTEST_DB_CPUS:-2}"
+          memory: "${LOADTEST_DB_MEM:-1g}"
