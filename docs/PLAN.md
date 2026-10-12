@@ -3,7 +3,7 @@
 > 기획서: Notion 「점심메뉴 선정」 https://app.notion.com/p/3eb11d838f8d802e81dbfcd702c34692
 > 이후 기획(PM 협업용으로 옮긴 곳): Notion https://app.notion.com/p/92bf482da589416c88ce1307aa8be911
 > 작업 관리: 같은 페이지의 Tasks DB (단계별 작업, 선행/후속 관계 연결)
-> 마지막 갱신: 2026-10-09 · 현재 버전: v1.11.5(변경 기록은 [CHANGELOG.md](../CHANGELOG.md)) · 운영: https://www.ohjumwhat.cloud (`main` push 시 자동 배포)
+> 마지막 갱신: 2026-10-12 · 현재 버전: v1.11.6(변경 기록은 [CHANGELOG.md](../CHANGELOG.md)) · 운영: https://www.ohjumwhat.cloud (`main` push 시 자동 배포)
 
 ## 목표
 조직 안에서 점심·저녁 메뉴를 투표로 정하는 웹 서비스 **오점왓(ohjumwhat)**의 MVP를 만든다. 결과는 "1등 메뉴"가 아니라 **메뉴별 참여자 명단(팀)**이다. 메신저 투표에는 열린 투표에 항목을 추가하는 기능 등이 부족해서 전용 도구를 만든다. 사용 규모는 조직당 10~20명이다.
