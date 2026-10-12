@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.ohjumwhat"
-version = "1.11.5"
+version = "1.11.6"
 
 java {
 	toolchain {
