@@ -56,6 +56,22 @@ k6와 앱이 같은 PC면 k6의 CPU가 결과를 흐린다. `docker stats`의 ap
 
 ## 4. 운영 서버 심야 측정 (1회, 300명까지)
 
+스크립트 두 개가 아래 절차를 감싼다. 서버 쪽은 `loadtest/prod/server.sh`(기준선·대기 확인·시드·정리·검증·수집, `~/ohjumwhat/loadtest/`에 `collect.sh`와 함께 올린다), PC 쪽은 `loadtest/prod/run.sh`(사전 점검 → 포커스 버스트 100 → 정상 부하 300 → 점심 피크 → 재연결 300, 단계마다 멈춰 확인, `/healthz`가 DOWN이면 k6를 끝낸다). 당일 순서는 Notion 「운영 서버 심야 측정 체크리스트」에도 있다.
+
+```bash
+# 서버
+scp -i ohjumwhat.pem loadtest/prod/server.sh loadtest/collect.sh <사용자>@1.201.114.178:~/ohjumwhat/loadtest/
+ssh … 'cd ~/ohjumwhat && ./backup.sh && loadtest/server.sh baseline && loadtest/server.sh idle'
+ssh … 'cd ~/ohjumwhat && loadtest/server.sh seed 15 20 && loadtest/server.sh collect prod-$(date +%Y%m%d)'
+scp -i ohjumwhat.pem <사용자>@1.201.114.178:~/ohjumwhat/loadtest-out/seed.json loadtest/out/prod-seed.json
+# PC
+loadtest/prod/run.sh            # 또는 STEP=steady loadtest/prod/run.sh
+# 서버
+ssh … 'cd ~/ohjumwhat && loadtest/server.sh collect-stop && loadtest/server.sh clean'
+```
+
+운영 이미지에 시드 명령(#141, loadtest 프로필)이 들어 있어야 한다. `run.sh`가 `/version.json`으로 확인하고(`MIN_VERSION`, 기본 1.11.6), `server.sh`는 옛 이미지가 서버로 떠 버리지 않게 시드를 120초에 끊는다.
+
 로컬 측정을 끝낸 뒤, 사용자가 없는 심야에 한 번만 한다. 1,000명은 로컬 300명 결과에 여유(Hikari pending 0, 힙 70% 미만, p95 목표 안)가 있을 때 다른 날 따로 정한다. 사진 시나리오는 운영에서 생략한다.
 
 1. 서버: `./backup.sh` → `nproc; free -h; docker stats --no-stream` 기준선 기록.
