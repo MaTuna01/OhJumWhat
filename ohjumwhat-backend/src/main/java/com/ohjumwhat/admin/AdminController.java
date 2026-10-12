@@ -429,7 +429,7 @@ class AdminController {
 			@Schema(description = "퍼스널컬러: SPRING_WARM 봄 웜, SUMMER_COOL 여름 쿨, AUTUMN_WARM 가을 웜, WINTER_COOL 겨울 쿨",
 					example = "SPRING_WARM", requiredMode = Schema.RequiredMode.REQUIRED)
 			@Size(max = 40, message = "퍼스널컬러를 선택해 주세요.") String personalColor,
-			@Schema(description = "취미 태그 1~5개(하나 10자, 좋아하는 음식과 같은 정리 규칙)", example = "[\"등산\", \"보드게임\"]",
+			@Schema(description = "취미 태그 1~5개(하나 10자, 좋아하는 음식과 같은 정리 규칙, 정리한 뒤 기준)", example = "[\"등산\", \"보드게임\"]",
 					requiredMode = Schema.RequiredMode.REQUIRED)
 			@ApiLimit(value = 5, items = 10)
 			@Size(max = 20, message = "취미는 5개까지 적을 수 있어요.")

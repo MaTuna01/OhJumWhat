@@ -20,7 +20,7 @@ public record LocationRequest(
 		@Schema(description = "검색 지역(20자). 「네이버 지도에서 찾기」 검색어 앞에 붙는다", example = "역삼동", nullable = true)
 		@Size(max = 20, message = "검색 지역은 20자 이하로 입력해 주세요.")
 		String area,
-		@Schema(description = "장소 지도 링크(500자). 지도 앱의 공유 문구를 통째로 붙여도 된다", example = "https://naver.me/abcd1234",
+		@Schema(description = "장소 지도 링크. 지도 앱의 공유 문구를 통째로 붙여도 된다(원문 1000자, 꺼내 정리한 링크 500자)", example = "https://naver.me/abcd1234",
 				nullable = true)
 		@Size(max = 1000, message = "링크가 너무 길어요.")
 		String officeLink,

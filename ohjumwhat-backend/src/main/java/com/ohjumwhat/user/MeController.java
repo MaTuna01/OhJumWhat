@@ -169,7 +169,7 @@ public class MeController {
 					nullable = true)
 			@ApiLimit(50)
 			@Size(max = 200, message = "한줄 소개는 50자 이하로 입력해 주세요.") String bio,
-			@Schema(description = "좋아하는 음식 태그(적은 순서, 하나 10자, 최대 3개, 앞의 # 제거). 비우거나 null이면 지운다",
+			@Schema(description = "좋아하는 음식 태그(적은 순서, 하나 10자, 최대 3개, 앞의 # 제거). 개수·길이는 정리(# 제거·중복 제거)한 뒤 기준이고, 명세의 한도도 정리한 값 기준이다. 비우거나 null이면 지운다",
 					example = "[\"국밥\", \"떡볶이\"]", nullable = true)
 			@ApiLimit(value = 3, items = 10)
 			@Size(max = 20, message = "좋아하는 음식은 3개까지 적을 수 있어요.")
@@ -186,7 +186,7 @@ public class MeController {
 					allowableValues = { "SPRING_WARM", "SUMMER_COOL", "AUTUMN_WARM", "WINTER_COOL" },
 					requiredMode = Schema.RequiredMode.REQUIRED)
 			@Size(max = 40, message = "퍼스널컬러를 선택해 주세요.") String personalColor,
-			@Schema(description = "취미 태그(적은 순서, 하나 10자, 1~5개). 정리 규칙은 좋아하는 음식과 같다",
+			@Schema(description = "취미 태그(적은 순서, 하나 10자, 1~5개). 정리 규칙과 한도 기준은 좋아하는 음식과 같다(정리한 뒤 기준)",
 					example = "[\"등산\", \"보드게임\"]", requiredMode = Schema.RequiredMode.REQUIRED)
 			@ApiLimit(value = 5, items = 10)
 			@Size(max = 20, message = "취미는 5개까지 적을 수 있어요.")

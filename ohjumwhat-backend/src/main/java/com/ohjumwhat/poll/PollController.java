@@ -227,7 +227,7 @@ public class PollController {
 			@NotBlank(message = "메뉴 이름을 입력해 주세요.")
 			@Size(max = 50, message = "메뉴 이름은 50자 이하로 입력해 주세요.")
 			String name,
-			@Schema(description = "식당 지도 링크(선택). 지도 앱의 공유 문구를 통째로 붙여도 된다", example = "https://naver.me/abcd1234")
+			@Schema(description = "식당 지도 링크(선택). 지도 앱의 공유 문구를 통째로 붙여도 된다(원문 1000자, 꺼내 정리한 링크 500자)", example = "https://naver.me/abcd1234")
 			@Size(max = 1000, message = "링크가 너무 길어요.")
 			String link,
 			@Schema(description = "식당 이름(선택, link가 있을 때만 저장, 100자)", example = "할매집")
@@ -249,7 +249,7 @@ public class PollController {
 
 	/** 식당 달기·고치기. link와 kakaoPlaceId가 모두 비면 식당을 뺀다. */
 	record PlaceRequest(
-			@Schema(description = "식당 지도 링크", example = "https://map.naver.com/p/entry/place/1234567")
+			@Schema(description = "식당 지도 링크. 공유 문구를 통째로 붙여도 된다(원문 1000자, 꺼내 정리한 링크 500자)", example = "https://map.naver.com/p/entry/place/1234567")
 			@Size(max = 1000, message = "링크가 너무 길어요.")
 			String link,
 			@Schema(description = "식당 이름(link가 있을 때만 저장, 100자)", example = "할매집")
