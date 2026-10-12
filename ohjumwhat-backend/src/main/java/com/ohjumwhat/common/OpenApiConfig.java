@@ -152,7 +152,8 @@ class OpenApiConfig {
 				}
 				ApiResponses responses = operation.getResponses();
 				responses.computeIfAbsent("401", code -> new ApiResponse()
-					.description("로그인하지 않았어요(세션 쿠키가 없거나 만료). **본문 없음**. 화면은 로그인 화면으로 보낸다."));
+					.description("로그인하지 않았어요(세션 쿠키가 없거나 만료). **본문 없음**. 화면은 로그인 화면으로 보낸다. "
+							+ "세션은 있는데 회원이 없어진 경우(강제 탈퇴 직후)에는 {\"message\": \"다시 로그인해 주세요.\"}가 올 수 있다."));
 				Map<String, ApiResponse> sorted = new TreeMap<>(responses);
 				responses.clear();
 				responses.putAll(sorted);
@@ -192,6 +193,7 @@ class OpenApiConfig {
 	private static String statusText(int status) {
 		return switch (status) {
 			case 400 -> "요청 값이 올바르지 않아요.";
+			case 401 -> "로그인하지 않았어요.";
 			case 403 -> "권한이 없어요.";
 			case 404 -> "찾을 수 없어요. 조직 멤버가 아니어도 404다(조직이 있는지 알리지 않는다).";
 			case 409 -> "지금 상태에서는 할 수 없어요(마감됨, 중복, 다른 요청과 겹침 등).";
