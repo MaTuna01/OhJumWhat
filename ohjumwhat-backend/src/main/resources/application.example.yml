@@ -76,8 +76,8 @@ springdoc:
     csrf:
       enabled: true
     tags-sorter: none
-    # 처음 열 때 사용자 화면 API를 보여준다(관리자 API는 「Select a definition」에서 고른다).
-    urls-primary-name: user
+    # 처음 열 때 사용자 화면 API를 보여준다(OpenApiConfig의 그룹 displayName과 같아야 한다).
+    urls-primary-name: "사용자 화면 API"
   # GlobalExceptionHandler의 응답을 모든 API에 붙이지 않는다. 오류 예시는 API마다 OpenApiConfig가 붙인다.
   override-with-generic-response: false
   default-produces-media-type: application/json

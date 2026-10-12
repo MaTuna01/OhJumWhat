@@ -45,7 +45,7 @@ springdoc:
     csrf:
       enabled: true
     tags-sorter: none
-    urls-primary-name: user
+    urls-primary-name: "사용자 화면 API"
   override-with-generic-response: false
   default-produces-media-type: application/json
 
