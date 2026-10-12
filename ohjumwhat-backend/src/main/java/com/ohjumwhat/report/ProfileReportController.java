@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ohjumwhat.auth.LoginUser;
+import com.ohjumwhat.common.ApiLimit;
 import com.ohjumwhat.common.ApiTags;
 import com.ohjumwhat.common.ErrorCase;
 import com.ohjumwhat.sanction.Unrestricted;
@@ -43,7 +44,7 @@ class ProfileReportController {
 			+ "나 자신(400) → 같은 조직이 아님(404) → 사유(400) → 설명(400)이다.")
 	@ErrorCase(status = 400, message = "나 자신은 신고할 수 없어요.", when = "대상이 나일 때")
 	@ErrorCase(status = 404, message = "사람을 찾을 수 없어요.", when = "대상이 없거나 나와 같은 조직이 아닐 때")
-	@ErrorCase(status = 400, message = "무엇이 문제인지 골라 주세요.", when = "reason이 없거나 SanctionReason이 아닐 때")
+	@ErrorCase(status = 400, message = "무엇이 문제인지 골라 주세요.", when = "reason이 없거나 PROFILE·ABUSE·SPAM·ETC 중 하나가 아닐 때")
 	@ErrorCase(status = 400, message = "쓸 수 없는 문자가 있어요.", when = "설명에 제어 문자(줄바꿈 포함)가 있을 때")
 	@Unrestricted
 	@PostMapping("/users/{userId}/report")
@@ -73,10 +74,11 @@ class ProfileReportController {
 	 */
 	@Schema(name = "ProfileReportRequest", description = "사람 신고")
 	record ReportRequest(
-			@Schema(description = "사유 분류(SanctionReason 이름, 대소문자 구분)", example = "PROFILE",
+			@Schema(description = "사유 분류(PROFILE·ABUSE·SPAM·ETC, 대소문자 구분)", example = "PROFILE",
 					requiredMode = Schema.RequiredMode.REQUIRED)
 			@Size(max = 40, message = "무엇이 문제인지 골라 주세요.") String reason,
 			@Schema(description = "설명(선택, 한 줄 100자, 줄바꿈 불가)", example = "프로필 사진이 부적절해요", nullable = true)
+			@ApiLimit(100)
 			@Size(max = 400, message = "100자 이하로 입력해 주세요.") String detail) {
 	}
 
@@ -84,6 +86,7 @@ class ProfileReportController {
 	@Schema(name = "ReportResultSeenRequest", description = "본 신고 결과")
 	record SeenRequest(
 			@Schema(description = "본 신고 ID(ReportResult.id, 1~50개)", example = "[5]", requiredMode = Schema.RequiredMode.REQUIRED)
+			@ApiLimit(50)
 			@Size(max = 1000, message = "확인한 안내가 올바르지 않아요.") List<Long> ids) {
 	}
 }

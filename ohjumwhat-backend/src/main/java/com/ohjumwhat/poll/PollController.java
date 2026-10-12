@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ohjumwhat.auth.LoginUser;
+import com.ohjumwhat.common.ApiLimit;
 import com.ohjumwhat.common.ApiTags;
 import com.ohjumwhat.common.ErrorCase;
 import com.ohjumwhat.menu.MenuService;
@@ -167,6 +168,8 @@ public class PollController {
 	@ErrorCase(status = 403, message = "메뉴를 추가한 사람만 링크를 고칠 수 있어요.", when = "남이 추가한 메뉴일 때")
 	@ErrorCase(status = 400, message = "지도 링크와 근처 식당을 함께 붙일 수 없어요.", when = "link와 kakaoPlaceId를 함께 보냈을 때")
 	@ErrorCase(status = 400, message = "링크 주소가 올바르지 않아요. 지도 앱의 공유 링크를 붙여 주세요.", when = "http/https 주소가 아닐 때")
+	@ErrorCase(status = 400, message = "링크는 500자 이하로 입력해 주세요.", when = "정리한 링크가 500자를 넘을 때")
+	@ErrorCase(status = 400, message = "공유 링크를 찾을 수 없어요. 네이버 지도에서 링크를 다시 복사해 주세요.", when = "naver.me가 없는 코드라고 답할 때")
 	@Restricted(Restriction.POLL)
 	@PutMapping("/api/polls/{pollId}/options/{optionId}/link")
 	PollDetailResponse changeLink(@AuthenticationPrincipal LoginUser loginUser, @Parameter(description = "투표 ID", example = "10") @PathVariable Long pollId,
@@ -228,15 +231,18 @@ public class PollController {
 			@Size(max = 1000, message = "링크가 너무 길어요.")
 			String link,
 			@Schema(description = "식당 이름(선택, link가 있을 때만 저장, 100자)", example = "할매집")
+			@ApiLimit(100)
 			@Size(max = 200, message = "식당 이름은 100자 이하로 입력해 주세요.")
 			String placeName,
 			@Schema(description = "식당 주소(선택, link가 있을 때만 저장, 200자)", example = "서울 강남구 테헤란로 123")
+			@ApiLimit(200)
 			@Size(max = 400, message = "주소는 200자 이하로 입력해 주세요.")
 			String placeAddress,
 			@Schema(description = "근처 식당 찾기로 고른 카카오 장소 ID(선택). link와 함께 보내면 400", example = "12345678")
 			@Size(max = 40, message = "식당 정보가 올바르지 않아요. 다시 골라 주세요.")
 			String kakaoPlaceId,
 			@Schema(description = "그 카카오 식당을 찾을 때 친 검색어(kakaoPlaceId가 있을 때만 저장, 100자)", example = "김치찌개")
+			@ApiLimit(100)
 			@Size(max = 200, message = "검색어는 100자 이하로 입력해 주세요.")
 			String placeQuery) {
 	}
@@ -247,15 +253,18 @@ public class PollController {
 			@Size(max = 1000, message = "링크가 너무 길어요.")
 			String link,
 			@Schema(description = "식당 이름(link가 있을 때만 저장, 100자)", example = "할매집")
+			@ApiLimit(100)
 			@Size(max = 200, message = "식당 이름은 100자 이하로 입력해 주세요.")
 			String placeName,
 			@Schema(description = "식당 주소(link가 있을 때만 저장, 200자)", example = "서울 강남구 테헤란로 123")
+			@ApiLimit(200)
 			@Size(max = 400, message = "주소는 200자 이하로 입력해 주세요.")
 			String placeAddress,
 			@Schema(description = "카카오 장소 ID. link와 함께 보내면 400", example = "12345678")
 			@Size(max = 40, message = "식당 정보가 올바르지 않아요. 다시 골라 주세요.")
 			String kakaoPlaceId,
 			@Schema(description = "카카오 식당을 찾을 때 친 검색어(100자)", example = "김치찌개")
+			@ApiLimit(100)
 			@Size(max = 200, message = "검색어는 100자 이하로 입력해 주세요.")
 			String placeQuery) {
 	}

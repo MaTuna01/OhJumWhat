@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ohjumwhat.auth.LoginUser;
+import com.ohjumwhat.common.ApiLimit;
 import com.ohjumwhat.common.ApiTags;
 import com.ohjumwhat.common.ErrorCase;
 import com.ohjumwhat.sanction.Restricted;
@@ -138,12 +139,14 @@ class GuestbookController {
 	record WriteRequest(
 			@Schema(description = "본문(앞뒤 공백 제거, 한 줄 100자, 줄바꿈 불가)", example = "지난번 추천해 준 김치찌개 맛있었어요!",
 					requiredMode = Schema.RequiredMode.REQUIRED)
+			@ApiLimit(100)
 			@Size(max = 400, message = "100자 이하로 입력해 주세요.") String body) {
 	}
 
 	@Schema(name = "GuestbookReportRequest", description = "방명록 글 신고(본문 자체를 보내지 않아도 된다)")
 	record ReportRequest(
 			@Schema(description = "신고 사유(선택, 한 줄 100자)", example = "광고 글이에요", nullable = true)
+			@ApiLimit(100)
 			@Size(max = 400, message = "100자 이하로 입력해 주세요.") String reason) {
 	}
 

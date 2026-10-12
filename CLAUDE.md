@@ -127,7 +127,8 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
   - 컨트롤러에 `@Tag(name = ApiTags.…)`(묶음·순서·쓰는 화면은 `common/ApiTags`, 한 컨트롤러가 여러 묶음이면 메서드마다 하나), 핸들러에 `@Operation(summary, description)`, 경로·쿼리 파라미터에 `@Parameter(description, example)`, 요청·응답 record 필드에 `@Schema(description, example, nullable)`.
   - 오류는 서비스가 던지는 `ApiException` 문구만 `@ErrorCase(status, message, when)`로 글자 그대로 적는다. 401(본문 없음)·CSRF 403·관리자 403·제재 423(`@Restricted`)·요청 값 400(`@Valid` 본문의 검증 문구, JSON 형식 오류)·사진 400·413(`MultipartFile`)은 `common/OpenApiConfig`가 저절로 붙인다.
   - 스키마 이름은 클래스의 짧은 이름이라 다른 클래스와 겹치면 하나가 덮인다. 중첩 record(`Item`, `Entry` 등)는 `@Schema(name = "…")`로 고유하게 한다.
-  - `ApiDocsTest`가 `/api/**` API가 모두 명세에 있고 요약·묶음 하나·파라미터 설명·401이 있는지, 스키마 이름이 겹치지 않는지 확인한다. 만든 명세는 `build/api-docs/`에 남는다.
+  - 요청 필드의 `@Size`가 공백 정리 전 원문을 막는 넉넉한 상한이고 진짜 한도는 서비스가 확인하면(채팅 `@Size(max = 2000)`, 실제 300자) `@ApiLimit(300)`(목록은 `@ApiLimit(value = 3, items = 10)`)을 단다. 명세의 maxLength·maxItems가 진짜 한도가 된다(swagger-core가 customizer 뒤에 `@Size`를 적용해서 `OpenApiConfig.schemaCleanup`이 마지막에 넣는다). null일 수 있는 객체 필드는 `anyOf [$ref, null]`로 바꿔 낸다(OpenAPI 3.1에서 `$ref` 옆의 `type: null`은 맞는 값이 없다).
+  - `ApiDocsTest`가 `/api/**` API가 모두 명세에 있고 요약·묶음 하나·파라미터 설명·401이 있는지, 스키마 이름이 겹치지 않는지, 스키마가 코드 생성에 쓸 수 있는 모양인지 확인한다. 만든 명세는 `build/api-docs/`에 남는다. `ApiDocsDisabledTest`는 운영처럼 끄면 명세가 하나도 열리지 않는지 본다. swagger-ui 의존성의 webjar는 Spring Boot 기본 매핑(`/webjars/**`)으로도 열려서 `SecurityConfig`가 막는다(명세 화면은 `/swagger-ui/**`).
 
 **백엔드 테스트**
 - 통합 테스트는 `IntegrationTest`를 상속한다. 컨텍스트와 컨테이너를 공유하고, 테스트가 끝날 때마다 모든 테이블을 TRUNCATE한다.

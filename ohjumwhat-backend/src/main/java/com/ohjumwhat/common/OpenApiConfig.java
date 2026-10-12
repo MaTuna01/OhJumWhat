@@ -7,15 +7,19 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.TreeMap;
 
 import jakarta.validation.Valid;
 
 import org.springdoc.core.customizers.GlobalOpenApiCustomizer;
 import org.springdoc.core.customizers.GlobalOperationCustomizer;
+import org.springdoc.core.customizers.PropertyCustomizer;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -62,6 +66,9 @@ class OpenApiConfig {
 	private static final String ERROR_SCHEMA = "ErrorResponse";
 
 	private static final String SESSION = "session";
+
+	/** {@link ApiLimit} 표시(명세에는 남기지 않는다) */
+	private static final String LIMIT = "x-api-limit";
 
 	/** 제재 423 예시의 끝나는 시각(SanctionGuard.until과 같은 모양) */
 	private static final String UNTIL_EXAMPLE = "10월 14일 오후 6:00까지";
@@ -134,7 +141,97 @@ class OpenApiConfig {
 		};
 	}
 
-	/** 경로·메서드로 정해지는 오류(401·403)를 붙이고 응답 코드 순서로 정렬한다. */
+	/**
+	 * 요청 필드의 {@link ApiLimit}(진짜 한도)가 넉넉한 {@code @Size} 상한을 이긴다. swagger-core는 이 customizer 뒤에
+	 * {@code @Size}를 적용하므로 여기서는 표시({@value #LIMIT})만 남기고 {@link #schemaCleanup()}이 값을 넣는다.
+	 */
+	@Bean
+	PropertyCustomizer apiLimits() {
+		return (property, type) -> {
+			if (type.getCtxAnnotations() == null) {
+				return property;
+			}
+			for (Annotation annotation : type.getCtxAnnotations()) {
+				if (annotation instanceof ApiLimit limit) {
+					property.addExtension(LIMIT, List.of(limit.value(), limit.items()));
+				}
+			}
+			return property;
+		};
+	}
+
+	/**
+	 * 스키마 정리. null일 수 있는 객체 필드는 swagger-core가 {@code {"type": "null", "$ref": …}}로 내는데, OpenAPI 3.1(JSON Schema
+	 * 2020-12)에서는 $ref 옆의 키도 함께 검사해 맞는 값이 없다. {@code anyOf: [$ref, null]}로 바꾼다. {@code @Size}의 쓸모없는
+	 * 하한 0도 뺀다.
+	 */
+	@Bean
+	GlobalOpenApiCustomizer schemaCleanup() {
+		return openApi -> {
+			if (openApi.getComponents() == null || openApi.getComponents().getSchemas() == null) {
+				return;
+			}
+			for (Schema<?> schema : openApi.getComponents().getSchemas().values()) {
+				Map<String, Schema> properties = schema.getProperties();
+				if (properties == null) {
+					continue;
+				}
+				properties.replaceAll((name, property) -> cleanProperty(property));
+			}
+		};
+	}
+
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	private static Schema cleanProperty(Schema property) {
+		if (property.getExtensions() != null && property.getExtensions().remove(LIMIT) instanceof List<?> limit) {
+			int value = (Integer) limit.get(0);
+			int items = (Integer) limit.get(1);
+			if (property.getItems() != null) {
+				property.setMaxItems(value);
+				if (items > 0) {
+					property.getItems().setMaxLength(items);
+				}
+			}
+			else {
+				property.setMaxLength(value);
+			}
+			if (property.getExtensions().isEmpty()) {
+				property.setExtensions(null);
+			}
+		}
+		Schema items = property.getItems();
+		if (items != null) {
+			if (Integer.valueOf(0).equals(items.getMinLength())) {
+				items.setMinLength(null);
+			}
+			// 원소 타입에도 같은 어노테이션이 보여 표시가 붙는다(값은 위에서 목록이 넣었다).
+			if (items.getExtensions() != null) {
+				items.getExtensions().remove(LIMIT);
+				if (items.getExtensions().isEmpty()) {
+					items.setExtensions(null);
+				}
+			}
+		}
+		if (Integer.valueOf(0).equals(property.getMinLength())) {
+			property.setMinLength(null);
+		}
+		if (Integer.valueOf(0).equals(property.getMinItems())) {
+			property.setMinItems(null);
+		}
+		boolean nullableRef = property.get$ref() != null
+				&& (Boolean.TRUE.equals(property.getNullable())
+						|| property.getTypes() != null && property.getTypes().contains("null"));
+		if (!nullableRef) {
+			return property;
+		}
+		Schema nullType = new Schema();
+		nullType.setTypes(Set.of("null"));
+		Schema wrapped = new Schema().anyOf(List.of(new Schema().$ref(property.get$ref()), nullType));
+		wrapped.setDescription(property.getDescription());
+		return wrapped;
+	}
+
+	/** 경로·메서드로 정해지는 오류(401·403)를 붙이고 응답 코드 순서로 정렬한다. 그 묶음(사용자·관리자)에 없는 태그는 뺀다. */
 	@Bean
 	GlobalOpenApiCustomizer pathErrors() {
 		return openApi -> {
@@ -158,6 +255,12 @@ class OpenApiConfig {
 				responses.clear();
 				responses.putAll(sorted);
 			}));
+			Set<String> used = new HashSet<>();
+			openApi.getPaths()
+				.values()
+				.forEach(item -> item.readOperations()
+					.forEach(operation -> used.addAll(Objects.requireNonNullElse(operation.getTags(), List.of()))));
+			openApi.setTags(new ArrayList<>(ApiTags.ALL.stream().filter(tag -> used.contains(tag.getName())).toList()));
 		};
 	}
 

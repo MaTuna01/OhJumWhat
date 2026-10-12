@@ -29,7 +29,7 @@ public record RankingResponse(
 		@Schema(description = "그중 채택된 메뉴가 있는 투표 수", example = "4") int adoptedPollCount,
 		@Schema(description = "1회 이상 채택된 지금 멤버(순위 순, 같은 횟수면 그 횟수에 먼저 도달한 사람 → 이름 순)")
 		List<Entry> entries,
-		Me me) {
+		@Schema(description = "내 순위(조직 멤버면 항상 있다. 이 기간에 채택이 없으면 rank는 null)") Me me) {
 
 	/**
 	 * @param rank 순위. 같은 횟수는 같은 순위다(1, 1, 3)
@@ -39,7 +39,7 @@ public record RankingResponse(
 	@Schema(name = "RankingEntry", description = "순위 한 줄(TOP3는 화면이 🥇 명예 셰프 · 🥈 기획왕 · 🥉 미식가 칭호를 붙인다)")
 	public record Entry(
 			@Schema(description = "순위. 같은 횟수는 같은 순위(1, 1, 3)", example = "1") int rank,
-			PersonResponse user,
+			@Schema(description = "채택된 사람") PersonResponse user,
 			@Schema(description = "채택 횟수", example = "3") int count,
 			@Schema(description = "대표 채택 메뉴(menus의 첫 번째)", example = "김치찌개") String topMenu,
 			@Schema(description = "채택된 메뉴를 이름별로 묶어 횟수 많은 순(같으면 최근 순). 채택 기록 모달(11-M)에 쓴다")

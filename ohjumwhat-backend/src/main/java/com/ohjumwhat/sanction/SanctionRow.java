@@ -20,7 +20,7 @@ public record SanctionRow(@Schema(description = "제재 ID", example = "3") Long
 		@Schema(description = "제재받은 회원 ID", example = "7") Long userId,
 		@Schema(description = "회원 이름(별명, 없으면 구글 이름)", example = "김오점") String userName,
 		@Schema(description = "회원 이메일", example = "kim@example.com") String userEmail,
-		@Schema(description = "올린 사진, 없으면 구글 사진. 둘 다 없으면 null", example = "/api/photos/3f2a9c1e.jpg", nullable = true)
+		@Schema(description = "올린 사진, 없으면 구글 사진. 둘 다 없으면 null", example = "/api/photos/3f2a9c1e5b7d4f60a1b2c3d4e5f60718.jpg", nullable = true)
 		String userProfileImageUrl,
 		@Schema(description = "막은 기능. 없으면 빈 배열", example = "[\"CHAT\"]") List<Restriction> restrictions,
 		@Schema(description = "비운 프로필 항목. 없으면 빈 배열", example = "[]") List<ProfileReset> resets,

@@ -37,6 +37,9 @@ public class SecurityConfig {
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers("/api/admin/**").access(adminAuthorizationManager)
 				.requestMatchers("/api/**").authenticated()
+				// swagger-ui 의존성의 webjar 파일은 Spring Boot 기본 매핑(/webjars/**)으로도 열린다. 앱은 webjar를 쓰지 않고
+				// API 명세 화면은 /swagger-ui/** 아래에서 따로 나가므로(로컬에서만 켠다) 운영에서 기본 화면이 열리지 않게 막는다.
+				.requestMatchers("/webjars/**").denyAll()
 				.anyRequest().permitAll())
 			// 로그인 후에는 항상 /로 보내므로 요청을 세션에 저장하지 않는다. (익명 요청마다 세션이 생기는 것도 막는다)
 			.requestCache(cache -> cache.requestCache(new NullRequestCache()))

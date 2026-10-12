@@ -29,7 +29,6 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.SchemaProperty;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
@@ -72,7 +71,7 @@ class ChatPhotoController {
 	@ErrorCase(status = 400, message = "사진이 너무 커요. 다른 사진을 골라 주세요.", when = "한 변이 2048px보다 클 때")
 	@ErrorCase(status = 503, message = "사진을 보내는 사람이 많아요. 잠시 뒤 다시 보내 주세요.", when = "사진 처리 자리(동시에 2장)가 2초 안에 나지 않을 때")
 	// consumes가 없어 springdoc이 본문을 JSON으로 적으므로, multipart 본문은 여기서 적고 파라미터는 명세에서 숨긴다.
-	@RequestBody(required = true, content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
+	@io.swagger.v3.oas.annotations.parameters.RequestBody(required = true, content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
 			schema = @Schema(type = "object", requiredProperties = "photo"),
 			schemaProperties = @SchemaProperty(name = "photo", schema = @Schema(type = "string", format = "binary",
 					description = "사진 파일(JPEG·PNG, 5MB·한 변 2048px 이하)"))))

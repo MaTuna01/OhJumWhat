@@ -149,6 +149,14 @@ class ApiDocsTest extends IntegrationTest {
 	}
 
 	@Test
+	void 명세_화면은_swagger_ui_아래에서_열리고_webjars는_막는다() throws Exception {
+		mockMvc.perform(get("/swagger-ui/index.html")).andExpect(status().isOk());
+		mockMvc.perform(get("/swagger-ui/swagger-ui-bundle.js")).andExpect(status().isOk());
+		assertThat(mockMvc.perform(get("/webjars/swagger-ui/index.html")).andReturn().getResponse().getStatus())
+			.isNotEqualTo(200);
+	}
+
+	@Test
 	void 오류_응답은_공통_형식과_예시를_갖는다() throws Exception {
 		JsonNode vote = docs("user").at("/paths/~1api~1polls~1{pollId}~1vote/put/responses");
 
@@ -165,6 +173,48 @@ class ApiDocsTest extends IntegrationTest {
 			.contains("관리자가 메뉴 올리기·댓글·투표 관리를 제한했어요(10월 14일 오후 6:00까지).");
 		assertThat(addOption.at("/400/content/application~1json/examples").toString())
 			.contains("메뉴 이름을 입력해 주세요.", "요청 형식이 올바르지 않아요.");
+	}
+
+	/**
+	 * 스키마가 코드 생성기(openapi-typescript 등)에서 그대로 쓸 수 있는 모양인지: null일 수 있는 객체는 anyOf [$ref, null]
+	 * ($ref 옆에 type: null을 두면 맞는 값이 없다), 요청 한도는 넉넉한 @Size가 아니라 @ApiLimit의 진짜 한도, 쓸모없는 하한 0 없음,
+	 * 묶음은 그 정의(사용자·관리자)에서 쓰는 것만.
+	 */
+	@Test
+	void 스키마는_코드_생성에_쓸_수_있는_모양이다() throws Exception {
+		List<String> problems = new ArrayList<>();
+		for (String group : List.of("user", "admin")) {
+			JsonNode docs = docs(group);
+			for (Map.Entry<String, JsonNode> schema : docs.at("/components/schemas").properties()) {
+				for (Map.Entry<String, JsonNode> property : schema.getValue().path("properties").properties()) {
+					String name = group + " " + schema.getKey() + "." + property.getKey();
+					JsonNode value = property.getValue();
+					if (value.has("$ref") && value.has("type")) {
+						problems.add(name + ": $ref 옆에 type " + value);
+					}
+					if (value.path("minLength").asInt(-1) == 0 || value.path("minItems").asInt(-1) == 0) {
+						problems.add(name + ": 하한 0");
+					}
+				}
+			}
+			Set<String> used = new HashSet<>();
+			docs.get("paths")
+				.forEach(item -> item.forEach(operation -> operation.path("tags").forEach(tag -> used.add(tag.asString()))));
+			docs.path("tags").forEach(tag -> {
+				if (!used.contains(tag.path("name").asString())) {
+					problems.add(group + ": 쓰지 않는 묶음 " + tag.path("name").asString());
+				}
+			});
+		}
+		assertThat(problems).isEmpty();
+		assertThat(docs("user").toString() + docs("admin").toString()).doesNotContain("x-api-limit");
+
+		JsonNode user = docs("user").at("/components/schemas");
+		assertThat(user.at("/ChatMessageRequest/properties/body/maxLength").asInt()).isEqualTo(300);
+		assertThat(user.at("/MeIntroRequest/properties/foodTags/maxItems").asInt()).isEqualTo(3);
+		assertThat(user.at("/MeIntroRequest/properties/foodTags/items/maxLength").asInt()).isEqualTo(10);
+		assertThat(user.at("/PollDetailResponse/properties/adoption/anyOf").toString())
+			.isEqualTo("[{\"$ref\":\"#/components/schemas/Adoption\"},{\"type\":\"null\"}]");
 	}
 
 	private JsonNode docs(String group) throws Exception {

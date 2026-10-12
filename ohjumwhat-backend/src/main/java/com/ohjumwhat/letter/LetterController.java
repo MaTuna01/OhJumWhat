@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ohjumwhat.auth.LoginUser;
+import com.ohjumwhat.common.ApiLimit;
 import com.ohjumwhat.common.ApiTags;
 import com.ohjumwhat.common.ErrorCase;
 import com.ohjumwhat.sanction.Restricted;
@@ -181,6 +182,7 @@ class LetterController {
 			@NotNull(message = "받는 사람을 골라 주세요.") Long recipientId,
 			@Schema(description = "본문(앞뒤 공백 제거, 줄바꿈 허용, 500자)", example = "오늘 점심 같이 가요!",
 					requiredMode = Schema.RequiredMode.REQUIRED)
+			@ApiLimit(500)
 			@Size(max = 2000, message = "500자 이하로 입력해 주세요.") String body,
 			@Schema(description = "익명으로 보낼지(빠지면 false). 익명이면 받은 사람에게 보낸 사람의 id·이름·사진이 가지 않는다",
 					example = "false")
@@ -192,6 +194,7 @@ class LetterController {
 	record ReplyRequest(
 			@Schema(description = "본문(앞뒤 공백 제거, 줄바꿈 허용, 500자)", example = "좋아요, 12시에 봬요.",
 					requiredMode = Schema.RequiredMode.REQUIRED)
+			@ApiLimit(500)
 			@Size(max = 2000, message = "500자 이하로 입력해 주세요.") String body) {
 	}
 
@@ -199,6 +202,7 @@ class LetterController {
 	record ReportRequest(
 			@Schema(description = "신고 사유(선택, 한 줄 100자. 줄바꿈은 받지 않으므로 화면이 공백으로 합쳐 보낸다)", example = "욕설이 있어요",
 					nullable = true)
+			@ApiLimit(100)
 			@Size(max = 400, message = "100자 이하로 입력해 주세요.") String reason,
 			@Schema(description = "보낸 사람도 함께 차단할지(빠지면 false)", example = "true") Boolean block) {
 	}

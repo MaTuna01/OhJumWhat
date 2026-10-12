@@ -11,7 +11,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
  * @param hasMore 다음 페이지가 있는지(「더 보기」)
  */
 @Schema(description = "「지난 투표」 한 페이지(최신순 10개)")
-public record PollHistoryResponse(List<Item> polls,
+public record PollHistoryResponse(@Schema(description = "지난 투표(최신순)") List<Item> polls,
 		@Schema(description = "다음 페이지가 있는지(「더 보기」)", example = "true") boolean hasMore) {
 
 	/**

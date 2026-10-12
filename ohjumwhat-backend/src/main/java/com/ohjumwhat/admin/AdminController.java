@@ -22,6 +22,7 @@ import com.ohjumwhat.auth.LoginUser;
 import com.ohjumwhat.chat.ChatMessageResponse;
 import com.ohjumwhat.chat.ChatMessagesResponse;
 import com.ohjumwhat.chat.ChatService;
+import com.ohjumwhat.common.ApiLimit;
 import com.ohjumwhat.common.ApiTags;
 import com.ohjumwhat.common.ErrorCase;
 import com.ohjumwhat.guestbook.GuestbookReportResponse;
@@ -404,15 +405,18 @@ class AdminController {
 	record NicknameRequest(
 			@Schema(description = "별명(앞뒤·연속 공백 정리 뒤 20자). 비우거나 null이면 별명을 지우고 구글 이름으로 돌아간다",
 					example = "점심요정", nullable = true)
+			@ApiLimit(20)
 			@Size(max = 100, message = "이름은 20자 이하로 입력해 주세요.") String nickname) {
 	}
 
 	@Schema(name = "AdminIntroRequest", description = "회원 한줄 소개·좋아하는 음식 바꾸기(통째로)")
 	record IntroRequest(
 			@Schema(description = "한줄 소개(한 줄, 공백 정리 뒤 50자). 비우면 지운다", example = "국물 요리면 다 좋아요", nullable = true)
+			@ApiLimit(50)
 			@Size(max = 200, message = "한줄 소개는 50자 이하로 입력해 주세요.") String bio,
 			@Schema(description = "좋아하는 음식 태그(하나 10자, 앞의 # 제거, 띄어쓰기·대소문자만 다른 것은 먼저 적은 것만 남겨 3개까지). "
 					+ "비우면 지운다", example = "[\"김치찌개\", \"떡볶이\"]", nullable = true)
+			@ApiLimit(value = 3, items = 10)
 			@Size(max = 20, message = "좋아하는 음식은 3개까지 적을 수 있어요.")
 			List<@Size(max = 100, message = "음식 이름은 10자 이하로 입력해 주세요.") String> foodTags) {
 	}
@@ -427,11 +431,13 @@ class AdminController {
 			@Size(max = 40, message = "퍼스널컬러를 선택해 주세요.") String personalColor,
 			@Schema(description = "취미 태그 1~5개(하나 10자, 좋아하는 음식과 같은 정리 규칙)", example = "[\"등산\", \"보드게임\"]",
 					requiredMode = Schema.RequiredMode.REQUIRED)
+			@ApiLimit(value = 5, items = 10)
 			@Size(max = 20, message = "취미는 5개까지 적을 수 있어요.")
 			List<@Size(max = 100, message = "취미는 10자 이하로 입력해 주세요.") String> hobbies,
 			@Schema(description = "나이(1~120 정수)", example = "29", requiredMode = Schema.RequiredMode.REQUIRED)
 			Integer age,
 			@Schema(description = "직급(공백 정리 뒤 1~15자)", example = "사원", requiredMode = Schema.RequiredMode.REQUIRED)
+			@ApiLimit(15)
 			@Size(max = 100, message = "직급을 입력해 주세요. (최대 15자)") String jobTitle) {
 	}
 }

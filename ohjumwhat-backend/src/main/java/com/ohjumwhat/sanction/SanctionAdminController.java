@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ohjumwhat.auth.LoginUser;
+import com.ohjumwhat.common.ApiLimit;
 import com.ohjumwhat.common.ApiTags;
 import com.ohjumwhat.common.ErrorCase;
 
@@ -43,9 +44,9 @@ class SanctionAdminController {
 	@ErrorCase(status = 404, message = "회원을 찾을 수 없어요.", when = "회원이 없을 때")
 	@ErrorCase(status = 409, message = "자기 자신은 제재할 수 없어요.", when = "대상이 나일 때")
 	@ErrorCase(status = 409, message = "관리자는 제재할 수 없어요.", when = "대상이 관리자일 때")
-	@ErrorCase(status = 400, message = "제한할 기능을 다시 골라 주세요.", when = "restrictions에 Restriction이 아닌 값이 있을 때")
-	@ErrorCase(status = 400, message = "초기화할 항목을 다시 골라 주세요.", when = "resets에 ProfileReset이 아닌 값이 있을 때")
-	@ErrorCase(status = 400, message = "사유를 골라 주세요.", when = "reason이 없거나 SanctionReason이 아닐 때")
+	@ErrorCase(status = 400, message = "제한할 기능을 다시 골라 주세요.", when = "restrictions에 SUSPEND·POLL·CHAT·LETTER·GUESTBOOK·PROFILE 말고 다른 값이 있을 때")
+	@ErrorCase(status = 400, message = "초기화할 항목을 다시 골라 주세요.", when = "resets에 NICKNAME·PHOTO·INTRO·DETAILS 말고 다른 값이 있을 때")
+	@ErrorCase(status = 400, message = "사유를 골라 주세요.", when = "reason이 없거나 PROFILE·ABUSE·SPAM·ETC 중 하나가 아닐 때")
 	@ErrorCase(status = 400, message = "기간은 1일·3일·7일·30일 중에서 골라 주세요.", when = "days가 1·3·7·30이 아닐 때")
 	@ErrorCase(status = 400, message = "제한을 고르지 않으면 기간을 정할 수 없어요.", when = "restrictions 없이 days를 보냈을 때")
 	@ErrorCase(status = 400, message = "쓸 수 없는 문자가 있어요.", when = "note에 줄바꿈 말고 제어 문자가 있을 때")
@@ -96,18 +97,19 @@ class SanctionAdminController {
 	 */
 	@Schema(name = "SanctionApplyRequest", description = "제재하기. 제한·초기화가 모두 비면 경고다")
 	record ApplyRequest(
-			@Schema(description = "막을 기능(Restriction 이름, 대소문자 구분). 비우거나 빼면 제한 없음. SUSPEND가 있으면 SUSPEND만 남긴다",
+			@Schema(description = "막을 기능(SUSPEND·POLL·CHAT·LETTER·GUESTBOOK·PROFILE, 대소문자 구분). 비우거나 빼면 제한 없음. SUSPEND가 있으면 SUSPEND만 남긴다",
 					example = "[\"CHAT\", \"LETTER\"]", nullable = true)
 			@Size(max = 20, message = "제한할 기능을 다시 골라 주세요.") List<String> restrictions,
-			@Schema(description = "비울 프로필 항목(ProfileReset 이름, 대소문자 구분). 비우거나 빼면 초기화 없음. 되돌리지 않는다",
+			@Schema(description = "비울 프로필 항목(NICKNAME·PHOTO·INTRO·DETAILS, 대소문자 구분). 비우거나 빼면 초기화 없음. 되돌리지 않는다",
 					example = "[\"NICKNAME\"]", nullable = true)
 			@Size(max = 20, message = "초기화할 항목을 다시 골라 주세요.") List<String> resets,
 			@Schema(description = "제한 기간(1·3·7·30일). null이면 해제할 때까지. 제한이 없으면 null이어야 한다", example = "7", nullable = true)
 			Integer days,
-			@Schema(description = "사유 분류(SanctionReason 이름, 본인에게 보인다)", example = "ABUSE", requiredMode = Schema.RequiredMode.REQUIRED)
+			@Schema(description = "사유 분류(PROFILE·ABUSE·SPAM·ETC, 본인에게 보인다)", example = "ABUSE", requiredMode = Schema.RequiredMode.REQUIRED)
 			@Size(max = 40, message = "사유를 골라 주세요.") String reason,
 			@Schema(description = "관리자 설명(선택, 줄바꿈 허용 200자). 본인에게 보인다(신고한 사람에게는 보이지 않는다)",
 					example = "채팅에서 반복적으로 욕설을 했어요.", nullable = true)
+			@ApiLimit(200)
 			@Size(max = 1000, message = "200자 이하로 입력해 주세요.") String note) {
 	}
 }

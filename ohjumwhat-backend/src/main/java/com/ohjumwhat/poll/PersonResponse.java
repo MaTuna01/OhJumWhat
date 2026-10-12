@@ -9,7 +9,7 @@ public record PersonResponse(
 		@Schema(description = "회원 ID", example = "7") Long userId,
 		@Schema(description = "별명, 없으면 구글 이름", example = "김오점") String name,
 		@Schema(description = "올린 사진(/api/photos/{key}.jpg), 없으면 구글 사진. 둘 다 없으면 null",
-				example = "/api/photos/3f2a9c1e.jpg", nullable = true) String profileImageUrl) {
+				example = "/api/photos/3f2a9c1e5b7d4f60a1b2c3d4e5f60718.jpg", nullable = true) String profileImageUrl) {
 
 	static PersonResponse of(User user) {
 		return new PersonResponse(user.getId(), user.getDisplayName(), user.getPhotoUrl());

@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ohjumwhat.auth.LoginUser;
+import com.ohjumwhat.common.ApiLimit;
 import com.ohjumwhat.common.ApiTags;
 import com.ohjumwhat.common.ErrorCase;
 import com.ohjumwhat.sanction.Restricted;
@@ -124,6 +125,7 @@ class ChatController {
 	record MessageRequest(
 			@Schema(description = "메시지 본문(앞뒤 공백 제거, 줄바꿈 허용, 300자)", example = "저 5분 늦어요!",
 					requiredMode = Schema.RequiredMode.REQUIRED)
+			@ApiLimit(300)
 			@Size(max = 2000, message = "300자 이하로 입력해 주세요.") String body) {
 	}
 

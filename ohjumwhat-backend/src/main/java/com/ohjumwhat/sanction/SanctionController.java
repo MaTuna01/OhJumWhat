@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ohjumwhat.auth.LoginUser;
+import com.ohjumwhat.common.ApiLimit;
 import com.ohjumwhat.common.ApiTags;
 import com.ohjumwhat.common.ErrorCase;
 
@@ -58,6 +59,7 @@ class SanctionController {
 	@Schema(name = "SanctionSeenRequest", description = "본 제재 안내")
 	record SeenRequest(
 			@Schema(description = "본 제재 ID(SanctionNotice.id, 1~50개)", example = "[3, 4]", requiredMode = Schema.RequiredMode.REQUIRED)
+			@ApiLimit(50)
 			@Size(max = 1000, message = "확인한 안내가 올바르지 않아요.") List<Long> ids) {
 	}
 }
