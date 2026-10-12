@@ -179,7 +179,10 @@ class ChatSocketTest {
 		return "http://localhost:" + port;
 	}
 
-	/** 그 회원으로 구글 로그인한 세션을 저장하고, 브라우저가 보낼 SESSION 쿠키를 만든다. */
+	/**
+	 * 그 회원으로 구글 로그인한 세션을 저장하고, 브라우저가 보낼 SESSION 쿠키를 만든다. 부하 테스트 시드(LoadTestSeeder.sessionCookie)가
+	 * 같은 모양을 만드니 로그인 principal 구조가 바뀌면 둘을 함께 고친다.
+	 */
 	private String sessionCookie(User user) {
 		OidcIdToken idToken = OidcIdToken.withTokenValue("test-token")
 			.subject(user.getGoogleSub())
