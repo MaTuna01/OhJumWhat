@@ -45,6 +45,7 @@ springdoc:
     csrf:
       enabled: true
     tags-sorter: none
+    urls-primary-name: user
   override-with-generic-response: false
   default-produces-media-type: application/json
 

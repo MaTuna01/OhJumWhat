@@ -6,7 +6,7 @@
 |---|---|
 | 운영 | `https://www.ohjumwhat.cloud` (명세 화면은 운영에서 꺼져 있습니다) |
 | 로컬(화면) | `http://localhost:5173` — Vite가 `/api`·`/oauth2`·`/login/oauth2`·`/logout`을 백엔드로 넘깁니다 |
-| 로컬(백엔드) | `http://localhost:8080` — 이 명세 화면은 `/swagger-ui` |
+| 로컬(백엔드) | `http://localhost:8080` — 이 명세 화면은 `/swagger-ui.html` |
 
 - 경로 앞에 버전(`/api/v1`)을 붙이지 않습니다. 모든 API는 `/api/...`입니다. 화면과 서버를 한 이미지로 함께 배포하므로 버전을 나눌 일이 없습니다.
 - 화면과 같은 출처라 CORS 설정이 없습니다. 다른 출처에서는 부를 수 없습니다.

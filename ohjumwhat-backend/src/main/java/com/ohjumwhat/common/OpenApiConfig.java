@@ -47,7 +47,7 @@ import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 
 /**
- * API 명세(Swagger UI {@code /swagger-ui}, OpenAPI {@code /v3/api-docs/user}·{@code /admin}). 로컬·개발에서만 켠다
+ * API 명세(Swagger UI {@code /swagger-ui.html}, OpenAPI {@code /v3/api-docs/user}·{@code /admin}). 로컬·개발에서만 켠다
  * ({@code springdoc.api-docs.enabled} = {@code SWAGGER_ENABLED}, 운영은 꺼져 이 설정도 만들지 않는다).
  * <p>
  * 오류 응답은 API마다 손으로 적지 않아도 되게 여기서 붙인다: 로그인(401)·관리자 권한(403)·CSRF(403)는 경로와 메서드로,
@@ -55,7 +55,8 @@ import io.swagger.v3.oas.models.security.SecurityScheme;
  * {@link MultipartFile} 파라미터로. 서비스가 던지는 오류는 핸들러의 {@link ErrorCase}로 적는다.
  */
 @Configuration
-@ConditionalOnProperty(name = "springdoc.api-docs.enabled", havingValue = "true")
+// springdoc도 설정이 없으면 켜지므로 같게 둔다(운영 이미지는 application.example.yml의 false를 쓴다).
+@ConditionalOnProperty(name = "springdoc.api-docs.enabled", havingValue = "true", matchIfMissing = true)
 class OpenApiConfig {
 
 	private static final String ERROR_SCHEMA = "ErrorResponse";
