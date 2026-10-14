@@ -1,6 +1,10 @@
 package com.ohjumwhat.notice;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /** 새 소식의 종류 */
+@Schema(description = "새 소식의 종류. RELEASE = 업데이트(배포되면 자동으로 게시, 콘솔에서 고칠 수 없다), "
+		+ "NOTE = 개발자 노트(관리자가 콘솔에서 쓴다)", example = "RELEASE")
 public enum NoticeKind {
 
 	/** 업데이트(릴리스 노트). 저장소의 release-notes 파일에서 자동으로 게시하고, 콘솔에서는 고칠 수 없다. */

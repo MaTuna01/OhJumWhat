@@ -4,7 +4,10 @@ import java.util.Locale;
 
 import com.ohjumwhat.common.ApiException;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /** 쪽지함: 받은 쪽지, 보낸 쪽지 */
+@Schema(description = "쪽지함. RECEIVED = 받은 쪽지, SENT = 보낸 쪽지", example = "RECEIVED")
 public enum LetterBox {
 	RECEIVED, SENT;
 

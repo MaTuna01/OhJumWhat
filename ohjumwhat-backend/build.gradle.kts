@@ -34,6 +34,8 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
 	implementation("org.springframework.boot:spring-boot-starter-websocket")
 	implementation("org.flywaydb:flyway-database-postgresql")
+	// API 명세(Swagger UI·OpenAPI). 로컬·개발에서만 켠다(springdoc.api-docs.enabled = SWAGGER_ENABLED, 운영은 꺼짐).
+	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1")
 	// 웹 푸시(FCM)만 쓴다. Firestore·Storage·Realtime Database(Netty)는 쓰지 않으므로 빼서 이미지를 가볍게 둔다.
 	implementation("com.google.firebase:firebase-admin:9.11.0") {
 		exclude(group = "com.google.cloud", module = "google-cloud-firestore")

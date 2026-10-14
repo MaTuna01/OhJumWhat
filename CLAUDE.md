@@ -74,6 +74,7 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 프로필 사진 폴더는 `ohjumwhat.photos.dir`(`PHOTOS_DIR`)다. 로컬은 비어 있으면 `ohjumwhat-backend/data/photos`(gitignore), 운영은 이미지의 `/data/photos`(Docker 볼륨 `photos`), 테스트는 `build/test-photos`(`IntegrationTest`가 테스트마다 비운다)다.
 - 지도 키는 `ohjumwhat.maps`(`KAKAO_REST_KEY`, `NAVER_MAP_KEY_ID`)다. 비어 있으면 지도·거리를 끄고 링크 방식만 쓴다(테스트·로컬에서 키 없이도 뜬다). 네이버 지도 키는 프론트 빌드에 넣지 않고 `GET /api/config`로 받는다.
 - 웹 푸시 키는 `ohjumwhat.push`다: 공개 값 `FIREBASE_API_KEY`·`FIREBASE_PROJECT_ID`·`FIREBASE_APP_ID`·`FIREBASE_MESSAGING_SENDER_ID`·`FIREBASE_VAPID_KEY`와 비밀 값 `FIREBASE_SERVICE_ACCOUNT_BASE64`(서비스 계정 JSON을 base64 한 줄로)다. 하나라도 비거나 잘못되면(서비스 계정의 project_id가 다른 경우 포함) 푸시만 끄고 서버는 그대로 뜬다. 공개 값은 `GET /api/config`의 `push`로 주고, 꺼져 있으면 null이다. 준비 순서는 `docs/DEPLOY.md` 「5-2. Firebase 푸시」에 있다. 서비스 계정 JSON 파일은 저장소에 두지 않는다(`.gitignore`).
+- API 명세(Swagger, springdoc, 이슈 #157)는 `springdoc.api-docs.enabled`·`swagger-ui.enabled` = `SWAGGER_ENABLED`(기본 false)다. 로컬 `.env`에서 켜면 `http://localhost:8080/swagger-ui.html`(정의 `user`·`admin`, OpenAPI JSON은 `/v3/api-docs/user`·`/admin`)에서 보고, 운영 서버 `.env`에는 넣지 않아 꺼진다(운영 이미지는 `application.example.yml`의 false). 테스트 설정은 켜 둔다(`ApiDocsTest`).
 - actuator(헬스·지표)는 관리 포트 `management.server.port`(8081)에서만 연다(아래 「배포」의 모니터링). 로컬에서 앱을 두 개 띄우면 두 번째 앱은 `SERVER_PORT`와 함께 `MANAGEMENT_SERVER_PORT`도 바꾼다(아니면 8081이 겹쳐 뜨지 않는다). 공개 헬스 체크는 앱 포트의 `/healthz`다.
 
 ## 아키텍처
@@ -122,6 +123,12 @@ npx vitest run src/lib/foo.test.ts -t '케이스 이름'
 - 진행 중인 투표에서만 쓰기가 되고, 이 확인은 `PollService.requireOpen`이 한다. 마감되면 409다.
 - 참여는 `VoteRepository.upsert`(native `ON CONFLICT`)로 한 사람 한 행을 유지한다.
 - 동시 요청이 DB 제약에 걸리면 `DataIntegrityViolationException`이 발생하고, 409로 응답한다.
+- **API 명세(Swagger).** 프론트와 맞추는 요청·응답 명세다(Notion 「30. 오점왓 API 명세 요청서」). 공통 규칙(Base URL·세션 쿠키·CSRF·오류 형식·날짜 형식·403/404)은 문서 첫머리 `resources/apidoc/overview.md` 하나에 두고 API마다 되풀이하지 않는다. **새 API를 만들거나 바꾸면 명세도 함께 고친다**:
+  - 컨트롤러에 `@Tag(name = ApiTags.…)`(묶음·순서·쓰는 화면은 `common/ApiTags`, 한 컨트롤러가 여러 묶음이면 메서드마다 하나), 핸들러에 `@Operation(summary, description)`, 경로·쿼리 파라미터에 `@Parameter(description, example)`, 요청·응답 record 필드에 `@Schema(description, example, nullable)`.
+  - 오류는 서비스가 던지는 `ApiException` 문구만 `@ErrorCase(status, message, when)`로 글자 그대로 적는다. 401(본문 없음)·CSRF 403·관리자 403·제재 423(`@Restricted`)·요청 값 400(`@Valid` 본문의 검증 문구, JSON 형식 오류)·사진 400·413(`MultipartFile`)은 `common/OpenApiConfig`가 저절로 붙인다.
+  - 스키마 이름은 클래스의 짧은 이름이라 다른 클래스와 겹치면 하나가 덮인다. 중첩 record(`Item`, `Entry` 등)는 `@Schema(name = "…")`로 고유하게 한다.
+  - 요청 필드의 `@Size`가 공백 정리 전 원문을 막는 넉넉한 상한이고 진짜 한도는 서비스가 확인하면(채팅 `@Size(max = 2000)`, 실제 300자) `@ApiLimit(300)`(목록은 `@ApiLimit(value = 3, items = 10)`)을 단다. 명세의 maxLength·maxItems가 진짜 한도가 된다(swagger-core가 customizer 뒤에 `@Size`를 적용해서 `OpenApiConfig.schemaCleanup`이 마지막에 넣는다). null일 수 있는 객체 필드는 `anyOf [$ref, null]`로 바꿔 낸다(OpenAPI 3.1에서 `$ref` 옆의 `type: null`은 맞는 값이 없다).
+  - `ApiDocsTest`가 `/api/**` API가 모두 명세에 있고 요약·묶음 하나·파라미터 설명·401이 있는지, 스키마 이름이 겹치지 않는지, 스키마가 코드 생성에 쓸 수 있는 모양인지 확인한다. 만든 명세는 `build/api-docs/`에 남는다. `ApiDocsDisabledTest`는 운영처럼 끄면 명세가 하나도 열리지 않는지 본다. swagger-ui 의존성의 webjar는 Spring Boot 기본 매핑(`/webjars/**`)으로도 열려서 `SecurityConfig`가 막는다(명세 화면은 `/swagger-ui/**`).
 
 **백엔드 테스트**
 - 통합 테스트는 `IntegrationTest`를 상속한다. 컨텍스트와 컨테이너를 공유하고, 테스트가 끝날 때마다 모든 테이블을 TRUNCATE한다.

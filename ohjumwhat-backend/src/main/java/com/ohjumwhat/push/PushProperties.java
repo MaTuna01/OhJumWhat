@@ -5,6 +5,8 @@ import java.util.List;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * 웹 푸시(FCM) 설정(ohjumwhat.push). 하나라도 비면 푸시를 끈다(PushSenderConfiguration). 값은 로그에 남기지 않는다.
  *
@@ -37,7 +39,13 @@ public record PushProperties(Web web, String serviceAccount) {
 	/**
 	 * 화면이 쓰는 공개 값(환경변수 FIREBASE_*). Firebase 콘솔의 웹 앱 설정과 Cloud Messaging의 웹 푸시 인증서(VAPID 공개 키)다.
 	 */
-	public record Web(String apiKey, String projectId, String appId, String messagingSenderId, String vapidKey) {
+	@Schema(name = "PushWebConfig", description = "웹 푸시(FCM) 공개 값. 화면이 Firebase SDK를 초기화하고 구독을 만든다")
+	public record Web(
+			@Schema(description = "Firebase 웹 API 키(공개 값)", example = "AIzaSyExample123") String apiKey,
+			@Schema(description = "Firebase 프로젝트 ID", example = "ohjumwhat") String projectId,
+			@Schema(description = "Firebase 웹 앱 ID", example = "1:123456789012:web:abcdef123456") String appId,
+			@Schema(description = "Cloud Messaging 발신자 ID", example = "123456789012") String messagingSenderId,
+			@Schema(description = "웹 푸시 인증서(VAPID) 공개 키", example = "BExampleVapidPublicKey") String vapidKey) {
 
 		public Web {
 			apiKey = blankToNull(apiKey);

@@ -1,9 +1,15 @@
 package com.ohjumwhat.sanction;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * 제재로 막는 기능. 이름은 API·DB(user_sanctions.restrictions)에 그대로 쓰고, 화면의 lib/sanctions.ts와 같다.
  * 투표 참여(고르기·패스·취소)와 지우기·읽음·신고·차단·조직 탈퇴는 어떤 제재로도 막지 않는다.
  */
+@Schema(description = "제재로 막는 기능. SUSPEND = 활동 정지(아래 전부 + 조직 만들기·초대로 참여·조직 이름·위치, 혼자만 둔다), "
+		+ "POLL = 투표 만들기·관리, 메뉴 추가·식당, 메뉴 댓글 쓰기·고치기, 정기 투표, CHAT = 채팅 보내기(사진 포함)·고치기, "
+		+ "LETTER = 쪽지 보내기·답장, GUESTBOOK = 방명록 쓰기, PROFILE = 별명·사진·소개·상세 프로필 수정. "
+		+ "투표 참여(고르기·패스·취소)와 지우기·읽음·신고·차단·조직 탈퇴는 어떤 제재로도 막지 않는다", example = "CHAT")
 public enum Restriction {
 
 	/** 활동 정지: 아래 전부 + 조직 만들기·초대로 참여·조직 이름·조직 위치 바꾸기. 다른 제한과 함께 두지 않는다. */
@@ -31,7 +37,8 @@ public enum Restriction {
 		this.message = message;
 	}
 
-	String message(String until) {
+	/** API 명세(OpenApiConfig)의 423 예시도 이 문구로 만든다. */
+	public String message(String until) {
 		return message.formatted(until);
 	}
 }
